@@ -1,0 +1,120 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Flask
+instance/
+.webassets-cache
+
+# 环境变量和配置文件
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+*~
+
+# 操作系统
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 日志文件
+*.log
+logs/
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# License文件 (包含敏感授权信息)
+license.key
+*.key
+
+# 向量数据库和AI模型文件
+chroma.sqlite3
+*.vector
+*.index
+*.faiss
+
+# Vanna AI 数据目录
+*/vanna_*
+vanna_*
+
+# ChromaDB 持久化目录
+*/chroma_*
+chroma_*
+*/persist/
+persist/
+
+# 随机生成的目录 (UUID格式)
+*/????-????-????-????-*/
+????-????-????-????-*/
+
+# 临时文件
+*.tmp
+*.temp
+temp/
+tmp/
+
+# 备份文件
+*.bak
+*.backup
+*~
+
+# 测试文件
+test_*.py
+*_test.py
+tests/
+
+# 缓存文件
+.cache/
+cache/
+
+# 上传文件
+uploads/
+upload/
+
+# 静态文件生成
+static/generated/
+
+# 编译产物
+*.pyc
+*.pyo
+
+# 安装脚本生成的文件
+install.log
+setup.log 
