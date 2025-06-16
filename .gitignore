@@ -25,6 +25,26 @@ MANIFEST
 instance/
 .webassets-cache
 
+# Node.js和前端相关
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.npm
+.yarn-integrity
+
+# Angular编译输出
+/frontend/dist/
+/frontend/tmp/
+/frontend/out-tsc/
+/frontend/bazel-out/
+/frontend/.angular/
+/frontend/.husky
+/frontend/.vscode
+/frontend/node_modules
+
 # 环境变量和配置文件
 .env
 .venv
@@ -33,6 +53,10 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # IDE
 .vscode/
@@ -54,6 +78,9 @@ Thumbs.db
 # 日志文件
 *.log
 logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # 数据库文件
 *.db
@@ -63,7 +90,6 @@ logs/
 # License文件 (包含敏感授权信息)
 license.key
 *.key
-license_manager.py
 
 # 向量数据库和AI模型文件
 chroma.sqlite3
@@ -100,6 +126,8 @@ tmp/
 test_*.py
 *_test.py
 tests/
+coverage/
+.nyc_output
 
 # 缓存文件
 .cache/
@@ -118,4 +146,99 @@ static/generated/
 
 # 安装脚本生成的文件
 install.log
-setup.log 
+setup.log
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# 部署相关
+deployment/
+*.tar.gz
+*.zip
+
+# 密钥和证书
+*.pem
+*.p12
+*.key
+*.crt
+*.csr
+*.cer
+*.pfx
+
+# 配置敏感信息
+config/production.py
+config/local.py
+secrets/
+
+# 运行时文件
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# ESLint cache
+.eslintcache
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env.test
+
+# parcel-bundler cache (https://parceljs.org/)
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw? 

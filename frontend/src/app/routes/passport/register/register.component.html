@@ -1,0 +1,115 @@
+<h3>注册</h3>
+<form nz-form [formGroup]="form" (ngSubmit)="submit()" role="form">
+  @if (error) {
+    <nz-alert [nzType]="'error'" [nzMessage]="error" [nzShowIcon]="true" class="mb-lg" />
+  }
+  <nz-form-item>
+    <nz-form-control [nzErrorTip]="mailErrorTip">
+      <nz-input-group nzSize="large" nzAddonBeforeIcon="user">
+        <input nz-input formControlName="mail" placeholder="Email" />
+      </nz-input-group>
+      <ng-template #mailErrorTip let-i>
+        @if (i.errors?.required) {
+          请输入邮箱地址！
+        }
+        @if (i.errors?.email) {
+          邮箱地址格式错误！
+        }
+      </ng-template>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-control [nzErrorTip]="'请输入密码！'">
+      <nz-input-group
+        nzSize="large"
+        nzAddonBeforeIcon="lock"
+        nz-popover
+        nzPopoverPlacement="right"
+        nzPopoverTrigger="focus"
+        [(nzPopoverVisible)]="visible"
+        nzPopoverOverlayClassName="register-password-cdk"
+        [nzPopoverOverlayStyle]="{ 'width.px': 240 }"
+        [nzPopoverContent]="pwdCdkTpl"
+      >
+        <input nz-input type="password" formControlName="password" placeholder="Password" />
+      </nz-input-group>
+      <ng-template #pwdCdkTpl>
+        <div style="padding: 4px 0">
+          @switch (status) {
+            @case ('ok') {
+              <div class="success">强度：强</div>
+            }
+            @case ('pass') {
+              <div class="warning">强度：中</div>
+            }
+            @default {
+              <div class="error">强度：太短</div>
+            }
+          }
+          <div class="progress-{{ status }}">
+            <nz-progress [nzPercent]="progress" [nzStatus]="passwordProgressMap[status]" [nzStrokeWidth]="6" [nzShowInfo]="false" />
+          </div>
+          <p class="mt-sm">请至少输入 6 个字符。请不要使用容易被猜到的密码。</p>
+        </div>
+      </ng-template>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-control [nzErrorTip]="confirmErrorTip">
+      <nz-input-group nzSize="large" nzAddonBeforeIcon="lock">
+        <input nz-input type="password" formControlName="confirm" placeholder="Confirm Password" />
+      </nz-input-group>
+      <ng-template #confirmErrorTip let-i>
+        @if (i.errors?.required) {
+          请确认密码！
+        }
+        @if (i.errors?.matchControl) {
+          两次输入的密码不匹配!
+        }
+      </ng-template>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-control [nzErrorTip]="mobileErrorTip">
+      <nz-input-group nzSize="large" [nzAddOnBefore]="addOnBeforeTemplate">
+        <ng-template #addOnBeforeTemplate>
+          <nz-select formControlName="mobilePrefix" style="width: 100px">
+            <nz-option [nzLabel]="'+86'" [nzValue]="'+86'" />
+            <nz-option [nzLabel]="'+87'" [nzValue]="'+87'" />
+          </nz-select>
+        </ng-template>
+        <input formControlName="mobile" nz-input placeholder="Phone number" />
+      </nz-input-group>
+      <ng-template #mobileErrorTip let-i>
+        @if (i.errors?.required) {
+          请输入手机号！
+        }
+        @if (i.errors?.pattern) {
+          手机号格式错误！
+        }
+      </ng-template>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-control [nzErrorTip]="'请输入验证码！'">
+      <div nz-row [nzGutter]="8">
+        <div nz-col [nzSpan]="16">
+          <nz-input-group nzSize="large" nzAddonBeforeIcon="mail">
+            <input nz-input formControlName="captcha" placeholder="Captcha" />
+          </nz-input-group>
+        </div>
+        <div nz-col [nzSpan]="8">
+          <button type="button" nz-button nzSize="large" (click)="getCaptcha()" [disabled]="count > 0" nzBlock [nzLoading]="loading">
+            {{ count ? count + 's' : ('获取验证码') }}
+          </button>
+        </div>
+      </div>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <button nz-button nzType="primary" nzSize="large" type="submit" [nzLoading]="loading" class="submit">
+      注册
+    </button>
+    <a class="login" routerLink="/passport/login">使用已有账户登录</a>
+  </nz-form-item>
+</form>

@@ -1,0 +1,175 @@
+.dashboard-container {
+  padding: 24px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+
+  .welcome-section {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .welcome-header {
+    text-align: center;
+    margin-bottom: 48px;
+    
+    h1 {
+      font-size: 48px;
+      font-weight: 700;
+      color: #1890ff;
+      margin-bottom: 16px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .welcome-subtitle {
+      font-size: 20px;
+      color: #666;
+      margin: 0;
+      font-weight: 300;
+    }
+  }
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin-bottom: 64px;
+  }
+
+  .feature-card {
+    background: white;
+    padding: 32px 24px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    border: 1px solid #f0f0f0;
+
+    &:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    .feature-icon {
+      margin-bottom: 16px;
+      
+      i {
+        font-size: 48px;
+        color: #1890ff;
+      }
+    }
+
+    h3 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #262626;
+      margin-bottom: 12px;
+    }
+
+    p {
+      color: #666;
+      line-height: 1.6;
+      margin: 0;
+    }
+  }
+
+  .quick-start {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+
+    h2 {
+      text-align: center;
+      font-size: 32px;
+      font-weight: 600;
+      color: #262626;
+      margin-bottom: 40px;
+    }
+
+    .start-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 32px;
+    }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+
+      .step-number {
+        flex-shrink: 0;
+        width: 40px;
+        height: 40px;
+        background: #1890ff;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 16px;
+      }
+
+      .step-content {
+        flex: 1;
+
+        h4 {
+          font-size: 18px;
+          font-weight: 600;
+          color: #262626;
+          margin-bottom: 8px;
+        }
+
+        p {
+          color: #666;
+          line-height: 1.6;
+          margin: 0;
+        }
+      }
+    }
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 16px;
+
+    .welcome-header {
+      margin-bottom: 32px;
+
+      h1 {
+        font-size: 32px;
+      }
+
+      .welcome-subtitle {
+        font-size: 16px;
+      }
+    }
+
+    .feature-grid {
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .feature-card {
+      padding: 24px 16px;
+    }
+
+    .quick-start {
+      padding: 24px 16px;
+
+      h2 {
+        font-size: 24px;
+        margin-bottom: 24px;
+      }
+
+      .start-steps {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+    }
+  }
+} 
