@@ -314,18 +314,19 @@ setup_firewall() {
 
 # 生成License工具
 create_license_tool() {
-    log_step "创建License管理工具..."
+    log_step "创建License管理提示..."
     
     cat > /usr/local/bin/dataask-license << 'EOF'
 #!/bin/bash
-cd /opt/dataask
-sudo -u dataask /opt/dataask/venv/bin/python license_manager.py "$@"
+echo "License管理工具需要单独提供"
+echo "请联系项目维护者获取完整的License管理工具"
+echo "包含功能: 生成License、验证License、查看License信息"
 EOF
     
     chmod +x /usr/local/bin/dataask-license
     
-    log_info "License管理工具创建完成"
-    log_info "使用方法: dataask-license generate '机构名称' '2025-12-31'"
+    log_info "License管理提示工具创建完成"
+    log_info "完整License工具需要单独获取"
 }
 
 # 启动服务
@@ -360,7 +361,7 @@ show_deployment_info() {
     echo "  查看状态: supervisorctl status dataask"
     echo "  重启应用: supervisorctl restart dataask"
     echo "  查看日志: tail -f /var/log/dataask.log"
-    echo "  生成License: dataask-license generate '机构名称' '2025-12-31'"
+    echo "  License信息: dataask-license"
     echo
     echo -e "${YELLOW}重要提醒:${NC}"
     echo "  1. 请编辑配置文件 $APP_DIR/.env"

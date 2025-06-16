@@ -139,22 +139,13 @@ python app.py
 ## 🔑 License管理
 
 ### 生成License
-```bash
-# 为指定机构生成License
-python license_manager.py generate "机构名称" "2025-12-31" --max-users 100
+License管理工具需要单独提供，包含以下功能：
+- 生成加密的License文件
+- 验证License有效性和过期时间
+- 查看License详细信息
+- 支持机构名称、用户数量、功能权限控制
 
-# 输出License文件
-# License已生成并保存到: license.key
-```
-
-### 验证License
-```bash
-# 验证License有效性
-python license_manager.py verify
-
-# 查看License详细信息
-python license_manager.py info
-```
+请联系项目维护者获取License管理工具。
 
 ### License功能控制
 - `ai_query`: 智能问答功能
@@ -287,7 +278,6 @@ curl http://localhost:8080/api/v1/license/status
 DataAsk/
 ├── app.py                 # 应用主入口
 ├── config.py              # 配置管理
-├── license_manager.py     # License管理工具
 ├── requirements.txt       # 依赖清单
 ├── env.example           # 环境配置模板
 ├── deploy.sh             # 一键部署脚本
@@ -327,11 +317,8 @@ DataAsk/
 # 检查License文件是否存在
 ls -la license.key
 
-# 验证License有效性
-python license_manager.py verify
-
-# 重新生成License
-python license_manager.py generate "机构名称" "2025-12-31"
+# 如果没有License文件，请联系项目维护者获取
+# License管理工具单独提供，不包含在开源代码中
 ```
 
 #### 2. 数据库连接失败
