@@ -21,18 +21,20 @@ logger = logging.getLogger(__name__)
 class LicenseMiddleware:
     """License验证中间件"""
     
-    def __init__(self, app=None, license_file: str = "license.key"):
+    def __init__(self, app=None, license_file: str = "license.key", enabled: bool = True):
         """
         初始化License中间件
         
         Args:
             app: Flask应用实例
             license_file: License文件路径
+            enabled: 是否启用license校验
         """
         self.license_manager = LicenseManager()
         self.license_storage = LicenseStorage(license_file)
         self.current_license = None
         self.license_info = None
+        self.enabled = enabled  # license校验开关
         
         if app is not None:
             self.init_app(app)
@@ -44,6 +46,12 @@ class LicenseMiddleware:
         # 在每个请求前验证License
         @app.before_request
         def check_license():
+            # 如果license校验被禁用，直接通过
+            if not self.enabled:
+                g.license_info = {"status": "disabled", "message": "License校验已禁用"}
+                g.license_valid = True
+                return
+            
             # 跳过静态文件和非API路径
             if (request.path.startswith('/static/') or 
                 request.path == '/' or 
@@ -99,6 +107,14 @@ class LicenseMiddleware:
     
     def get_license_status(self) -> Dict[str, Any]:
         """获取License状态"""
+        # 如果license校验被禁用
+        if not self.enabled:
+            return {
+                "status": "disabled",
+                "message": "License校验已禁用（开发环境）",
+                "enabled": False
+            }
+        
         result = self.verify_current_license()
         
         if result['valid']:
@@ -108,12 +124,14 @@ class LicenseMiddleware:
                 "expire_date": result['expire_date'],
                 "days_remaining": result['days_remaining'],
                 "features": result['data']['features'],
-                "max_users": result['data'].get('max_users', 'N/A')
+                "max_users": result['data'].get('max_users', 'N/A'),
+                "enabled": True
             }
         else:
             return {
                 "status": "invalid",
-                "error": result['error']
+                "error": result['error'],
+                "enabled": True
             }
 
 
@@ -127,6 +145,10 @@ def require_license(feature: Optional[str] = None):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            # 如果license校验被禁用，直接通过
+            if hasattr(g, 'license_info') and g.license_info.get('status') == 'disabled':
+                return f(*args, **kwargs)
+            
             # 检查License是否有效
             if not hasattr(g, 'license_valid') or not g.license_valid:
                 return jsonify({
@@ -162,6 +184,10 @@ def check_feature_permission(feature: str) -> bool:
     Returns:
         是否有权限
     """
+    # 如果license校验被禁用，所有功能都可用
+    if hasattr(g, 'license_info') and g.license_info.get('status') == 'disabled':
+        return True
+    
     if not hasattr(g, 'license_info') or not g.license_info:
         return False
     

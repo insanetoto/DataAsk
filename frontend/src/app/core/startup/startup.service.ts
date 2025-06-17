@@ -85,52 +85,87 @@ export class StartupService {
     // Menu data, https://ng-alain.com/theme/menu
     this.menuService.add([
       {
-        text: '工作台',
+        text: '主导航',
         group: true,
-        icon: { type: 'icon', value: 'user' },
+        hideInBreadcrumb: true,
         children: [
           {
-            text: '驾驶舱',
-            link: '/dashboard',
-            icon: { type: 'icon', value: 'user' },
-            reuse: true
+            text: '工作台',
+            icon: 'home',
+            children: [
+              {
+                text: '领导驾驶舱',
+                link: '/dashboard',
+                icon: 'dashboard',
+                reuse: true
+              },
+              {
+                text: '个人工作台',
+                link: '/personal-workspace',
+                icon: 'user',
+                reuse: true
+              }
+            ]
           },
           {
-            text: '个人工作台',
-            link: '/personal-workspace',
-            icon: { type: 'icon', value: 'user' },
-            reuse: true
-          }
-        ]
-      },
-      {
-        text: '智能问数',
-        group: true,
-        icon: { type: 'icon', value: 'user' },
-        children: [
-          {
-            text: '数据源管理',
-            link: '/data-source',
-            icon: { type: 'icon', value: 'user' },
-            reuse: true
+            text: '智能问数',
+            icon: 'robot',
+            children: [
+              {
+                text: '数据源管理',
+                link: '/data-source',
+                icon: 'database',
+                reuse: true
+              },
+              {
+                text: '智能问答',
+                link: '/intelligent-qa',
+                icon: 'message',
+                reuse: true
+              },
+              {
+                text: '智能训练',
+                link: '/intelligent-training',
+                icon: 'experiment',
+                reuse: true
+              },
+              {
+                text: '知识库',
+                link: '/knowledge-base',
+                icon: 'book',
+                reuse: true
+              }
+            ]
           },
           {
-            text: '智能问答',
-            link: '/intelligent-qa',
-            icon: { type: 'icon', value: 'user' },
-            reuse: true
-          },
-          {
-            text: '智能训练',
-            link: '/intelligent-training',
-            icon: { type: 'icon', value: 'user' },
-            reuse: true
-          },
-          {
-            text: '知识库',
-            link: '/knowledge-base',
-            icon: { type: 'icon', value: 'user' },
-            reuse: true
+            text: '系统管理',
+            icon: 'setting',
+            children: [
+              {
+                text: '机构管理',
+                link: '/system-management/organization',
+                icon: 'apartment',
+                reuse: true
+              },
+              {
+                text: '角色管理',
+                link: '/system-management/role',
+                icon: 'team',
+                reuse: true
+              },
+              {
+                text: '人员管理',
+                link: '/system-management/user',
+                icon: 'user',
+                reuse: true
+              },
+              {
+                text: '权限管理',
+                link: '/system-management/permission',
+                icon: 'safety-certificate',
+                reuse: true
+              }
+            ]
           }
         ]
       }

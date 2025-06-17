@@ -7,11 +7,45 @@
  */
 module.exports = {
   /**
-   * The following means that all requests are directed to the backend `https://localhost:9000/`
+   * 将所有API请求代理到后端Flask服务器
    */
-  // '/api': {
-  //   target: 'https://localhost:9000/',
-  //   secure: false, // Ignore invalid SSL certificates
-  //   changeOrigin: true
-  // }
+  '/api/*': {
+    target: 'http://localhost:9000',
+    secure: false, // 忽略无效的SSL证书
+    changeOrigin: true,
+    logLevel: 'debug'
+  },
+  '/chart': {
+    target: 'http://localhost:9000',
+    secure: false,
+    changeOrigin: true,
+    logLevel: 'debug',
+    pathRewrite: {
+      '^/chart': '/api/chart'
+    }
+  },
+  '/notice': {
+    target: 'http://localhost:9000',
+    secure: false,
+    changeOrigin: true,
+    logLevel: 'debug',
+    pathRewrite: {
+      '^/notice': '/api/notice'
+    }
+  },
+  '/activities': {
+    target: 'http://localhost:9000',
+    secure: false,
+    changeOrigin: true,
+    logLevel: 'debug',
+    pathRewrite: {
+      '^/activities': '/api/activities'
+    }
+  },
+  '/login/*': {
+    target: 'http://localhost:9000/api/v1',
+    secure: false,
+    changeOrigin: true,
+    logLevel: 'debug'
+  }
 };

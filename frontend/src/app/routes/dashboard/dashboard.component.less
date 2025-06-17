@@ -1,3 +1,107 @@
+@import '@delon/theme/index';
+
+:host ::ng-deep {
+  .map-chart {
+    height: 457px;
+    padding-top: 24px;
+    text-align: center;
+
+    img {
+      display: inline-block;
+      max-width: 100%;
+      max-height: 437px;
+    }
+  }
+
+  .pie-card {
+    .pie-stat {
+      font-size: 24px !important;
+    }
+  }
+
+  .active-chart {
+    position: relative;
+
+    g2-mini-area {
+      margin-top: 32px;
+    }
+
+    .active-grid {
+      p {
+        position: absolute;
+        top: 80px;
+        width: 100%;
+        padding-bottom: 4px;
+        border-bottom: 1px dashed #e9e9e9;
+        font-size: 12px;
+        color: #666;
+        margin: 0;
+      }
+
+      p:last-child {
+        top: 115px;
+      }
+    }
+
+    .active-legend {
+      position: relative;
+      height: 20px;
+      margin-top: 8px;
+      font-size: 0;
+      line-height: 20px;
+
+      span {
+        display: inline-block;
+        width: 33.33%;
+        font-size: 12px;
+        text-align: center;
+        color: #999;
+      }
+
+      span:first-child {
+        text-align: left;
+      }
+
+      span:last-child {
+        text-align: right;
+      }
+    }
+  }
+
+  // AI运行实况特殊样式
+  .ai-status {
+    .ant-card-head-title {
+      color: #1890ff;
+      font-weight: 600;
+    }
+  }
+
+  // 响应式适配
+  @media screen and (max-width: @screen-lg) {
+    .map-chart {
+      height: auto;
+      padding-top: 16px;
+      
+      img {
+        max-height: 300px;
+      }
+    }
+  }
+
+  @media screen and (max-width: @screen-md) {
+    .active-chart {
+      .active-grid p {
+        font-size: 10px;
+      }
+      
+      .active-legend span {
+        font-size: 10px;
+      }
+    }
+  }
+}
+
+// 欢迎页面样式（保留原有的）
 .dashboard-container {
   padding: 24px;
   min-height: 100vh;
@@ -13,18 +117,15 @@
     margin-bottom: 48px;
     
     h1 {
-      font-size: 48px;
-      font-weight: 700;
-      color: #1890ff;
+      font-size: 32px;
+      color: #262626;
       margin-bottom: 16px;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     
     .welcome-subtitle {
-      font-size: 20px;
-      color: #666;
+      font-size: 16px;
+      color: #8c8c8c;
       margin: 0;
-      font-weight: 300;
     }
   }
 
@@ -32,21 +133,19 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 24px;
-    margin-bottom: 64px;
+    margin-bottom: 48px;
   }
 
   .feature-card {
-    background: white;
-    padding: 32px 24px;
-    border-radius: 12px;
     text-align: center;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    transition: all 0.3s ease;
+    padding: 32px 24px;
     border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    transition: all 0.3s ease;
 
     &:hover {
-      transform: translateY(-8px);
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
     }
 
     .feature-icon {
@@ -59,15 +158,12 @@
     }
 
     h3 {
-      font-size: 20px;
-      font-weight: 600;
-      color: #262626;
       margin-bottom: 12px;
+      color: #262626;
     }
 
     p {
-      color: #666;
-      line-height: 1.6;
+      color: #8c8c8c;
       margin: 0;
     }
   }

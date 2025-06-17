@@ -6,15 +6,17 @@
 import os
 import logging
 from flask import Flask, jsonify, render_template_string
+from flask_cors import CORS
 from config import config
-from services.database import init_database_service
-from services.redis_service import init_redis_service
-from services.vanna_service import init_vanna_service
+from tools.database import init_database_service
+from tools.redis_service import init_redis_service
+from AIEngine.vanna_service import init_vanna_service
+from service.organization_service import init_organization_service
 from api.routes import api_bp
 from datetime import datetime
 
 # License授权系统导入
-from middleware.license_middleware import LicenseMiddleware, require_license, create_license_routes
+from tools.license_middleware import LicenseMiddleware, require_license, create_license_routes
 
 # 配置日志
 logging.basicConfig(
@@ -31,6 +33,15 @@ def create_app(config_name='default'):
     """创建Flask应用工厂函数"""
     app = Flask(__name__)
     
+    # 启用CORS
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": ["http://localhost:4200"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }
+    })
+    
     # 获取配置类并创建实例
     config_class = config[config_name]
     config_instance = config_class()
@@ -38,9 +49,19 @@ def create_app(config_name='default'):
     # 加载配置
     app.config.from_object(config_class)
     
-    # 初始化License中间件
-    license_middleware = LicenseMiddleware(license_file="license.key")
+    # 初始化License中间件（根据环境配置决定是否启用）
+    license_enabled = config_instance.LICENSE_ENABLED
+    license_middleware = LicenseMiddleware(
+        license_file="license.key", 
+        enabled=license_enabled
+    )
     license_middleware.init_app(app)
+    
+    # 记录License状态
+    if license_enabled:
+        logger.info("License校验已启用（生产环境模式）")
+    else:
+        logger.info("License校验已禁用（开发环境模式）")
     
     # 创建License管理路由
     create_license_routes(app, license_middleware)
@@ -77,6 +98,11 @@ def init_services(config_obj):
         logger.info("正在初始化Vanna AI服务...")
         init_vanna_service(config_obj)
         logger.info("Vanna AI服务初始化成功")
+        
+        # 初始化机构管理服务
+        logger.info("正在初始化机构管理服务...")
+        init_organization_service()
+        logger.info("机构管理服务初始化成功")
         
     except Exception as e:
         logger.error(f"服务初始化失败: {str(e)}")

@@ -1,0 +1,52 @@
+# 测试框架依赖包
+# 用于运行自动化测试
+
+# 核心测试框架
+pytest>=7.0.0
+pytest-html>=3.1.0                 # HTML测试报告
+pytest-cov>=4.0.0                  # 覆盖率插件
+pytest-xdist>=3.0.0                # 并行测试执行
+pytest-mock>=3.10.0                # Mock插件
+pytest-asyncio>=0.21.0             # 异步测试支持
+
+# 覆盖率工具
+coverage>=6.0.0                    # 覆盖率统计
+
+# 性能测试
+pytest-benchmark>=4.0.0            # 性能基准测试
+pytest-timeout>=2.1.0              # 测试超时控制
+
+# 测试数据工厂
+factory-boy>=3.2.1                 # 测试数据生成
+faker>=18.0.0                      # 假数据生成
+
+# HTTP测试工具
+responses>=0.23.0                  # HTTP请求模拟
+httpx>=0.24.0                      # 现代HTTP客户端
+
+# 数据库测试
+pytest-alembic>=0.10.0            # 数据库迁移测试 
+pytest-postgresql>=5.0.0          # PostgreSQL测试支持
+
+# 报告和监控
+pytest-html>=3.1.0                # HTML测试报告
+pytest-json-report>=1.5.0         # JSON测试报告
+allure-pytest>=2.12.0             # Allure测试报告
+
+# 代码质量检查
+flake8>=6.0.0                     # 代码风格检查
+black>=23.0.0                     # 代码格式化
+isort>=5.12.0                     # import排序
+mypy>=1.0.0                       # 类型检查
+
+# 安全测试
+bandit>=1.7.5                     # 安全漏洞检查
+safety>=2.3.0                     # 依赖安全检查
+
+# 内存和性能分析
+memory-profiler>=0.60.0           # 内存分析
+psutil>=5.9.0                     # 系统资源监控
+
+# 测试环境管理
+python-dotenv>=1.0.0              # 环境变量管理
+freezegun>=1.2.2                  # 时间模拟 

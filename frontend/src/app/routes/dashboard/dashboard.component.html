@@ -1,71 +1,94 @@
-<div class="dashboard-container">
-  <div class="welcome-section">
-    <div class="welcome-header">
-      <h1>欢迎使用百惟智问</h1>
-      <p class="welcome-subtitle">洞见随心，让数据分析更简单</p>
-    </div>
-    
-    <div class="feature-grid">
-      <div class="feature-card">
-        <div class="feature-icon">
-          <i nz-icon nzType="database" nzTheme="outline"></i>
+<div nz-row [nzGutter]="24" class="pt-lg">
+  <div nz-col nzXs="24" nzSm="24" nzMd="24" nzLg="18">
+    <nz-card nzTitle="AI 运行实况" [nzBordered]="false" class="mb-lg">
+      <div nz-row>
+        <div nz-col nzXs="24" nzSm="12" nzMd="6">
+          <number-info subTitle="今日问答次数" [total]="data.todayQuestions?.toString()" suffix="次" />
         </div>
-        <h3>智能查询</h3>
-        <p>通过自然语言直接查询数据库，无需复杂的SQL语句</p>
-      </div>
-      
-      <div class="feature-card">
-        <div class="feature-icon">
-          <i nz-icon nzType="bar-chart" nzTheme="outline"></i>
+        <div nz-col nzXs="24" nzSm="12" nzMd="6">
+          <number-info subTitle="累计问答次数" [total]="data.totalQuestions?.toString()" suffix="次" />
         </div>
-        <h3>可视化图表</h3>
-        <p>自动生成各种类型的图表，让数据洞察一目了然</p>
-      </div>
-      
-      <div class="feature-card">
-        <div class="feature-icon">
-          <i nz-icon nzType="thunderbolt" nzTheme="outline"></i>
+        <div nz-col nzXs="24" nzSm="12" nzMd="6">
+          <number-info subTitle="知识库文档数量" [total]="data.knowledgeDocs?.toString()" suffix="份" />
         </div>
-        <h3>快速响应</h3>
-        <p>基于Vanna AI框架，提供毫秒级的查询响应速度</p>
-      </div>
-      
-      <div class="feature-card">
-        <div class="feature-icon">
-          <i nz-icon nzType="safety-certificate" nzTheme="outline"></i>
+        <div nz-col nzXs="24" nzSm="12" nzMd="6">
+          <number-info subTitle="累积训练次数" [total]="data.totalTraining?.toString()" suffix="次" />
         </div>
-        <h3>安全可靠</h3>
-        <p>企业级安全保障，支持权限管理和数据脱敏</p>
       </div>
-    </div>
-    
-    <div class="quick-start">
-      <h2>快速开始</h2>
-      <div class="start-steps">
-        <div class="step">
-          <div class="step-number">1</div>
-          <div class="step-content">
-            <h4>连接数据源</h4>
-            <p>配置MySQL、Redis等数据源连接</p>
+      <div class="map-chart">
+        <div style="height: 437px; display: flex; align-items: center; justify-content: center; background-color: #ffffff;">
+          <span style="color: #999;">地图组件开发中...</span>
+        </div>
+      </div>
+    </nz-card>
+  </div>
+  <div nz-col nzXs="24" nzSm="24" nzMd="24" nzLg="6">
+    <nz-card nzTitle="AI活动预测" [nzBordered]="false" class="mb-lg">
+      @if (activeData) {
+        <div class="active-chart">
+          <number-info subTitle="目标评估" total="运行状态良好" />
+          <g2-mini-area [animate]="false" line [borderWidth]="2" [height]="84" [padding]="0" [data]="activeData" />
+          <div class="active-grid">
+            <p>{{ activeStat.max }} 次/小时</p>
+            <p>{{ activeStat.min }} 次/小时</p>
+          </div>
+          <div class="active-legend">
+            <span>00:00</span>
+            <span>{{ activeStat.t1 }}</span>
+            <span>{{ activeStat.t2 }}</span>
           </div>
         </div>
-        
-        <div class="step">
-          <div class="step-number">2</div>
-          <div class="step-content">
-            <h4>输入问题</h4>
-            <p>用自然语言描述您想要查询的数据</p>
-          </div>
+      }
+    </nz-card>
+    <nz-card nzTitle="AI效率" [nzBordered]="false" [nzBodyStyle]="{ 'text-align': 'center' }" class="mb-lg">
+      @if (percent) {
+        <g2-gauge title="响应效率" [height]="180" [percent]="percent" [format]="aiEfficiencyFormat" />
+      }
+    </nz-card>
+  </div>
+</div>
+<div nz-row [nzGutter]="24">
+  <div nz-col nzXs="24" nzSm="24" nzLg="12" class="mb-lg">
+    <nz-card nzTitle="问答分类占比" [nzBordered]="false" class="pie-card">
+      <div nz-row [nzGutter]="4" style="padding: 16px 0">
+        <div nz-col [nzSpan]="8">
+          <g2-pie [animate]="false" [percent]="35" subTitle="业务查询" total="35%" [height]="128" [lineWidth]="2" />
         </div>
-        
-        <div class="step">
-          <div class="step-number">3</div>
-          <div class="step-content">
-            <h4>获得洞察</h4>
-            <p>查看查询结果和自动生成的可视化图表</p>
-          </div>
+        <div nz-col [nzSpan]="8">
+          <g2-pie
+            [animate]="false"
+            color="#5DDECF"
+            [percent]="28"
+            subTitle="数据分析"
+            total="28%"
+            [height]="128"
+            [lineWidth]="2"
+          />
+        </div>
+        <div nz-col [nzSpan]="8">
+          <g2-pie
+            [animate]="false"
+            color="#2FC25B"
+            [percent]="37"
+            subTitle="报表生成"
+            total="37%"
+            [height]="128"
+            [lineWidth]="2"
+          />
         </div>
       </div>
-    </div>
+    </nz-card>
+  </div>
+  <div nz-col nzXs="24" nzSm="24" nzLg="6" class="mb-lg">
+    <nz-card nzTitle="热门搜索" [nzBordered]="false">
+      <g2-tag-cloud [data]="tags" [height]="165" />
+    </nz-card>
+  </div>
+  <div nz-col nzXs="24" nzSm="24" nzLg="6" class="mb-lg">
+    <nz-card nzTitle="系统资源" [nzBordered]="false">
+      <div class="text-center">
+        <g2-water-wave title="CPU使用率" [percent]="75" [height]="165" />
+      </div>
+    </nz-card>
   </div>
 </div>

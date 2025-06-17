@@ -7,9 +7,17 @@ import json
 import logging
 from typing import Optional, Any, Dict, List
 import redis
+from datetime import datetime
 from config import Config
 
 logger = logging.getLogger(__name__)
+
+class DateTimeEncoder(json.JSONEncoder):
+    """处理datetime对象的JSON编码器"""
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.strftime('%Y-%m-%d %H:%M:%S')
+        return super().default(obj)
 
 class RedisService:
     """Redis缓存服务类"""
@@ -51,7 +59,7 @@ class RedisService:
         """设置缓存值"""
         try:
             if isinstance(value, (dict, list)):
-                value = json.dumps(value, ensure_ascii=False)
+                value = json.dumps(value, ensure_ascii=False, cls=DateTimeEncoder)
             return self.redis_client.set(key, value, ex=ex)
         except Exception as e:
             logger.error(f"设置缓存失败 key={key}: {str(e)}")
@@ -172,6 +180,26 @@ class RedisService:
         """获取缓存的Vanna SQL"""
         cache_key = f"vanna_sql:{question_hash}"
         return self.get(cache_key)
+    
+    def get_keys_by_pattern(self, pattern: str) -> List[str]:
+        """根据模式获取键列表"""
+        try:
+            return self.redis_client.keys(pattern)
+        except Exception as e:
+            logger.error(f"获取键列表失败 pattern={pattern}: {str(e)}")
+            return []
+    
+    def set_cache(self, key: str, value: Any, ttl: int = 3600) -> bool:
+        """设置缓存（通用方法）"""
+        return self.set(key, value, ex=ttl)
+    
+    def get_cache(self, key: str) -> Optional[Any]:
+        """获取缓存（通用方法）"""
+        return self.get(key)
+    
+    def delete_cache(self, key: str) -> bool:
+        """删除缓存（通用方法）"""
+        return self.delete(key)
 
 # 全局Redis服务实例
 redis_service = None

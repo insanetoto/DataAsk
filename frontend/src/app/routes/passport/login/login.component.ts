@@ -13,6 +13,7 @@ import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
+import { NzMessageService } from 'ng-zorro-antd/message';
 
 import { finalize } from 'rxjs';
 
@@ -40,22 +41,15 @@ export class UserLoginComponent implements OnDestroy {
   private readonly startupSrv = inject(StartupService);
   private readonly http = inject(_HttpClient);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly message = inject(NzMessageService);
 
   form = inject(FormBuilder).nonNullable.group({
-    userName: ['', [Validators.required, Validators.pattern(/^(admin|user)$/)]],
-    password: ['', [Validators.required, Validators.pattern(/^(zkbw\.com)$/)]],
-    mobile: ['', [Validators.required, Validators.pattern(/^1\d{10}$/)]],
-    captcha: ['', [Validators.required]],
+    userName: ['', [Validators.required, Validators.minLength(2)]],
+    password: ['', [Validators.required, Validators.minLength(6)]],
     remember: [true]
   });
   error = '';
-  type = 0;
   loading = false;
-
-  count = 0;
-  interval$: any;
-
-
 
   submit(): void {
     this.error = '';
@@ -64,14 +58,15 @@ export class UserLoginComponent implements OnDestroy {
     userName.updateValueAndValidity();
     password.markAsDirty();
     password.updateValueAndValidity();
+    
     if (userName.invalid || password.invalid) {
       return;
     }
 
-    // 默认配置中对所有HTTP请求都会强制 [校验](https://ng-alain.com/auth/getting-started) 用户 Token
-    // 然一般来说登录请求不需要校验，因此加上 `ALLOW_ANONYMOUS` 表示不触发用户 Token 校验
+    // 使用兼容的前端登录接口
     this.loading = true;
     this.cdr.detectChanges();
+    
     this.http
       .post(
         '/login/account',
@@ -90,34 +85,42 @@ export class UserLoginComponent implements OnDestroy {
           this.cdr.detectChanges();
         })
       )
-      .subscribe(res => {
-        if (res.msg !== 'ok') {
-          this.error = res.msg;
-          this.cdr.detectChanges();
-          return;
-        }
-        // 清空路由复用信息
-        this.reuseTabService?.clear();
-        // 设置用户Token信息
-        // TODO: Mock expired value
-        res.user.expired = +new Date() + 1000 * 60 * 5;
-        this.tokenService.set(res.user);
-        // 重新获取 StartupService 内容，我们始终认为应用信息一般都会受当前用户授权范围而影响
-        this.startupSrv.load().subscribe(() => {
-          let url = this.tokenService.referrer!.url || '/';
-          if (url.includes('/passport')) {
-            url = '/';
+      .subscribe({
+        next: (res: any) => {
+          if (res.msg !== 'ok') {
+            this.error = res.msg || '登录失败';
+            this.cdr.detectChanges();
+            return;
           }
-          this.router.navigateByUrl(url);
-        });
+          
+          // 显示登录成功消息
+          this.message.success('登录成功');
+          
+          // 清空路由复用信息
+          this.reuseTabService?.clear();
+          
+          // 设置用户Token信息
+          res.user.expired = +new Date() + 1000 * 60 * 60 * 8; // 8小时过期
+          this.tokenService.set(res.user);
+          
+          // 重新获取 StartupService 内容
+          this.startupSrv.load().subscribe(() => {
+            let url = this.tokenService.referrer!.url || '/';
+            if (url.includes('/passport')) {
+              url = '/dashboard';
+            }
+            this.router.navigateByUrl(url);
+          });
+        },
+        error: (err) => {
+          console.error('登录请求失败:', err);
+          this.error = err.error?.msg || err.message || '登录请求失败，请稍后重试';
+          this.cdr.detectChanges();
+        }
       });
   }
 
-
-
   ngOnDestroy(): void {
-    if (this.interval$) {
-      clearInterval(this.interval$);
-    }
+    // 组件销毁时清理资源
   }
 }

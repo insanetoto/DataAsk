@@ -17,31 +17,44 @@ class DatabaseService:
     
     def __init__(self, config: Config):
         self.config = config
-        self.engine = self._create_engine()
+        # 主数据库引擎（用于业务数据）
+        self.engine = self._create_engine(config.SQLALCHEMY_DATABASE_URI, "主数据库")
+        # Vanna数据库引擎（用于AI训练数据）
+        self.vanna_engine = self._create_engine(config.VANNA_DATABASE_URI, "Vanna数据库")
         
-    def _create_engine(self):
+    def _create_engine(self, database_uri: str, db_name: str):
         """创建数据库引擎"""
         try:
             engine = create_engine(
-                self.config.SQLALCHEMY_DATABASE_URI,
+                database_uri,
                 poolclass=QueuePool,
                 **self.config.SQLALCHEMY_ENGINE_OPTIONS,
                 echo=self.config.DEBUG
             )
-            logger.info("数据库引擎创建成功")
+            logger.info(f"{db_name}引擎创建成功")
             return engine
         except Exception as e:
-            logger.error(f"数据库引擎创建失败: {str(e)}")
+            logger.error(f"{db_name}引擎创建失败: {str(e)}")
             raise
     
     def test_connection(self) -> bool:
-        """测试数据库连接"""
+        """测试主数据库连接"""
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(text("SELECT 1"))
                 return result.fetchone() is not None
         except Exception as e:
-            logger.error(f"数据库连接测试失败: {str(e)}")
+            logger.error(f"主数据库连接测试失败: {str(e)}")
+            return False
+    
+    def test_vanna_connection(self) -> bool:
+        """测试Vanna数据库连接"""
+        try:
+            with self.vanna_engine.connect() as conn:
+                result = conn.execute(text("SELECT 1"))
+                return result.fetchone() is not None
+        except Exception as e:
+            logger.error(f"Vanna数据库连接测试失败: {str(e)}")
             return False
     
     def execute_query(self, sql: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
@@ -57,14 +70,37 @@ class DatabaseService:
             raise
     
     def execute_update(self, sql: str, params: Optional[Dict[str, Any]] = None) -> int:
-        """执行更新SQL"""
+        """执行更新SQL（主数据库）"""
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(text(sql), params or {})
                 conn.commit()
                 return result.rowcount
         except Exception as e:
-            logger.error(f"更新执行失败: {str(e)}")
+            logger.error(f"主数据库更新执行失败: {str(e)}")
+            raise
+    
+    def execute_vanna_query(self, sql: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """执行查询SQL（Vanna数据库）"""
+        try:
+            with self.vanna_engine.connect() as conn:
+                result = conn.execute(text(sql), params or {})
+                columns = result.keys()
+                rows = result.fetchall()
+                return [dict(zip(columns, row)) for row in rows]
+        except Exception as e:
+            logger.error(f"Vanna数据库查询执行失败: {str(e)}")
+            raise
+    
+    def execute_vanna_update(self, sql: str, params: Optional[Dict[str, Any]] = None) -> int:
+        """执行更新SQL（Vanna数据库）"""
+        try:
+            with self.vanna_engine.connect() as conn:
+                result = conn.execute(text(sql), params or {})
+                conn.commit()
+                return result.rowcount
+        except Exception as e:
+            logger.error(f"Vanna数据库更新执行失败: {str(e)}")
             raise
     
     def get_table_schemas(self) -> List[Dict[str, Any]]:

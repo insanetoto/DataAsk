@@ -5,6 +5,8 @@
 import {
   AlipayCircleOutline,
   ArrowDownOutline,
+  BellOutline,
+  CalendarOutline,
   CopyrightOutline,
   FullscreenExitOutline,
   FullscreenOutline,
@@ -12,6 +14,7 @@ import {
   LockOutline,
   LogoutOutline,
   MailOutline,
+  MessageOutline,
   SettingOutline,
   TaobaoCircleOutline,
   ToolOutline,
@@ -22,6 +25,8 @@ import {
 export const ICONS_AUTO = [
   AlipayCircleOutline,
   ArrowDownOutline,
+  BellOutline,
+  CalendarOutline,
   CopyrightOutline,
   FullscreenExitOutline,
   FullscreenOutline,
@@ -29,6 +34,7 @@ export const ICONS_AUTO = [
   LockOutline,
   LogoutOutline,
   MailOutline,
+  MessageOutline,
   SettingOutline,
   TaobaoCircleOutline,
   ToolOutline,

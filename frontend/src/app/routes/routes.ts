@@ -26,7 +26,11 @@ export const routes: Routes = [
       { path: 'data-source', component: DataSourceComponent },
       { path: 'intelligent-qa', component: IntelligentQaComponent },
       { path: 'intelligent-training', component: IntelligentTrainingComponent },
-      { path: 'knowledge-base', component: KnowledgeBaseComponent }
+      { path: 'knowledge-base', component: KnowledgeBaseComponent },
+      { 
+        path: 'system-management', 
+        loadChildren: () => import('./system-management/system-management.routes').then(m => m.systemManagementRoutes) 
+      }
     ]
   },
   // passport

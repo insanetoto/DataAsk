@@ -4,23 +4,23 @@
       <nz-alert [nzType]="'error'" [nzMessage]="error" [nzShowIcon]="true" class="mb-lg" />
     }
     <nz-form-item>
-      <nz-form-control nzErrorTip="请输入用户名: admin 或 user">
+      <nz-form-control nzErrorTip="请输入用户编码（至少2个字符）">
         <nz-input-group nzSize="large" nzPrefixIcon="user">
-          <input nz-input formControlName="userName" placeholder="用户名: admin 或 user" />
+          <input nz-input formControlName="userName" placeholder="请输入用户编码" />
         </nz-input-group>
       </nz-form-control>
     </nz-form-item>
     <nz-form-item>
-      <nz-form-control nzErrorTip="请输入密码: zkbw.com">
+      <nz-form-control nzErrorTip="请输入密码（至少6个字符）">
         <nz-input-group nzSize="large" nzPrefixIcon="lock">
-          <input nz-input type="password" formControlName="password" placeholder="密码: zkbw.com" />
+          <input nz-input type="password" formControlName="password" placeholder="请输入密码" />
         </nz-input-group>
       </nz-form-control>
     </nz-form-item>
   </div>
   <nz-form-item>
     <nz-col [nzSpan]="12">
-      <label nz-checkbox formControlName="remember">自动登录</label>
+      <label nz-checkbox formControlName="remember">记住登录状态</label>
     </nz-col>
     <nz-col [nzSpan]="12" class="text-right">
       <a class="forgot" routerLink="/passport/register">忘记密码</a>
