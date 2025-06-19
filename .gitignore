@@ -36,14 +36,16 @@ lerna-debug.log*
 .yarn-integrity
 
 # Angular编译输出
-/frontend/dist/
-/frontend/tmp/
-/frontend/out-tsc/
-/frontend/bazel-out/
-/frontend/.angular/
-/frontend/.husky
-/frontend/.vscode
-/frontend/node_modules
+/dataask_front/dist/
+/dataask_front/tmp/
+/dataask_front/out-tsc/
+/dataask_front/bazel-out/
+/dataask_front/.angular/
+/dataask_front/.husky
+/dataask_front/.vscode
+/dataask_front/node_modules
+/dataask_front/.cache
+/dataask_front/.nx
 
 # 环境变量和配置文件
 .env
@@ -57,6 +59,7 @@ venv.bak/
 .env.development.local
 .env.test.local
 .env.production.local
+env_init.bak
 
 # IDE
 .vscode/
@@ -134,6 +137,7 @@ htmlcov/
 # 缓存文件
 .cache/
 cache/
+__pycache__/
 
 # 上传文件
 uploads/
@@ -198,109 +202,50 @@ stop_services.sh
 # Optional REPL history
 .node_repl_history
 
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variables file
-.env.test
-
-# parcel-bundler cache (https://parceljs.org/)
-.parcel-cache
-
-# Next.js build output
-.next
-
-# Nuxt.js build / generate output
-.nuxt
-dist
-
-# Gatsby files
-.cache/
-public
-
-# Storybook build outputs
-.out
-.storybook-out
-
-# Temporary folders
-tmp/
-temp/
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# AI Engine和模型文件
-AIEngine/models/
-AIEngine/cache/
-AIEngine/*.pkl
-AIEngine/*.joblib
-
-# 应用程序特定的日志和缓存
-app.log
-*.log.*
-app_*.log
-
-# 项目特定的测试文件（仅忽略临时测试文件）
-test_*.py
-*_test_temp.py
-test_output/ 
-
-
-# 示例代码
-sample/
-
-# Virtual Environment
-venv/
-ENV/
-env/
-
-# IDE
+# 项目特定
+.pytest_cache/
+.coverage
+htmlcov/
+.env
+*.pyc
+__pycache__/
+.DS_Store
 .idea/
 .vscode/
 *.swp
 *.swo
-.DS_Store
-.cursor/
+*~
 
-# Logs and databases
-*.log
+# 数据库
 *.sqlite3
 *.db
-chroma.sqlite3
 
-# Frontend
-frontend/node_modules/
-frontend/dist/
-frontend/.angular/
-frontend/.tmp/
-frontend/coverage/
-frontend/yarn-error.log
-frontend/npm-debug.log
+# 日志
+*.log
+logs/
 
-# Environment variables
-.env
-.env.*
-!.env.example
+# 本地配置
+local_settings.py
+local_config.py
 
-# Testing
-.coverage
-htmlcov/
+# 虚拟环境
+venv/
+.venv/
+.env/
+
+# 前端构建产物
+/dataask_front/dist/
+/dataask_front/.angular/
+/dataask_front/node_modules/
+/dataask_front/.nx/
+/dataask_front/.cache/
+
+# 测试文件
 .pytest_cache/
-.tox/
+.coverage
+coverage/
+htmlcov/
 
-# Documentation and reports
-docs/_build/
-frontend/优化报告.md
-frontend/应用完善总结.md
-frontend/菜单功能验证指南.md
-frontend/领导驾驶舱重构总结.md
+# 系统文件
+.DS_Store
+Thumbs.db
