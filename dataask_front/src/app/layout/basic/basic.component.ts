@@ -2,8 +2,6 @@ import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { SettingsService, User } from '@delon/theme';
 import { LayoutDefaultModule, LayoutDefaultOptions } from '@delon/theme/layout-default';
-import { SettingDrawerModule } from '@delon/theme/setting-drawer';
-import { environment } from '@env/environment';
 import { NzAvatarModule } from 'ng-zorro-antd/avatar';
 import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -48,14 +46,10 @@ import { HeaderUserComponent } from './widgets/user.component';
         <router-outlet />
       </ng-template>
     </layout-default>
-    @if (showSettingDrawer) {
-      <setting-drawer />
-    }
   `,
   imports: [
     RouterOutlet,
     LayoutDefaultModule,
-    SettingDrawerModule,
     NzIconModule,
     NzMenuModule,
     NzDropDownModule,
@@ -73,7 +67,6 @@ export class LayoutBasicComponent {
     logoCollapsed: `./assets/logo.svg`
   };
   searchToggleStatus = false;
-  showSettingDrawer = !environment.production;
   get user(): User {
     return this.settings.user;
   }
