@@ -9,7 +9,7 @@ from flask import Flask, jsonify, render_template_string
 from flask_cors import CORS
 from config import config
 from tools.database import init_database_service
-from tools.redis_service import init_redis_service
+from tools.redis_service import get_redis_service
 from AIEngine.vanna_service import init_vanna_service
 from service.organization_service import init_organization_service
 from api.routes import api_bp
@@ -91,8 +91,12 @@ def init_services(config_obj):
         
         # 初始化Redis服务
         logger.info("正在初始化Redis服务...")
-        init_redis_service(config_obj)
-        logger.info("Redis服务初始化成功")
+        redis_service = get_redis_service()
+        if redis_service.test_connection():
+            logger.info("Redis服务初始化成功")
+        else:
+            logger.error("Redis服务连接失败")
+            raise Exception("Redis服务连接失败")
         
         # 初始化Vanna AI服务
         logger.info("正在初始化Vanna AI服务...")

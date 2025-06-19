@@ -13,7 +13,6 @@ import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzGridModule } from 'ng-zorro-antd/grid';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
-import { NzMessageService } from 'ng-zorro-antd/message';
 import { finalize } from 'rxjs';
 
 @Component({
@@ -42,7 +41,6 @@ export class UserLoginComponent {
   private readonly startupSrv = inject(StartupService);
   private readonly http = inject(_HttpClient);
   private readonly cdr = inject(ChangeDetectorRef);
-  private readonly message = inject(NzMessageService);
 
   form = inject(FormBuilder).nonNullable.group({
     username: ['', [Validators.required]],
@@ -51,7 +49,6 @@ export class UserLoginComponent {
   });
   error = '';
   loading = false;
-  testLoading = false;
 
   submit(): void {
     this.error = '';
@@ -112,30 +109,6 @@ export class UserLoginComponent {
         error: (err) => {
           this.error = err.error?.message || '登录失败，请稍后重试';
           this.cdr.detectChanges();
-        }
-      });
-  }
-
-  testBackend(): void {
-    this.testLoading = true;
-    this.cdr.detectChanges();
-
-    this.http
-      .get('/api/health', null, {
-        context: new HttpContext().set(ALLOW_ANONYMOUS, true)
-      })
-      .pipe(
-        finalize(() => {
-          this.testLoading = false;
-          this.cdr.detectChanges();
-        })
-      )
-      .subscribe({
-        next: () => {
-          this.message.success('后端服务连接正常');
-        },
-        error: err => {
-          this.message.error(`后端服务连接异常: ${err.message || '未知错误'}`);
         }
       });
   }

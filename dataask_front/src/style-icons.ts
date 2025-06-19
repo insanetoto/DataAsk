@@ -14,7 +14,13 @@ import {
   RobotOutline,
   FullscreenOutline,
   FullscreenExitOutline,
-  ToolOutline
+  ToolOutline,
+  LockTwoTone,
+  UserAddOutline,
+  UserDeleteOutline,
+  TeamOutline,
+  SafetyCertificateOutline,
+  ApartmentOutline
 } from '@ant-design/icons-angular/icons';
 
 export const ICONS = [
@@ -31,5 +37,11 @@ export const ICONS = [
   RobotOutline,
   FullscreenOutline,
   FullscreenExitOutline,
-  ToolOutline
+  ToolOutline,
+  LockTwoTone,
+  UserAddOutline,
+  UserDeleteOutline,
+  TeamOutline,
+  SafetyCertificateOutline,
+  ApartmentOutline
 ];

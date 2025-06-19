@@ -10,13 +10,13 @@ import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { map, tap } from 'rxjs';
 
 @Component({
-  selector: 'app-sys-org',
-  templateUrl: './org.component.html',
+  selector: 'app-sys-user',
+  templateUrl: './user.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [...SHARED_IMPORTS, NzBadgeModule, NzSwitchModule, FormsModule],
   standalone: true
 })
-export class SysOrgComponent implements OnInit {
+export class SysUserComponent implements OnInit {
   private readonly http = inject(_HttpClient);
   private readonly msg = inject(NzMessageService);
   private readonly modalSrv = inject(NzModalService);
@@ -32,7 +32,7 @@ export class SysOrgComponent implements OnInit {
     page: 1,
     page_size: 10,
     status: null as number | null,
-    parent_code: '',
+    org_code: '',
     keyword: ''
   };
 
@@ -46,11 +46,11 @@ export class SysOrgComponent implements OnInit {
 
   columns: STColumn[] = [
     { title: '', index: 'key', type: 'checkbox' },
-    { title: '机构编码', index: 'org_code' },
-    { title: '机构名称', index: 'org_name' },
-    { title: '上级机构', index: 'parent_code' },
-    { title: '机构级别', index: 'org_level' },
-    { title: '描述', index: 'description' },
+    { title: '用户名', index: 'username' },
+    { title: '姓名', index: 'real_name' },
+    { title: '所属机构', index: 'org_name' },
+    { title: '手机号', index: 'phone' },
+    { title: '邮箱', index: 'email' },
     {
       title: '状态',
       index: 'status',
@@ -69,7 +69,7 @@ export class SysOrgComponent implements OnInit {
         },
         {
           text: '删除',
-          click: (item: any) => this.deleteOrg(item)
+          click: (item: any) => this.deleteUser(item)
         }
       ]
     }
@@ -77,11 +77,12 @@ export class SysOrgComponent implements OnInit {
 
   selectedRows: STData[] = [];
   formData = {
+    username: '',
+    password: '',
+    real_name: '',
     org_code: '',
-    org_name: '',
-    parent_code: '',
-    org_level: 1,
-    description: '',
+    phone: '',
+    email: '',
     status: 1
   };
   expandForm = false;
@@ -93,7 +94,7 @@ export class SysOrgComponent implements OnInit {
   getData(): void {
     this.loading = true;
     this.http
-      .get('/api/organizations', {
+      .get('/api/users', {
         params: {
           ...this.q,
           type: 'list'
@@ -147,19 +148,20 @@ export class SysOrgComponent implements OnInit {
 
   add(tpl: TemplateRef<unknown>): void {
     this.formData = {
+      username: '',
+      password: '',
+      real_name: '',
       org_code: '',
-      org_name: '',
-      parent_code: '',
-      org_level: 1,
-      description: '',
+      phone: '',
+      email: '',
       status: 1
     };
     this.modalSrv.create({
-      nzTitle: '新建机构',
+      nzTitle: '新建用户',
       nzContent: tpl,
       nzOnOk: () => {
         this.loading = true;
-        this.http.post('/api/organizations', this.formData).subscribe({
+        this.http.post('/api/users', this.formData).subscribe({
           next: () => {
             this.msg.success('创建成功');
             this.getData();
@@ -177,11 +179,11 @@ export class SysOrgComponent implements OnInit {
   edit(tpl: TemplateRef<unknown>, item: any): void {
     this.formData = { ...item };
     this.modalSrv.create({
-      nzTitle: '编辑机构',
+      nzTitle: '编辑用户',
       nzContent: tpl,
       nzOnOk: () => {
         this.loading = true;
-        this.http.put(`/api/organizations/${item.id}`, this.formData).subscribe({
+        this.http.put(`/api/users/${item.id}`, this.formData).subscribe({
           next: () => {
             this.msg.success('更新成功');
             this.getData();
@@ -196,14 +198,14 @@ export class SysOrgComponent implements OnInit {
     });
   }
 
-  deleteOrg(item: any): void {
+  deleteUser(item: any): void {
     this.modalSrv.confirm({
-      nzTitle: '确定要删除此机构吗？',
+      nzTitle: '确定要删除此用户吗？',
       nzContent: '删除后不可恢复',
       nzOkText: '确定',
       nzCancelText: '取消',
       nzOnOk: () => {
-        this.http.delete(`/api/organizations/${item.id}`).subscribe({
+        this.http.delete(`/api/users/${item.id}`).subscribe({
           next: () => {
             this.msg.success('删除成功');
             this.getData();
@@ -223,9 +225,9 @@ export class SysOrgComponent implements OnInit {
       page: 1,
       page_size: 10,
       status: null,
-      parent_code: '',
+      org_code: '',
       keyword: ''
     };
     this.getData();
   }
-}
+} 

@@ -2,8 +2,29 @@
 
 <div class="p-4">
   <nz-card>
-    <button nz-button nzType="primary" (click)="checkHealth()">
+    <button nz-button nzType="primary" (click)="checkHealth()" [nzLoading]="loading">
       系统健康监测
     </button>
+
+    <nz-descriptions *ngIf="healthResult" [nzTitle]="'系统状态'" [nzBordered]="true" class="mt-4">
+      <nz-descriptions-item [nzTitle]="'状态'">
+        <nz-badge
+          [nzStatus]="healthResult.status === 'ok' ? 'success' : 'error'"
+          [nzText]="healthResult.status === 'ok' ? '正常' : '异常'"
+        />
+      </nz-descriptions-item>
+      <nz-descriptions-item [nzTitle]="'检查时间'">
+        {{ healthResult.timestamp }}
+      </nz-descriptions-item>
+      <nz-descriptions-item [nzTitle]="'API地址'">
+        {{ healthResult.apiUrl }}
+      </nz-descriptions-item>
+      <nz-descriptions-item [nzTitle]="'Token'">
+        <span [class.text-red-500]="!healthResult.token">{{ healthResult.token }}</span>
+      </nz-descriptions-item>
+      <nz-descriptions-item [nzTitle]="'错误信息'" *ngIf="healthResult.error">
+        {{ healthResult.error | json }}
+      </nz-descriptions-item>
+    </nz-descriptions>
   </nz-card>
 </div>

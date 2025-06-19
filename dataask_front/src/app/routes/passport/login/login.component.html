@@ -5,14 +5,14 @@
 <form nz-form [formGroup]="form" (ngSubmit)="submit()" role="form">
   <nz-form-item>
     <nz-form-control [nzErrorTip]="'请输入用户名!'">
-      <nz-input-group nzSize="large" nzPrefixIcon="user-outlined">
+      <nz-input-group nzSize="large" nzPrefixIcon="user">
         <input nz-input formControlName="username" placeholder="用户名" />
       </nz-input-group>
     </nz-form-control>
   </nz-form-item>
   <nz-form-item>
     <nz-form-control [nzErrorTip]="'请输入密码!'">
-      <nz-input-group nzSize="large" nzPrefixIcon="lock-outlined">
+      <nz-input-group nzSize="large" nzPrefixIcon="lock">
         <input nz-input type="password" formControlName="password" placeholder="密码" />
       </nz-input-group>
     </nz-form-control>
@@ -37,8 +37,3 @@
     </button>
   </nz-form-item>
 </form>
-<div class="other">
-  <button nz-button nzType="link" nzSize="large" (click)="testBackend()" [nzLoading]="testLoading">
-    测试后端连接
-  </button>
-</div>

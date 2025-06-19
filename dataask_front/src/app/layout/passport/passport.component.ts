@@ -11,10 +11,10 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
       <div class="wrap">
         <div class="top">
           <div class="head">
-            <img class="logo" src="./assets/logo-color.svg">
-            <span class="title">NG-ALAIN</span>
+            <img class="logo" src="./assets/logo-color.svg" />
+            <span class="title">百惟数问</span>
           </div>
-          <div class="desc">武林中最有影响力的《葵花宝典》；欲练神功，挥刀自宫</div>
+          <div class="desc">问数，洞见随心</div>
         </div>
         <router-outlet />
         <global-footer [links]="links">

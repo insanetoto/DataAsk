@@ -23,13 +23,18 @@ class RedisService:
     """Redis缓存服务类"""
     
     def __init__(self):
-        # Redis连接配置应从配置文件读取
-        self.redis_client = redis.Redis(
-            host='localhost',
-            port=6379,
-            db=0,
-            decode_responses=True
-        )
+        try:
+            self.redis_client = redis.Redis(
+                host=Config.REDIS_HOST,
+                port=Config.REDIS_PORT,
+                password=Config.REDIS_PASSWORD,
+                decode_responses=True
+            )
+            self.redis_client.ping()  # 测试连接
+            logger.info("Redis连接成功")
+        except redis.ConnectionError as e:
+            logger.error(f"Redis连接失败: {str(e)}")
+            raise
         
     def test_connection(self) -> bool:
         """测试Redis连接"""
@@ -185,69 +190,63 @@ class RedisService:
         """删除缓存（通用方法）"""
         return self.delete(key)
 
-    def set_token(self, key: str, token: str, expire_seconds: int) -> bool:
+    def set_token(self, key: str, token: str, expire_time: int = None):
         """
-        设置令牌
-        :param key: 令牌的键
-        :param token: 令牌值
-        :param expire_seconds: 过期时间（秒）
-        :return: 是否设置成功
+        存储token
+        :param key: token的键
+        :param token: token值
+        :param expire_time: 过期时间(秒)
         """
         try:
-            self.redis_client.set(key, token, ex=expire_seconds)
+            self.redis_client.set(key, token)
+            if expire_time:
+                self.redis_client.expire(key, expire_time)
             return True
         except Exception as e:
-            logger.error(f"设置令牌失败: {str(e)}")
+            logger.error(f"存储token失败: {str(e)}")
             return False
 
-    def get_token(self, key: str) -> Optional[str]:
+    def get_token(self, key: str) -> str:
         """
-        获取令牌
-        :param key: 令牌的键
-        :return: 令牌值，如果不存在则返回None
+        获取token
+        :param key: token的键
+        :return: token值
         """
         try:
             return self.redis_client.get(key)
         except Exception as e:
-            logger.error(f"获取令牌失败: {str(e)}")
+            logger.error(f"获取token失败: {str(e)}")
             return None
 
     def delete_token(self, key: str) -> bool:
         """
-        删除令牌
-        :param key: 令牌的键
-        :return: 是否删除成功
+        删除token
+        :param key: token的键
+        :return: 是否成功
         """
         try:
-            self.redis_client.delete(key)
-            return True
+            return bool(self.redis_client.delete(key))
         except Exception as e:
-            logger.error(f"删除令牌失败: {str(e)}")
+            logger.error(f"删除token失败: {str(e)}")
             return False
 
     def check_token_exists(self, key: str) -> bool:
         """
-        检查令牌是否存在
-        :param key: 令牌的键
+        检查token是否存在
+        :param key: token的键
         :return: 是否存在
         """
         try:
             return bool(self.redis_client.exists(key))
         except Exception as e:
-            logger.error(f"检查令牌失败: {str(e)}")
+            logger.error(f"检查token是否存在失败: {str(e)}")
             return False
 
-# 全局Redis服务实例
-redis_service = None
-
-def init_redis_service(config: Config) -> RedisService:
-    """初始化Redis服务"""
-    global redis_service
-    redis_service = RedisService()
-    return redis_service
+# 单例模式
+_redis_service = None
 
 def get_redis_service() -> RedisService:
-    """获取Redis服务实例"""
-    if redis_service is None:
-        raise RuntimeError("Redis服务未初始化")
-    return redis_service 
+    global _redis_service
+    if _redis_service is None:
+        _redis_service = RedisService()
+    return _redis_service 

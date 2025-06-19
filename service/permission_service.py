@@ -6,9 +6,11 @@
 import json
 import logging
 from typing import Optional, Dict, Any, List
-from tools.database import get_database_service
-from tools.redis_service import get_redis_service
+from tools.database import get_database_service, get_db_session
+from tools.redis_service import get_redis_service, RedisService
 from service.role_service import get_role_service
+from sqlalchemy import select, func, text
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -17,69 +19,133 @@ class PermissionService:
     
     def __init__(self):
         """初始化权限服务"""
-        self.db_service = get_database_service()
-        self.redis_service = get_redis_service()
+        self.redis = RedisService()
         self.cache_prefix = "permission:"
         self.user_permissions_prefix = "user_permissions:"
         self.cache_timeout = 3600  # 缓存1小时
         self.list_cache_key = "permission:list"
         
-    def get_permissions_list(self, page: int = 1, page_size: int = 10, keyword: str = None) -> Dict[str, Any]:
-        """
-        获取权限列表
-        :param page: 页码
-        :param page_size: 每页数量
-        :param keyword: 搜索关键词
-        :return: 权限列表
-        """
+    def get_permissions(self, page: int = 1, page_size: int = 10, keyword: str = None, status: int = None) -> dict:
+        """获取权限列表"""
         try:
-            # 构建基础SQL
-            sql = """
-                SELECT id, permission_code, permission_name, description, status, created_at, updated_at
-                FROM permissions
-                WHERE status = 1
-            """
-            params = {}
-            
-            # 添加搜索条件
-            if keyword:
-                sql += " AND (permission_code LIKE :keyword OR permission_name LIKE :keyword OR description LIKE :keyword)"
-                params['keyword'] = f"%{keyword}%"
-            
-            # 添加分页
-            sql += " ORDER BY id DESC LIMIT :limit OFFSET :offset"
-            params['limit'] = page_size
-            params['offset'] = (page - 1) * page_size
-            
-            # 执行查询
-            result = self.db_service.execute_query(sql, params)
-            
-            # 获取总数
-            count_sql = """
-                SELECT COUNT(*) as total
-                FROM permissions
-                WHERE status = 1
-            """
-            count_params = {}
-            if keyword:
-                count_sql += " AND (permission_code LIKE :keyword OR permission_name LIKE :keyword OR description LIKE :keyword)"
-                count_params['keyword'] = f"%{keyword}%"
-            
-            count_result = self.db_service.execute_query(count_sql, count_params)
-            total = count_result[0]['total'] if count_result else 0
-            
-            return {
-                'success': True,
-                'data': {
-                    'list': result,
-                    'total': total,
-                    'page': page,
-                    'page_size': page_size
+            with get_db_session() as session:
+                query = select(Permission)
+                if keyword:
+                    query = query.where(
+                        (Permission.permission_name.like(f"%{keyword}%")) |
+                        (Permission.permission_code.like(f"%{keyword}%"))
+                    )
+                if status is not None:
+                    query = query.where(Permission.status == status)
+
+                total = session.scalar(select(func.count()).select_from(query.subquery()))
+                query = query.offset((page - 1) * page_size).limit(page_size)
+                permissions = session.scalars(query).all()
+
+                return {
+                    "list": [perm.to_dict() for perm in permissions],
+                    "pagination": {
+                        "total": total,
+                        "page": page,
+                        "page_size": page_size
+                    }
                 }
-            }
         except Exception as e:
             logger.error(f"获取权限列表失败: {str(e)}")
-            raise Exception(f"获取权限列表失败: {str(e)}")
+            return {
+                "success": False,
+                "error": f"获取权限列表失败: {str(e)}"
+            }
+
+    def get_permission_by_id(self, permission_id: int) -> Optional[dict]:
+        """根据ID获取权限信息"""
+        try:
+            with get_db_session() as session:
+                permission = session.get(Permission, permission_id)
+                return permission.to_dict() if permission else None
+        except Exception as e:
+            logger.error(f"根据ID获取权限信息失败: {str(e)}")
+            return None
+
+    def create_permission(self, permission_data: dict) -> dict:
+        """创建权限"""
+        try:
+            with get_db_session() as session:
+                permission = Permission(**permission_data)
+                session.add(permission)
+                session.commit()
+                session.refresh(permission)
+                return permission.to_dict()
+        except Exception as e:
+            logger.error(f"创建权限失败: {str(e)}")
+            return {
+                "success": False,
+                "error": f"创建权限失败: {str(e)}"
+            }
+
+    def update_permission(self, permission_id: int, permission_data: dict) -> Optional[dict]:
+        """更新权限信息"""
+        try:
+            with get_db_session() as session:
+                permission = session.get(Permission, permission_id)
+                if not permission:
+                    return None
+
+                for key, value in permission_data.items():
+                    if hasattr(permission, key):
+                        setattr(permission, key, value)
+
+                session.commit()
+                session.refresh(permission)
+                return permission.to_dict()
+        except Exception as e:
+            logger.error(f"更新权限信息失败: {str(e)}")
+            return None
+
+    def delete_permission(self, permission_id: int) -> bool:
+        """删除权限"""
+        try:
+            with get_db_session() as session:
+                permission = session.get(Permission, permission_id)
+                if not permission:
+                    return False
+
+                session.delete(permission)
+                session.commit()
+                return True
+        except Exception as e:
+            logger.error(f"删除权限失败: {str(e)}")
+            return False
+
+    def get_permission_tree(self) -> List[dict]:
+        """获取权限树形结构"""
+        try:
+            with get_db_session() as session:
+                permissions = session.scalars(select(Permission).where(Permission.status == 1)).all()
+                return self.build_permission_tree([perm.to_dict() for perm in permissions])
+        except Exception as e:
+            logger.error(f"获取权限树形结构失败: {str(e)}")
+            return []
+
+    def build_permission_tree(self, permissions: List[dict]) -> List[dict]:
+        """构建权限树形结构"""
+        tree = []
+        permission_map = {}
+
+        # 创建权限映射
+        for perm in permissions:
+            perm['children'] = []
+            permission_map[perm['permission_code']] = perm
+
+        # 构建树形结构
+        for perm in permissions:
+            if perm['parent_code'] and perm['parent_code'] in permission_map:
+                parent = permission_map[perm['parent_code']]
+                parent['children'].append(perm)
+            else:
+                tree.append(perm)
+
+        return tree
     
     def get_user_permissions(self, user_id: int) -> Dict[str, Any]:
         """获取用户权限列表（通过角色）"""
@@ -302,142 +368,122 @@ class PermissionService:
             logger.warning(f"清除权限列表缓存失败: {str(e)}")
     
     def assign_permissions_to_role(self, role_id: int, permission_codes: List[str]) -> Dict[str, Any]:
-        """
-        为角色分配权限
-        :param role_id: 角色ID
-        :param permission_codes: 权限代码列表
-        :return: 分配结果
-        """
+        """为角色分配权限"""
         try:
-            # 获取权限ID列表
-            sql = """
-                SELECT id, permission_code
-                FROM permissions
-                WHERE permission_code IN :permission_codes AND status = 1
-            """
-            permissions = self.db_service.execute_query(sql, {'permission_codes': tuple(permission_codes)})
-            
-            if not permissions:
-                raise Exception("没有找到有效的权限")
-            
-            # 检查权限是否都存在
-            found_codes = {p['permission_code'] for p in permissions}
-            missing_codes = set(permission_codes) - found_codes
-            if missing_codes:
-                raise Exception(f"权限代码 {', '.join(missing_codes)} 不存在或已禁用")
-            
-            # 删除现有权限
-            delete_sql = """
-                DELETE FROM role_permissions
-                WHERE role_id = :role_id
-            """
-            self.db_service.execute_update(delete_sql, {'role_id': role_id})
-            
-            # 添加新权限
-            insert_sql = """
-                INSERT INTO role_permissions (role_id, permission_id)
-                VALUES (:role_id, :permission_id)
-            """
-            for permission in permissions:
-                self.db_service.execute_update(insert_sql, {
-                    'role_id': role_id,
-                    'permission_id': permission['id']
-                })
-            
-            # 清除缓存
-            self.redis_service.delete(f"role_permissions:{role_id}")
-            
-            return {
-                'success': True,
-                'message': '权限分配成功',
-                'data': {
-                    'role_id': role_id,
-                    'permissions': [p['permission_code'] for p in permissions]
-                }
-            }
-        except Exception as e:
-            logger.error(f"权限分配失败: {str(e)}")
-            raise Exception(f"权限分配失败: {str(e)}")
-    
-    def revoke_permissions_from_role(self, role_id: int, permission_ids: List[int]) -> Dict[str, Any]:
-        """从角色回收指定权限"""
-        try:
-            db_service = get_database_service()
-            
-            # 检查角色是否存在
-            role_service = get_role_service()
-            role = role_service._get_role_by_id_without_status_check(role_id)
-            if not role['success'] or not role['data']:
+            with get_db_session() as session:
+                # 获取角色
+                role = session.get(Role, role_id)
+                if not role:
+                    return {
+                        'success': False,
+                        'error': '角色不存在'
+                    }
+                
+                # 获取权限
+                permissions = session.scalars(
+                    select(Permission).where(
+                        Permission.permission_code.in_(permission_codes),
+                        Permission.status == 1
+                    )
+                ).all()
+                
+                # 更新角色权限
+                role.permissions = permissions
+                session.commit()
+                
+                # 清除缓存
+                self.clear_role_permissions_cache(role_id)
+                
                 return {
-                    'success': False,
-                    'error': '角色不存在'
+                    'success': True,
+                    'message': '权限分配成功',
+                    'data': {
+                        'role_id': role_id,
+                        'permission_count': len(permissions)
+                    }
                 }
-            
-            # 删除指定权限
-            sql = """
-            DELETE FROM role_permissions 
-            WHERE role_id = :role_id AND permission_id IN :permission_ids
-            """
-            
-            db_service.execute_update(sql, {
-                'role_id': role_id,
-                'permission_ids': tuple(permission_ids)
-            })
-            
-            # 清除相关缓存
-            self.clear_role_permissions_cache(role_id)
-            
-            return {
-                'success': True,
-                'message': '权限回收成功'
-            }
-            
+                
         except Exception as e:
-            logger.error(f"回收权限失败: {str(e)}")
+            logger.error(f"为角色分配权限失败: {str(e)}")
             return {
                 'success': False,
-                'error': f'回收权限失败: {str(e)}'
+                'error': f'分配权限失败: {str(e)}'
+            }
+
+    def revoke_permissions_from_role(self, role_id: int, permission_ids: List[int]) -> Dict[str, Any]:
+        """从角色移除权限"""
+        try:
+            with get_db_session() as session:
+                # 获取角色
+                role = session.get(Role, role_id)
+                if not role:
+                    return {
+                        'success': False,
+                        'error': '角色不存在'
+                    }
+                
+                # 获取要移除的权限
+                permissions_to_remove = session.scalars(
+                    select(Permission).where(Permission.id.in_(permission_ids))
+                ).all()
+                
+                # 从角色中移除权限
+                for permission in permissions_to_remove:
+                    if permission in role.permissions:
+                        role.permissions.remove(permission)
+                
+                session.commit()
+                
+                # 清除缓存
+                self.clear_role_permissions_cache(role_id)
+                
+                return {
+                    'success': True,
+                    'message': '权限移除成功',
+                    'data': {
+                        'role_id': role_id,
+                        'removed_count': len(permissions_to_remove)
+                    }
+                }
+                
+        except Exception as e:
+            logger.error(f"从角色移除权限失败: {str(e)}")
+            return {
+                'success': False,
+                'error': f'移除权限失败: {str(e)}'
             }
     
     def get_inherited_permissions(self, role_id: int) -> Dict[str, Any]:
-        """获取角色继承的权限（包括直接权限和继承权限）"""
+        """获取角色继承的权限"""
         try:
-            db_service = get_database_service()
-            
-            # 获取角色信息
-            role_service = get_role_service()
-            role = role_service._get_role_by_id_without_status_check(role_id)
-            if not role['success'] or not role['data']:
+            with get_db_session() as session:
+                # 获取角色
+                role = session.get(Role, role_id)
+                if not role:
+                    return {
+                        'success': False,
+                        'error': '角色不存在'
+                    }
+                
+                # 获取直接权限
+                direct_permissions = [p.to_dict() for p in role.permissions]
+                
+                # 获取继承的权限
+                inherited_permissions = []
+                if role.parent_id:
+                    parent_role = session.get(Role, role.parent_id)
+                    if parent_role:
+                        inherited_permissions = [p.to_dict() for p in parent_role.permissions]
+                
                 return {
-                    'success': False,
-                    'error': '角色不存在'
+                    'success': True,
+                    'data': {
+                        'direct_permissions': direct_permissions,
+                        'inherited_permissions': inherited_permissions,
+                        'all_permissions': direct_permissions + inherited_permissions
+                    }
                 }
-            
-            # 获取角色级别
-            role_level = role['data']['role_level']
-            
-            # 获取所有权限（包括继承的权限）
-            sql = """
-            SELECT DISTINCT p.id, p.permission_code, p.permission_name, p.api_path, 
-                   p.api_method, p.resource_type, p.description, p.status,
-                   r.role_level as from_role_level,
-                   r.role_name as from_role_name
-            FROM permissions p
-            JOIN role_permissions rp ON p.id = rp.permission_id
-            JOIN roles r ON rp.role_id = r.id
-            WHERE r.role_level <= :role_level
-              AND p.status = 1
-              AND r.status = 1
-            ORDER BY p.resource_type, p.permission_code
-            """
-            
-            result = db_service.execute_query(sql, {'role_level': role_level})
-            
-            return {
-                'success': True,
-                'data': result
-            }
-            
+                
         except Exception as e:
             logger.error(f"获取继承权限失败: {str(e)}")
             return {
@@ -533,41 +579,40 @@ class PermissionService:
             }
 
     def get_role_permissions(self, role_id: int) -> Dict[str, Any]:
-        """
-        获取角色的权限列表
-        :param role_id: 角色ID
-        :return: 权限列表
-        """
+        """获取角色的所有权限（包括继承的权限）"""
         try:
-            # 先从缓存中获取
-            cache_key = f"role_permissions:{role_id}"
-            cached_permissions = self.redis_service.get(cache_key)
-            if cached_permissions:
+            with get_db_session() as session:
+                # 获取角色
+                role = session.get(Role, role_id)
+                if not role:
+                    return {
+                        'success': False,
+                        'error': '角色不存在'
+                    }
+                
+                # 获取所有权限（包括继承的）
+                permissions = set()
+                
+                # 添加直接权限
+                permissions.update(role.permissions)
+                
+                # 添加继承的权限
+                if role.parent_id:
+                    parent_role = session.get(Role, role.parent_id)
+                    if parent_role:
+                        permissions.update(parent_role.permissions)
+                
                 return {
                     'success': True,
-                    'data': json.loads(cached_permissions)
+                    'data': [perm.to_dict() for perm in permissions]
                 }
-
-            # 从数据库中获取
-            sql = """
-                SELECT p.permission_code
-                FROM role_permissions rp
-                JOIN permissions p ON rp.permission_id = p.id
-                WHERE rp.role_id = :role_id AND p.status = 1
-            """
-            result = self.db_service.execute_query(sql, {'role_id': role_id})
-            permissions = [row['permission_code'] for row in result]
-
-            # 更新缓存
-            self.redis_service.set(cache_key, json.dumps(permissions), ex=3600)
-            
-            return {
-                'success': True,
-                'data': permissions
-            }
+                
         except Exception as e:
             logger.error(f"获取角色权限失败: {str(e)}")
-            raise Exception(f"获取角色权限失败: {str(e)}")
+            return {
+                'success': False,
+                'error': f'获取角色权限失败: {str(e)}'
+            }
 
 # 全局权限服务实例
 permission_service = None
