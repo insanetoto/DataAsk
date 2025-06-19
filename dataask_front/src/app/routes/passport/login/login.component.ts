@@ -112,7 +112,7 @@ export class UserLoginComponent {
     this.cdr.detectChanges();
 
     this.http
-      .get('/api/health-check', null, {
+      .get('/api/health', null, {
         context: new HttpContext().set(ALLOW_ANONYMOUS, true)
       })
       .pipe(
