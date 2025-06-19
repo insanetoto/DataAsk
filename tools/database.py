@@ -9,8 +9,34 @@ import pymysql
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool
 from config import Config
+from contextlib import contextmanager
+from sqlalchemy.orm import sessionmaker, scoped_session
 
 logger = logging.getLogger(__name__)
+
+config = Config()
+# 数据库连接配置
+DATABASE_URL = f"mysql+pymysql://{config.DB_USER}:{config.DB_PASSWORD}@{config.DB_HOST}:{config.DB_PORT}/{config.DB_NAME}"
+
+# 创建数据库引擎
+engine = create_engine(DATABASE_URL)
+
+# 创建会话工厂
+SessionFactory = sessionmaker(bind=engine)
+Session = scoped_session(SessionFactory)
+
+@contextmanager
+def get_db_session():
+    """获取数据库会话的上下文管理器"""
+    session = Session()
+    try:
+        yield session
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        raise e
+    finally:
+        session.close()
 
 class DatabaseService:
     """数据库服务类"""
@@ -21,6 +47,7 @@ class DatabaseService:
         self.engine = self._create_engine(config.SQLALCHEMY_DATABASE_URI, "主数据库")
         # Vanna数据库引擎（用于AI训练数据）
         self.vanna_engine = self._create_engine(config.VANNA_DATABASE_URI, "Vanna数据库")
+        self.Session = Session
         
     def _create_engine(self, database_uri: str, db_name: str):
         """创建数据库引擎"""

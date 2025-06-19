@@ -588,25 +588,8 @@ def register_error_handlers(app):
             'message': '服务器内部错误'
         }), 500
 
-# 创建应用实例
-app = create_app(os.environ.get('FLASK_ENV', 'default'))
-
 if __name__ == '__main__':
-    # 获取配置
-    config_name = os.environ.get('FLASK_ENV', 'default')
-    config_obj = config[config_name]
-    
-    logger.info("=" * 50)
-    logger.info("百惟数问 - 智能数据问答平台")
-    logger.info("=" * 50)
-    logger.info(f"运行环境: {config_name}")
-    logger.info(f"监听地址: {config_obj.HOST}:{config_obj.PORT}")
-    logger.info(f"调试模式: {config_obj.DEBUG}")
-    logger.info("=" * 50)
-    
-    # 启动应用
-    app.run(
-        debug=config_obj.DEBUG,
-        host=config_obj.HOST,
-        port=config_obj.PORT
-    ) 
+    # 创建应用实例
+    app = create_app()
+    # 启动服务器
+    app.run(host='0.0.0.0', port=9000, debug=True) 

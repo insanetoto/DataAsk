@@ -1,26 +1,28 @@
 # -*- coding: utf-8 -*-
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
+from datetime import timedelta
 
 class Config:
-    """基础配置类"""
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'zkbw-key'
+    """应用配置"""
     
-        # MySQL配置
-    MYSQL_HOST = os.environ.get('MYSQL_HOST', 'localhost')
-    MYSQL_PORT = int(os.environ.get('MYSQL_PORT', '3306'))
-    MYSQL_USER = os.environ.get('MYSQL_USER', 'root')
-    MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'llmstudy')
-    MYSQL_DATABASE = os.environ.get('MYSQL_DATABASE', 'dataask')
-    VANNA_DATABASE = os.environ.get('VANNA_DATABASE', 'vanna')
+    # 基础配置
+    SECRET_KEY = 'dev-secret-key'
+    DEBUG = True
     
-    # SQLAlchemy配置 - 主数据库（用于机构管理等业务数据）
-    SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}?charset=utf8mb4"
+    # License配置
+    LICENSE_ENABLED = False
     
-    # Vanna专用数据库配置
-    VANNA_DATABASE_URI = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{VANNA_DATABASE}?charset=utf8mb4"
+    # 数据库配置
+    DB_HOST = '127.0.0.1'
+    DB_PORT = 3306
+    DB_USER = 'root'
+    DB_PASSWORD = 'llmstudy'
+    DB_NAME = 'dataask'
+    VANNA_DATABASE = 'vanna'
+    
+    # SQLAlchemy配置
+    SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
+    VANNA_DATABASE_URI = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{VANNA_DATABASE}?charset=utf8mb4"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_size': 10,
@@ -29,67 +31,81 @@ class Config:
     }
     
     # Redis配置
-    REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
-    REDIS_PORT = int(os.environ.get('REDIS_PORT', '6379'))
-    REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '')
-    REDIS_DB = int(os.environ.get('REDIS_DB', '0'))
+    REDIS_HOST = 'localhost'
+    REDIS_PORT = 6379
+    REDIS_DB = 0
+    REDIS_PASSWORD = None
     
-    # Vanna AI配置 - 支持阿里云百炼平台
-    OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
-    OPENAI_API_BASE = os.environ.get('OPENAI_API_BASE', 'https://dashscope.aliyuncs.com/compatible-mode/v1')
-    VANNA_MODEL = os.environ.get('VANNA_MODEL', 'qwen-turbo')  # 默认使用阿里云qwen-turbo模型
-    
-    # 应用配置
-    DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
-    HOST = os.environ.get('FLASK_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('FLASK_PORT', '9000'))
-
-    # License配置
-    LICENSE_KEY = os.getenv('LICENSE_KEY', '')
-    LICENSE_FEATURES = {}
-    LICENSE_ENABLED = os.getenv('LICENSE_ENABLED', 'false').lower() == 'true'  # 默认关闭license校验
-
     # JWT配置
-    SECRET_KEY = os.getenv('SECRET_KEY', 'zkbw-key-production')
-    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', SECRET_KEY)
-
-    # Vanna AI 数据库配置
-    VANNA_DATABASE_URI = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/vanna"
-
-class DevelopmentConfig(Config):
-    """开发环境配置"""
-    DEBUG = True
-    LICENSE_ENABLED = False  # 开发环境默认关闭license校验
-
-class ProductionConfig(Config):
-    """生产环境配置"""
-    DEBUG = False
-    LICENSE_ENABLED = True  # 生产环境强制启用license校验
+    JWT_SECRET_KEY = 'jwt-secret-key'
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
+    
+    # OpenAI配置
+    OPENAI_API_KEY = ''
+    OPENAI_API_BASE = 'https://api.openai.com/v1'
+    OPENAI_MODEL = 'gpt-3.5-turbo'
+    
+    # Vanna配置
+    VANNA_MODEL = 'qwen-turbo'
+    VANNA_API_KEY = ''
+    VANNA_API_BASE = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+    
+    # 跨域配置
+    CORS_ORIGINS = [
+        'http://localhost:4200',  # Angular开发服务器
+        'http://localhost:9000',  # Flask开发服务器
+    ]
+    
+    # 文件上传配置
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
+    
+    # 日志配置
+    LOG_LEVEL = 'INFO'
+    LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs/app.log')
+    
+    @staticmethod
+    def init_app(app):
+        """初始化应用配置"""
+        # 确保上传目录存在
+        if not os.path.exists(Config.UPLOAD_FOLDER):
+            os.makedirs(Config.UPLOAD_FOLDER)
+        
+        # 确保日志目录存在
+        log_dir = os.path.dirname(Config.LOG_FILE)
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
 
 class TestingConfig(Config):
     """测试环境配置"""
     TESTING = True
-    DEBUG = False
-    LICENSE_ENABLED = False  # 测试环境禁用license校验
+    DEBUG = True
     
-    # 使用内存SQLite数据库进行测试
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
-    VANNA_DATABASE_URI = 'sqlite:///:memory:'
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # 使用测试数据库
+    DB_NAME = 'dataask_test'
+    SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{Config.DB_USER}:{Config.DB_PASSWORD}@{Config.DB_HOST}:{Config.DB_PORT}/{DB_NAME}?charset=utf8mb4"
     
-    # Redis配置 - 使用测试专用DB
-    REDIS_HOST = 'localhost'
-    REDIS_PORT = 6379
-    REDIS_DB = 15  # 使用测试专用DB
-    
-    # 其他测试配置
-    SECRET_KEY = 'test-secret-key'
-    JWT_SECRET_KEY = 'test-jwt-secret'
+    # 使用测试Redis数据库
+    REDIS_DB = 1
 
-# 配置字典
+class ProductionConfig(Config):
+    """生产环境配置"""
+    DEBUG = False
+    
+    # 生产环境应该使用更强的密钥
+    SECRET_KEY = 'production-secret-key'  # 请在部署时修改为强密钥
+    JWT_SECRET_KEY = 'production-jwt-secret-key'  # 请在部署时修改为强密钥
+    
+    # 生产环境跨域配置
+    CORS_ORIGINS = [
+        'https://localhost:9000'  # 请在部署时修改为实际域名
+    ]
+
 config = {
-    'development': DevelopmentConfig,
-    'production': ProductionConfig,
+    'development': Config,
     'testing': TestingConfig,
-    'default': DevelopmentConfig
+    'production': ProductionConfig,
+    'default': Config
 } 

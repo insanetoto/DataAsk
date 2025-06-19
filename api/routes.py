@@ -10,7 +10,7 @@ from AIEngine.vanna_service import get_vanna_service
 from tools.database import get_database_service
 from tools.redis_service import get_redis_service
 from service.organization_service import get_organization_service
-from service.user_service import get_user_service
+from service.user_service import get_user_service, UserService
 from service.role_service import get_role_service
 from service.permission_service import get_permission_service
 
@@ -19,13 +19,22 @@ from tools.license_middleware import require_license
 # 权限验证中间件
 from tools.auth_middleware import (
     token_required, permission_required, admin_required, super_admin_required,
-    org_filter_required, generate_token, get_current_user, get_org_filter
+    org_filter_required, generate_token, get_current_user, get_org_filter, auth_required
 )
 
 logger = logging.getLogger(__name__)
 
 # 创建蓝图
 api_bp = Blueprint('api', __name__, url_prefix='/api')
+
+# 延迟初始化用户服务
+user_service = None
+
+def get_user_service_instance():
+    global user_service
+    if user_service is None:
+        user_service = UserService()
+    return user_service
 
 @api_bp.route('/health', methods=['GET'])
 def health_check():
@@ -586,108 +595,70 @@ def move_organization(org_code):
 
 @api_bp.route('/auth/login', methods=['POST'])
 def login():
-    """用户登录接口"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({
-                'success': False,
-                'error': '缺少请求数据'
-            }), 400
-        
-        # 验证必要字段
-        required_fields = ['user_code', 'password']
-        for field in required_fields:
-            if field not in data or not str(data[field]).strip():
-                return jsonify({
-                    'success': False,
-                    'error': f'缺少必要字段: {field}'
-                }), 400
-        
-        user_service = get_user_service()
-        
-        # 用户认证
-        auth_result = user_service.authenticate_user(
-            data['user_code'].strip(), 
-            data['password']
-        )
-        
-        if not auth_result['success']:
-            return jsonify(auth_result), 401
-        
-        # 生成JWT令牌
-        token = generate_token(auth_result['data'])
-        
-        return jsonify({
-            'success': True,
-            'message': '登录成功',
-            'data': {
-                'user': auth_result['data'],
-                'token': token
-            }
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"用户登录失败: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'登录失败: {str(e)}'
-        }), 500
+    """用户登录"""
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
 
-# 为前端兼容添加的简化登录接口
-@api_bp.route('/login/account', methods=['POST'])
-def frontend_login():
-    """前端兼容的登录接口"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({
-                'msg': '缺少请求数据'
-            }), 400
-        
-        # 支持前端发送的字段名
-        user_code = data.get('userName') or data.get('user_code', '').strip()
-        password = data.get('password', '').strip()
-        
-        if not user_code or not password:
-            return jsonify({
-                'msg': '用户名和密码不能为空'
-            }), 400
-        
-        user_service = get_user_service()
-        
-        # 用户认证
-        auth_result = user_service.authenticate_user(user_code, password)
-        
-        if not auth_result['success']:
-            return jsonify({
-                'msg': auth_result['error']
-            }), 200  # 前端期望200状态码
-        
-        # 生成JWT令牌
-        token = generate_token(auth_result['data'])
-        
-        # 返回前端期望的格式
-        user_data = auth_result['data']
-        response_data = {
-            'msg': 'ok',
-            'user': {
-                'token': token,
-                'name': user_data['username'],
-                'avatar': './assets/tmp/img.jpg',
-                'email': user_data['user_code'],
-                'id': user_data['id'],
-                'user': user_data
-            }
-        }
-        
-        return jsonify(response_data), 200
-        
-    except Exception as e:
-        logger.error(f"前端登录失败: {str(e)}")
+    if not username or not password:
         return jsonify({
-            'msg': f'登录失败: {str(e)}'
-        }), 200
+            'code': 400,
+            'message': '用户名和密码不能为空'
+        }), 400
+
+    # 验证用户
+    user = get_user_service_instance().authenticate_user(username, password)
+    if not user:
+        return jsonify({
+            'code': 401,
+            'message': '用户名或密码错误'
+        }), 401
+
+    # 生成令牌
+    tokens = get_user_service_instance().create_tokens(user)
+    
+    return jsonify({
+        'code': 200,
+        'message': '登录成功',
+        'data': tokens
+    })
+
+@api_bp.route('/auth/refresh', methods=['POST'])
+def refresh_token():
+    """刷新访问令牌"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({
+            'code': 401,
+            'message': '无效的认证头'
+        }), 401
+
+    refresh_token = auth_header.split(' ')[1]
+    new_tokens = get_user_service_instance().refresh_access_token(refresh_token)
+    
+    if not new_tokens:
+        return jsonify({
+            'code': 401,
+            'message': '无效或过期的刷新令牌'
+        }), 401
+
+    return jsonify({
+        'code': 200,
+        'message': '令牌刷新成功',
+        'data': new_tokens
+    })
+
+@api_bp.route('/auth/logout', methods=['POST'])
+@auth_required
+def logout():
+    """用户登出"""
+    user_id = request.user.get('user_id')
+    get_user_service_instance().revoke_tokens(user_id)
+    
+    return jsonify({
+        'code': 200,
+        'message': '登出成功'
+    })
 
 @api_bp.route('/auth/profile', methods=['GET'])
 @token_required
@@ -695,10 +666,23 @@ def get_profile():
     """获取当前用户信息"""
     try:
         current_user = get_current_user()
+        if not current_user:
+            return jsonify({
+                'success': False,
+                'error': '获取用户信息失败'
+            }), 401
         
         return jsonify({
             'success': True,
-            'data': current_user
+            'data': {
+                'id': current_user['id'],
+                'name': current_user['username'],
+                'avatar': current_user.get('avatar', ''),
+                'email': current_user.get('email', ''),
+                'role_code': current_user['role_code'],
+                'org_code': current_user['org_code'],
+                'permissions': current_user.get('permissions', [])
+            }
         }), 200
         
     except Exception as e:
@@ -748,8 +732,7 @@ def create_user():
                 'error': '缺少请求数据'
             }), 400
         
-        user_service = get_user_service()
-        result = user_service.create_user(data)
+        result = get_user_service_instance().create_user(data)
         
         status_code = 201 if result['success'] else 400
         return jsonify(result), status_code
@@ -767,15 +750,28 @@ def create_user():
 def get_user(user_id):
     """获取用户信息接口"""
     try:
-        user_service = get_user_service()
-        result = user_service.get_user_by_id(user_id)
+        # 获取当前用户信息
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({
+                'success': False,
+                'error': '用户未登录'
+            }), 401
+        
+        # 获取目标用户信息（不检查状态）
+        result = get_user_service_instance()._get_user_by_id_without_status_check(user_id)
         
         if not result['success']:
             return jsonify(result), 404 if '不存在' in result.get('error', '') else 500
         
-        # 检查机构权限
-        current_user = get_current_user()
         user_data = result['data']
+        
+        # 检查用户状态
+        if user_data['status'] != 1:
+            return jsonify({
+                'success': False,
+                'error': '用户已禁用'
+            }), 404
         
         # 非超级管理员只能查看同机构用户
         if current_user['role_level'] != 1 and current_user['org_code'] != user_data['org_code']:
@@ -784,7 +780,10 @@ def get_user(user_id):
                 'error': '无权访问其他机构的用户信息'
             }), 403
         
-        return jsonify(result), 200
+        return jsonify({
+            'success': True,
+            'data': user_data
+        }), 200
         
     except Exception as e:
         logger.error(f"获取用户信息失败: {str(e)}")
@@ -822,8 +821,7 @@ def get_users_list():
                     'error': '无权查询其他机构的用户数据'
                 }), 403
         
-        user_service = get_user_service()
-        result = user_service.get_users_list(
+        result = get_user_service_instance().get_users_list(
             page=page,
             page_size=page_size,
             status=status,
@@ -840,6 +838,89 @@ def get_users_list():
         return jsonify({
             'success': False,
             'error': f'获取用户列表失败: {str(e)}'
+        }), 500
+
+@api_bp.route('/users/<int:user_id>', methods=['PUT'])
+@token_required
+@admin_required
+def update_user(user_id: int):
+    """更新用户信息"""
+    try:
+        # 获取请求数据
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': '缺少更新数据'
+            }), 400
+        
+        # 获取当前用户信息
+        current_user = get_current_user()
+        
+        # 检查组织权限
+        if current_user['role_level'] != 1:  # 不是超级管理员
+            target_user = get_user_service_instance()._get_user_by_id_without_status_check(user_id)
+            if target_user['success'] and target_user['data']:
+                if target_user['data']['org_code'] != current_user['org_code']:
+                    return jsonify({
+                        'success': False,
+                        'error': '无权更新其他组织的用户'
+                    }), 403
+        
+        # 更新用户信息
+        result = get_user_service_instance().update_user(user_id, data)
+        
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 400
+        
+    except Exception as e:
+        logger.error(f"更新用户失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api_bp.route('/users/<int:user_id>', methods=['DELETE'])
+@token_required
+@admin_required
+def delete_user(user_id: int):
+    """删除用户"""
+    try:
+        # 获取当前用户信息
+        current_user = get_current_user()
+        
+        # 不能删除自己
+        if user_id == current_user['id']:
+            return jsonify({
+                'success': False,
+                'error': '不能删除当前登录用户'
+            }), 400
+        
+        # 检查组织权限
+        if current_user['role_level'] != 1:  # 不是超级管理员
+            target_user = get_user_service_instance()._get_user_by_id_without_status_check(user_id)
+            if target_user['success'] and target_user['data']:
+                if target_user['data']['org_code'] != current_user['org_code']:
+                    return jsonify({
+                        'success': False,
+                        'error': '无权删除其他组织的用户'
+                    }), 403
+        
+        # 删除用户
+        result = get_user_service_instance().delete_user(user_id)
+        
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 400
+        
+    except Exception as e:
+        logger.error(f"删除用户失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
         }), 500
 
 # ==================== 角色管理接口 ====================
@@ -935,6 +1016,42 @@ def get_role_permissions(role_id):
             'error': f'获取角色权限失败: {str(e)}'
         }), 500
 
+@api_bp.route('/roles/<int:role_id>/permissions', methods=['POST'])
+@token_required
+@super_admin_required
+def assign_role_permissions(role_id):
+    """为角色分配权限"""
+    try:
+        data = request.get_json()
+        if not data or 'permissions' not in data:
+            return jsonify({
+                'success': False,
+                'error': '缺少必要参数: permissions'
+            }), 400
+        
+        permissions = data['permissions']
+        if not isinstance(permissions, list):
+            return jsonify({
+                'success': False,
+                'error': 'permissions必须是权限代码列表'
+            }), 400
+        
+        permission_service = get_permission_service()
+        result = permission_service.assign_permissions_to_role(role_id, permissions)
+        
+        return jsonify({
+            'success': True,
+            'message': '权限分配成功',
+            'data': result
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"权限分配失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'权限分配失败: {str(e)}'
+        }), 500
+
 @api_bp.route('/permissions', methods=['GET'])
 @token_required
 def get_permissions_list():
@@ -943,14 +1060,12 @@ def get_permissions_list():
         # 获取查询参数
         page = request.args.get('page', 1, type=int)
         page_size = request.args.get('page_size', 10, type=int)
-        category = request.args.get('category')
         keyword = request.args.get('keyword')
         
         permission_service = get_permission_service()
         result = permission_service.get_permissions_list(
             page=page,
             page_size=page_size,
-            category=category,
             keyword=keyword
         )
         

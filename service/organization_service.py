@@ -332,124 +332,161 @@ class OrganizationService:
                 'error': f'获取机构列表失败: {str(e)}'
             }
     
-    def update_organization(self, org_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        更新机构信息
-        
-        Args:
-            org_id: 机构ID
-            data: 更新数据
-            
-        Returns:
-            更新结果
-        """
+    def _get_organization_by_id_without_status_check(self, org_id: int) -> Dict[str, Any]:
+        """根据ID获取机构信息（不检查状态）"""
         try:
-            # 检查机构是否存在
-            existing_org = self.get_organization_by_id(org_id)
-            if not existing_org['success'] or not existing_org['data']:
+            db_service = get_database_service()
+            sql = """
+            SELECT id, org_code, parent_org_code, org_name, contact_person, contact_phone, contact_email, 
+                   status, level_depth, level_path, created_at, updated_at
+            FROM organizations 
+            WHERE id = :org_id
+            """
+            
+            result = db_service.execute_query(sql, {'org_id': org_id})
+            
+            if not result:
                 return {
                     'success': False,
                     'error': '机构不存在'
                 }
             
-            # 如果更新机构编码，检查是否重复
-            if 'org_code' in data and data['org_code'] != existing_org['data']['org_code']:
-                code_check = self.get_organization_by_code(data['org_code'])
-                if code_check['success'] and code_check['data']:
-                    return {
-                        'success': False,
-                        'error': f'机构编码 {data["org_code"]} 已存在'
-                    }
+            org_data = result[0]
             
-            # 构建更新语句
+            return {
+                'success': True,
+                'data': org_data
+            }
+            
+        except Exception as e:
+            logger.error(f"根据ID获取机构信息失败: {str(e)}")
+            return {
+                'success': False,
+                'error': f'获取机构信息失败: {str(e)}'
+            }
+    
+    def update_organization(self, org_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+        """更新机构信息"""
+        try:
+            db_service = get_database_service()
+            
+            # 获取现有机构信息（不检查状态）
+            current_org = self._get_organization_by_id_without_status_check(org_id)
+            if not current_org['success'] or not current_org['data']:
+                return {
+                    'success': False,
+                    'error': '机构不存在'
+                }
+            
+            # 构建更新字段
             update_fields = []
             params = {'org_id': org_id}
             
-            updatable_fields = ['org_code', 'org_name', 'contact_person', 'contact_phone', 'contact_email', 'status']
-            for field in updatable_fields:
+            # 可更新字段列表
+            updatable_fields = {
+                'org_name': str,
+                'contact_person': str,
+                'contact_phone': str,
+                'contact_email': str,
+                'status': int
+            }
+            
+            # 处理每个可更新字段
+            for field, field_type in updatable_fields.items():
                 if field in data:
-                    update_fields.append(f"{field} = :{field}")
-                    params[field] = data[field].strip() if isinstance(data[field], str) else data[field]
+                    value = data[field]
+                    if isinstance(value, str):
+                        value = value.strip()
+                    if value is not None:
+                        update_fields.append(f"{field} = :{field}")
+                        params[field] = field_type(value)
             
             if not update_fields:
                 return {
                     'success': False,
-                    'error': '没有有效的更新字段'
+                    'error': '没有提供需要更新的字段'
                 }
             
+            # 执行更新
             sql = f"""
             UPDATE organizations 
             SET {', '.join(update_fields)}
             WHERE id = :org_id
             """
             
-            db_service = get_database_service()
-            rows_affected = db_service.execute_update(sql, params)
+            db_service.execute_update(sql, params)
             
-            if rows_affected == 0:
-                return {
-                    'success': False,
-                    'error': '更新失败，机构可能不存在'
-                }
-            
-            # 清除相关缓存
-            self._clear_organization_cache(existing_org['data']['org_code'], org_id)
+            # 清除缓存
+            self._clear_organization_cache(current_org['data']['org_code'], org_id)
             self._clear_list_cache()
             
-            # 获取更新后的数据
-            updated_org = self.get_organization_by_id(org_id)
-            
-            logger.info(f"成功更新机构: ID={org_id}")
+            # 获取更新后的机构信息
+            updated_org = self._get_organization_by_id_without_status_check(org_id)
             
             return {
                 'success': True,
                 'data': updated_org['data'],
-                'message': '机构更新成功'
+                'message': '机构信息更新成功'
             }
             
         except Exception as e:
-            logger.error(f"更新机构失败: {str(e)}")
+            logger.error(f"更新机构信息失败: {str(e)}")
             return {
                 'success': False,
-                'error': f'更新机构失败: {str(e)}'
+                'error': f'更新机构信息失败: {str(e)}'
             }
     
     def delete_organization(self, org_id: int) -> Dict[str, Any]:
-        """
-        删除机构（软删除，设置状态为0）
-        
-        Args:
-            org_id: 机构ID
-            
-        Returns:
-            删除结果
-        """
+        """删除机构（软删除）"""
         try:
-            # 检查机构是否存在
-            existing_org = self.get_organization_by_id(org_id)
-            if not existing_org['success'] or not existing_org['data']:
+            db_service = get_database_service()
+            
+            # 获取机构信息（不检查状态）
+            current_org = self._get_organization_by_id_without_status_check(org_id)
+            if not current_org['success'] or not current_org['data']:
                 return {
                     'success': False,
                     'error': '机构不存在'
                 }
             
-            # 软删除（设置状态为0）
-            sql = "UPDATE organizations SET status = 0 WHERE id = :org_id"
-            
-            db_service = get_database_service()
-            rows_affected = db_service.execute_update(sql, {'org_id': org_id})
-            
-            if rows_affected == 0:
+            # 检查是否有子机构
+            children_sql = """
+            SELECT COUNT(*) as count
+            FROM organizations
+            WHERE parent_org_code = :org_code AND status = 1
+            """
+            children_result = db_service.execute_query(children_sql, {'org_code': current_org['data']['org_code']})
+            if children_result[0]['count'] > 0:
                 return {
                     'success': False,
-                    'error': '删除失败'
+                    'error': '该机构下存在子机构，无法删除'
                 }
             
-            # 清除相关缓存
-            self._clear_organization_cache(existing_org['data']['org_code'], org_id)
-            self._clear_list_cache()
+            # 检查是否有用户
+            users_sql = """
+            SELECT COUNT(*) as count
+            FROM users
+            WHERE org_code = :org_code AND status = 1
+            """
+            users_result = db_service.execute_query(users_sql, {'org_code': current_org['data']['org_code']})
+            if users_result[0]['count'] > 0:
+                return {
+                    'success': False,
+                    'error': '该机构下存在用户，无法删除'
+                }
             
-            logger.info(f"成功删除机构: ID={org_id}")
+            # 软删除机构（将状态设置为0）
+            sql = """
+            UPDATE organizations 
+            SET status = 0
+            WHERE id = :org_id
+            """
+            
+            db_service.execute_update(sql, {'org_id': org_id})
+            
+            # 清除缓存
+            self._clear_organization_cache(current_org['data']['org_code'], org_id)
+            self._clear_list_cache()
             
             return {
                 'success': True,

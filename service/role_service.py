@@ -380,6 +380,162 @@ class RoleService:
                     redis_service.delete_cache(key)
         except Exception as e:
             logger.warning(f"清除角色列表缓存失败: {str(e)}")
+    
+    def _get_role_by_id_without_status_check(self, role_id: int) -> Dict[str, Any]:
+        """根据ID获取角色信息（不检查状态）"""
+        try:
+            db_service = get_database_service()
+            sql = """
+            SELECT r.id, r.role_code, r.role_name, r.role_level, r.org_code, r.description,
+                   r.status, r.created_at, r.updated_at,
+                   o.org_name
+            FROM roles r
+            LEFT JOIN organizations o ON r.org_code = o.org_code
+            WHERE r.id = :role_id
+            """
+            
+            result = db_service.execute_query(sql, {'role_id': role_id})
+            
+            if not result:
+                return {
+                    'success': False,
+                    'error': '角色不存在'
+                }
+            
+            role_data = result[0]
+            role_info = self._format_role_data(role_data)
+            
+            return {
+                'success': True,
+                'data': role_info
+            }
+            
+        except Exception as e:
+            logger.error(f"根据ID获取角色信息失败: {str(e)}")
+            return {
+                'success': False,
+                'error': f'获取角色信息失败: {str(e)}'
+            }
+    
+    def update_role(self, role_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+        """更新角色信息"""
+        try:
+            db_service = get_database_service()
+            
+            # 获取现有角色信息（不检查状态）
+            current_role = self._get_role_by_id_without_status_check(role_id)
+            if not current_role['success'] or not current_role['data']:
+                return {
+                    'success': False,
+                    'error': '角色不存在'
+                }
+            
+            # 构建更新字段
+            update_fields = []
+            params = {'role_id': role_id}
+            
+            # 可更新字段列表
+            updatable_fields = {
+                'role_name': str,
+                'description': str,
+                'status': int
+            }
+            
+            # 处理每个可更新字段
+            for field, field_type in updatable_fields.items():
+                if field in data:
+                    value = data[field]
+                    if isinstance(value, str):
+                        value = value.strip()
+                    if value is not None:
+                        update_fields.append(f"{field} = :{field}")
+                        params[field] = field_type(value)
+            
+            if not update_fields:
+                return {
+                    'success': False,
+                    'error': '没有提供需要更新的字段'
+                }
+            
+            # 执行更新
+            sql = f"""
+            UPDATE roles 
+            SET {', '.join(update_fields)}
+            WHERE id = :role_id
+            """
+            
+            db_service.execute_update(sql, params)
+            
+            # 清除缓存
+            self._clear_role_cache(current_role['data']['role_code'], role_id)
+            self._clear_list_cache()
+            
+            # 获取更新后的角色信息
+            updated_role = self._get_role_by_id_without_status_check(role_id)
+            
+            return {
+                'success': True,
+                'data': updated_role['data'],
+                'message': '角色信息更新成功'
+            }
+            
+        except Exception as e:
+            logger.error(f"更新角色信息失败: {str(e)}")
+            return {
+                'success': False,
+                'error': f'更新角色信息失败: {str(e)}'
+            }
+    
+    def delete_role(self, role_id: int) -> Dict[str, Any]:
+        """删除角色（软删除）"""
+        try:
+            db_service = get_database_service()
+            
+            # 获取角色信息（不检查状态）
+            current_role = self._get_role_by_id_without_status_check(role_id)
+            if not current_role['success'] or not current_role['data']:
+                return {
+                    'success': False,
+                    'error': '角色不存在'
+                }
+            
+            # 检查是否有用户使用该角色
+            users_sql = """
+            SELECT COUNT(*) as count
+            FROM users
+            WHERE role_id = :role_id AND status = 1
+            """
+            users_result = db_service.execute_query(users_sql, {'role_id': role_id})
+            if users_result[0]['count'] > 0:
+                return {
+                    'success': False,
+                    'error': '该角色下存在用户，无法删除'
+                }
+            
+            # 软删除角色（将状态设置为0）
+            sql = """
+            UPDATE roles 
+            SET status = 0
+            WHERE id = :role_id
+            """
+            
+            db_service.execute_update(sql, {'role_id': role_id})
+            
+            # 清除缓存
+            self._clear_role_cache(current_role['data']['role_code'], role_id)
+            self._clear_list_cache()
+            
+            return {
+                'success': True,
+                'message': '角色删除成功'
+            }
+            
+        except Exception as e:
+            logger.error(f"删除角色失败: {str(e)}")
+            return {
+                'success': False,
+                'error': f'删除角色失败: {str(e)}'
+            }
 
 # 全局角色服务实例
 role_service = None
