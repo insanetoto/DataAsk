@@ -4,8 +4,8 @@ import { Router } from '@angular/router';
 import { ACLService } from '@delon/acl';
 import { DA_SERVICE_TOKEN } from '@delon/auth';
 import { MenuService, SettingsService, TitleService } from '@delon/theme';
-import { Observable, of, catchError, map } from 'rxjs';
 import type { NzSafeAny } from 'ng-zorro-antd/core/types';
+import { Observable, of, catchError, map } from 'rxjs';
 
 /**
  * Used for application startup
@@ -49,7 +49,64 @@ export class StartupService {
     // ACL: Set the permissions to full, https://ng-alain.com/acl/getting-started
     this.aclService.setFull(true);
     // Menu data, https://ng-alain.com/theme/menu
-    this.menuService.add(res.menu ?? []);
+    this.menuService.add([
+      {
+        text: '主导航',
+        group: true,
+        children: [
+          {
+            text: '仪表盘',
+            link: '/dashboard',
+            icon: { type: 'icon', value: 'dashboard' }
+          },
+          {
+            text: '系统管理',
+            icon: { type: 'icon', value: 'setting' },
+            children: [
+              {
+                text: '组织管理',
+                link: '/sys/org'
+              },
+              {
+                text: '用户管理',
+                link: '/sys/uer'
+              },
+              {
+                text: '角色管理',
+                link: '/sys/role'
+              },
+              {
+                text: '权限管理',
+                link: '/sys/permission'
+              }
+            ]
+          },
+          {
+            text: '工作空间',
+            icon: { type: 'icon', value: 'appstore' },
+            children: [
+              {
+                text: '工作台',
+                link: '/workspace/workplace'
+              },
+              {
+                text: '仪表盘',
+                link: '/workspace/dashboard'
+              },
+              {
+                text: '报表',
+                link: '/workspace/report'
+              }
+            ]
+          },
+          {
+            text: 'AI工作区',
+            icon: { type: 'icon', value: 'robot' },
+            link: '/ai-workspace'
+          }
+        ]
+      }
+    ]);
     // Can be set page suffix title, https://ng-alain.com/theme/title
     this.titleService.suffix = res.app?.name;
   }
@@ -94,7 +151,52 @@ export class StartupService {
           {
             text: '仪表盘',
             link: '/dashboard',
-            icon: { type: 'icon', value: 'appstore' }
+            icon: { type: 'icon', value: 'dashboard' }
+          },
+          {
+            text: '系统管理',
+            icon: { type: 'icon', value: 'setting' },
+            children: [
+              {
+                text: '组织管理',
+                link: '/sys/org'
+              },
+              {
+                text: '用户管理',
+                link: '/sys/uer'
+              },
+              {
+                text: '角色管理',
+                link: '/sys/role'
+              },
+              {
+                text: '权限管理',
+                link: '/sys/permission'
+              }
+            ]
+          },
+          {
+            text: '工作空间',
+            icon: { type: 'icon', value: 'appstore' },
+            children: [
+              {
+                text: '工作台',
+                link: '/workspace/workplace'
+              },
+              {
+                text: '仪表盘',
+                link: '/workspace/dashboard'
+              },
+              {
+                text: '报表',
+                link: '/workspace/report'
+              }
+            ]
+          },
+          {
+            text: 'AI工作区',
+            icon: { type: 'icon', value: 'robot' },
+            link: '/ai-workspace'
           }
         ]
       }

@@ -14,7 +14,10 @@ export const routes: Routes = [
     data: {},
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
-      { path: 'dashboard', component: DashboardComponent }
+      { path: 'dashboard', component: DashboardComponent },  
+      { path: 'sys', loadChildren: () => import('./sys/routes').then((m) => m.routes) },  
+      { path: 'workspace', loadChildren: () => import('./workspace/routes').then((m) => m.routes) },  
+      { path: 'ai-workspace', loadChildren: () => import('./ai-workspace/routes').then((m) => m.routes) }
     ]
   },
   // passport

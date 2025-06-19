@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { StartupService } from '@core';
 import { ReuseTabService } from '@delon/abc/reuse-tab';
-import { ALLOW_ANONYMOUS, DA_SERVICE_TOKEN } from '@delon/auth';
+import { ALLOW_ANONYMOUS, DA_SERVICE_TOKEN, ITokenService } from '@delon/auth';
 import { SettingsService, _HttpClient } from '@delon/theme';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -45,8 +45,8 @@ export class UserLoginComponent {
   private readonly message = inject(NzMessageService);
 
   form = inject(FormBuilder).nonNullable.group({
-    userName: ['', [Validators.required, Validators.pattern(/^(admin|user)$/)]],
-    password: ['', [Validators.required, Validators.pattern(/^(ng-alain\.com)$/)]],
+    username: ['', [Validators.required]],
+    password: ['', [Validators.required]],
     remember: [true]
   });
   error = '';
@@ -55,12 +55,12 @@ export class UserLoginComponent {
 
   submit(): void {
     this.error = '';
-    const { userName, password } = this.form.controls;
-    userName.markAsDirty();
-    userName.updateValueAndValidity();
+    const { username, password } = this.form.controls;
+    username.markAsDirty();
+    username.updateValueAndValidity();
     password.markAsDirty();
     password.updateValueAndValidity();
-    if (userName.invalid || password.invalid) {
+    if (username.invalid || password.invalid) {
       return;
     }
 
@@ -68,10 +68,9 @@ export class UserLoginComponent {
     this.cdr.detectChanges();
     this.http
       .post(
-        '/login/account',
+        '/api/auth/login',
         {
-          type: 'account',
-          userName: this.form.value.userName,
+          username: this.form.value.username,
           password: this.form.value.password
         },
         null,
@@ -85,25 +84,35 @@ export class UserLoginComponent {
           this.cdr.detectChanges();
         })
       )
-      .subscribe(res => {
-        if (res.msg !== 'ok') {
-          this.error = res.msg;
-          this.cdr.detectChanges();
-          return;
-        }
-        // 清空路由复用信息
-        this.reuseTabService?.clear();
-        // 设置用户Token信息
-        res.user.expired = +new Date() + 1000 * 60 * 5;
-        this.tokenService.set(res.user);
-        // 重新获取 StartupService 内容，我们始终认为应用信息一般都会受当前用户授权范围而影响
-        this.startupSrv.load().subscribe(() => {
-          let url = this.tokenService.referrer!.url || '/';
-          if (url.includes('/passport')) {
-            url = '/';
+      .subscribe({
+        next: (res: any) => {
+          if (res.code !== 200) {
+            this.error = res.message;
+            this.cdr.detectChanges();
+            return;
           }
-          this.router.navigateByUrl(url);
-        });
+          // 清空路由复用信息
+          this.reuseTabService?.clear();
+          // 设置用户Token信息
+          const token = {
+            token: res.data.access_token,
+            refresh_token: res.data.refresh_token,
+            expired: Date.now() + res.data.expires_in * 1000
+          };
+          this.tokenService.set(token);
+          // 重新获取 StartupService 内容，我们始终认为应用信息一般都会受当前用户授权范围而影响
+          this.startupSrv.load().subscribe(() => {
+            let url = this.tokenService.referrer!.url || '/';
+            if (url.includes('/passport')) {
+              url = '/';
+            }
+            this.router.navigateByUrl(url);
+          });
+        },
+        error: (err) => {
+          this.error = err.error?.message || '登录失败，请稍后重试';
+          this.cdr.detectChanges();
+        }
       });
   }
 

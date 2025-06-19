@@ -1,12 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { _HttpClient } from '@delon/theme';
-import { Observable } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
-export class HealthService {
+export class SysRoleService {
   private readonly http = inject(_HttpClient);
-
-  checkHealth(): Observable<any> {
-    return this.http.get('/api/health');
-  }
-} 
+}

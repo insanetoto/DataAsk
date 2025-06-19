@@ -1,40 +1,44 @@
+@if (error) {
+  <nz-alert [nzType]="'error'" [nzMessage]="error" [nzShowIcon]="true" class="mb-lg" />
+}
+
 <form nz-form [formGroup]="form" (ngSubmit)="submit()" role="form">
-  @if (error) {
-    <nz-alert [nzType]="'error'" [nzMessage]="error" [nzShowIcon]="true" class="mb-lg" />
-  }
   <nz-form-item>
-    <nz-form-control nzErrorTip="请输入用户名，必须是: admin 或 user">
-      <nz-input-group nzSize="large" nzPrefixIcon="user">
-        <input nz-input formControlName="userName" placeholder="用户名: admin 或 user" />
+    <nz-form-control [nzErrorTip]="'请输入用户名!'">
+      <nz-input-group nzSize="large" nzPrefixIcon="user-outlined">
+        <input nz-input formControlName="username" placeholder="用户名" />
       </nz-input-group>
     </nz-form-control>
   </nz-form-item>
   <nz-form-item>
-    <nz-form-control nzErrorTip="请输入密码">
-      <nz-input-group nzSize="large" nzPrefixIcon="lock">
-        <input nz-input type="password" formControlName="password" placeholder="请输入密码" />
+    <nz-form-control [nzErrorTip]="'请输入密码!'">
+      <nz-input-group nzSize="large" nzPrefixIcon="lock-outlined">
+        <input nz-input type="password" formControlName="password" placeholder="密码" />
       </nz-input-group>
     </nz-form-control>
   </nz-form-item>
   <nz-form-item>
-    <nz-col [nzSpan]="12">
-      <label nz-checkbox formControlName="remember">记住我</label>
-    </nz-col>
-    <nz-col [nzSpan]="12" class="text-right">
-      <a class="forgot" routerLink="/passport/register">忘记密码</a>
-    </nz-col>
+    <nz-form-control>
+      <div nz-row class="d-flex justify-content-between">
+        <div nz-col>
+          <label nz-checkbox formControlName="remember">
+            <span>记住我</span>
+          </label>
+        </div>
+        <div nz-col>
+          <a class="forgot" routerLink="/passport/register">注册账号</a>
+        </div>
+      </div>
+    </nz-form-control>
   </nz-form-item>
   <nz-form-item>
     <button nz-button type="submit" nzType="primary" nzSize="large" [nzLoading]="loading" nzBlock>
       登录
     </button>
   </nz-form-item>
-  <nz-form-item>
-    <button nz-button nzType="default" nzSize="large" (click)="testBackend()" [nzLoading]="testLoading" nzBlock>
-      测试后端连接
-    </button>
-  </nz-form-item>
 </form>
 <div class="other">
-  <a class="register" routerLink="/passport/register">注册账户</a>
+  <button nz-button nzType="link" nzSize="large" (click)="testBackend()" [nzLoading]="testLoading">
+    测试后端连接
+  </button>
 </div>

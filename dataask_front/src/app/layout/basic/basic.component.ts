@@ -1,9 +1,8 @@
 import { Component, inject } from '@angular/core';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { RouterOutlet } from '@angular/router';
 import { SettingsService, User } from '@delon/theme';
 import { LayoutDefaultModule, LayoutDefaultOptions } from '@delon/theme/layout-default';
 import { SettingDrawerModule } from '@delon/theme/setting-drawer';
-import { ThemeBtnComponent } from '@delon/theme/theme-btn';
 import { environment } from '@env/environment';
 import { NzAvatarModule } from 'ng-zorro-antd/avatar';
 import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
@@ -18,17 +17,7 @@ import { HeaderUserComponent } from './widgets/user.component';
 @Component({
   selector: 'layout-basic',
   template: `
-    <layout-default [options]="options" [asideUser]="asideUserTpl" [content]="contentTpl" [customError]="null">
-      <layout-default-header-item direction="left">
-        <a layout-default-header-item-trigger href="//github.com/ng-alain/ng-alain" target="_blank">
-          <nz-icon nzType="github" />
-        </a>
-      </layout-default-header-item>
-      <layout-default-header-item direction="left" hidden="mobile">
-        <a layout-default-header-item-trigger routerLink="/passport/lock">
-          <nz-icon nzType="lock" />
-        </a>
-      </layout-default-header-item>
+    <layout-default [options]="options" [content]="contentTpl" [customError]="null">
       <layout-default-header-item direction="left" hidden="pc">
         <div layout-default-header-item-trigger (click)="searchToggleStatus = !searchToggleStatus">
           <nz-icon nzType="search" />
@@ -55,21 +44,6 @@ import { HeaderUserComponent } from './widgets/user.component';
       <layout-default-header-item direction="right">
         <header-user />
       </layout-default-header-item>
-      <ng-template #asideUserTpl>
-        <div nz-dropdown nzTrigger="click" [nzDropdownMenu]="userMenu" class="alain-default__aside-user">
-          <nz-avatar class="alain-default__aside-user-avatar" [nzSrc]="user.avatar" />
-          <div class="alain-default__aside-user-info">
-            <strong>{{ user.name }}</strong>
-            <p class="mb0">{{ user.email }}</p>
-          </div>
-        </div>
-        <nz-dropdown-menu #userMenu="nzDropdownMenu">
-          <ul nz-menu>
-            <li nz-menu-item routerLink="/pro/account/center">个人中心</li>
-            <li nz-menu-item routerLink="/pro/account/settings">个人设置</li>
-          </ul>
-        </nz-dropdown-menu>
-      </ng-template>
       <ng-template #contentTpl>
         <router-outlet />
       </ng-template>
@@ -77,14 +51,11 @@ import { HeaderUserComponent } from './widgets/user.component';
     @if (showSettingDrawer) {
       <setting-drawer />
     }
-    <theme-btn />
   `,
   imports: [
     RouterOutlet,
-    RouterLink,
     LayoutDefaultModule,
     SettingDrawerModule,
-    ThemeBtnComponent,
     NzIconModule,
     NzMenuModule,
     NzDropDownModule,

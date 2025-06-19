@@ -14,6 +14,7 @@ import screenfull from 'screenfull';
       (click)="toggle()"
     ></i>
   `,
+  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NzIconModule, NzToolTipModule]
 })
