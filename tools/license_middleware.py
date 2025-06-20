@@ -56,7 +56,9 @@ class LicenseMiddleware:
             if (request.path.startswith('/static/') or 
                 request.path == '/' or 
                 request.path == '/favicon.ico' or
-                request.path.startswith('/api/v1/license')):
+                request.path.startswith('/api/v1/license') or
+                request.path == '/api/auth/login' or
+                request.path == '/api/auth/refresh'):
                 return
             
             # 验证License

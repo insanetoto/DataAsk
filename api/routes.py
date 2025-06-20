@@ -10,9 +10,9 @@ from AIEngine.vanna_service import get_vanna_service
 from tools.database import get_database_service
 from tools.redis_service import get_redis_service
 from service.organization_service import get_organization_service
-from service.user_service import get_user_service, UserService
-from service.role_service import get_role_service, RoleService
-from service.permission_service import get_permission_service, PermissionService
+from service.user_service import get_user_service
+from service.role_service import get_role_service
+from service.permission_service import get_permission_service
 from tools.auth_middleware import token_required, token_service
 
 # License授权检查
@@ -28,15 +28,8 @@ logger = logging.getLogger(__name__)
 # 创建蓝图
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
-# 延迟初始化用户服务
-user_service = None
-permission_service = None
-
 def get_user_service_instance():
-    global user_service
-    if user_service is None:
-        user_service = UserService()
-    return user_service
+    return get_user_service()
 
 @api_bp.route('/health', methods=['GET'])
 def health_check():
@@ -599,43 +592,59 @@ def move_organization(org_code):
 def login():
     """用户登录"""
     try:
+        logger.info("收到登录请求")
         data = request.get_json()
+        if not data:
+            logger.warning("请求数据为空")
+            return jsonify({
+                'success': False,
+                'error': '无效的请求数据'
+            }), 400
+            
+        logger.info(f"登录请求数据: {data}")
+        
         username = data.get('username')
         password = data.get('password')
 
         if not username or not password:
+            logger.warning("用户名或密码为空")
             return jsonify({
-                'code': 400,
-                'message': '用户名和密码不能为空'
+                'success': False,
+                'error': '用户名和密码不能为空'
             }), 400
 
+        logger.info(f"开始验证用户: {username}")
         # 验证用户
         user = get_user_service_instance().authenticate_user(username, password)
         if not user:
+            logger.warning(f"用户验证失败: {username}")
             return jsonify({
-                'code': 401,
-                'message': '用户名或密码错误'
+                'success': False,
+                'error': '用户名或密码错误'
             }), 401
 
+        logger.info(f"用户验证成功，开始生成令牌: {username}")
         # 生成令牌
         tokens = get_user_service_instance().create_tokens(user)
         if not tokens:
+            logger.error(f"令牌生成失败: {username}")
             return jsonify({
-                'code': 500,
-                'message': '生成令牌失败'
+                'success': False,
+                'error': '生成令牌失败'
             }), 500
         
+        logger.info(f"登录成功: {username}")
         return jsonify({
-            'code': 200,
-            'message': '登录成功',
-            'data': tokens
-        })
+            'success': True,
+            'data': tokens,
+            'message': '登录成功'
+        }), 200
         
     except Exception as e:
-        logger.error(f"登录失败: {str(e)}")
+        logger.error(f"登录过程出错: {str(e)}")
         return jsonify({
-            'code': 500,
-            'message': f'登录失败: {str(e)}'
+            'success': False,
+            'error': f'登录失败: {str(e)}'
         }), 500
 
 @api_bp.route('/auth/refresh', methods=['POST'])

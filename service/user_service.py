@@ -10,6 +10,7 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import bcrypt
 import jwt
+from service.permission_service import get_permission_service
 from tools.database import get_database_service, get_db_session
 from tools.redis_service import get_redis_service, RedisService
 from sqlalchemy import text, select, func
@@ -54,15 +55,12 @@ class UserService:
                         'error': f'用户编码 {data["user_code"]} 已存在'
                     }
                 
-                # 加密密码
-                password_hash = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
-                
                 # 准备用户数据
                 user_data = {
                     'org_code': data['org_code'],
                     'user_code': data['user_code'],
                     'username': data['username'],
-                    'password_hash': password_hash,
+                    'password_hash': data['password'],  # 直接存储明文密码
                     'role_id': data['role_id'],
                     'phone': data.get('phone'),
                     'address': data.get('address'),
@@ -129,15 +127,35 @@ class UserService:
             
             # 从数据库查询
             with get_db_session() as session:
-                user = session.get(User, user_id)
+                result = session.execute(
+                    text("""
+                        SELECT u.*, r.role_code, o.org_name 
+                        FROM users u 
+                        JOIN roles r ON u.role_id = r.id 
+                        JOIN organizations o ON u.org_code = o.org_code 
+                        WHERE u.id = :user_id
+                    """),
+                    {"user_id": user_id}
+                ).fetchone()
                 
-                if not user:
+                if not result:
                     return {
                         'success': False,
                         'error': '用户不存在或已禁用'
                     }
                 
-                user_info = user.to_dict()
+                user_info = {
+                    'id': result.id,
+                    'org_code': result.org_code,
+                    'user_code': result.user_code,
+                    'username': result.username,
+                    'role_id': result.role_id,
+                    'role_code': result.role_code,
+                    'org_name': result.org_name,
+                    'status': result.status,
+                    'created_at': str(result.created_at),
+                    'updated_at': str(result.updated_at) if result.updated_at else None
+                }
                 
                 # 缓存数据
                 redis_service.set_cache(cache_key, json.dumps(user_info, default=str), self.cache_timeout)
@@ -171,15 +189,35 @@ class UserService:
             
             # 从数据库查询
             with get_db_session() as session:
-                user = session.scalar(select(User).where(User.user_code == user_code))
+                result = session.execute(
+                    text("""
+                        SELECT u.*, r.role_code, o.org_name 
+                        FROM users u 
+                        JOIN roles r ON u.role_id = r.id 
+                        JOIN organizations o ON u.org_code = o.org_code 
+                        WHERE u.user_code = :user_code
+                    """),
+                    {"user_code": user_code}
+                ).fetchone()
                 
-                if not user:
+                if not result:
                     return {
                         'success': True,
                         'data': None
                     }
                 
-                user_info = user.to_dict()
+                user_info = {
+                    'id': result.id,
+                    'org_code': result.org_code,
+                    'user_code': result.user_code,
+                    'username': result.username,
+                    'role_id': result.role_id,
+                    'role_code': result.role_code,
+                    'org_name': result.org_name,
+                    'status': result.status,
+                    'created_at': str(result.created_at),
+                    'updated_at': str(result.updated_at) if result.updated_at else None
+                }
                 
                 # 缓存数据
                 redis_service.set_cache(cache_key, json.dumps(user_info, default=str), self.cache_timeout)
@@ -196,17 +234,21 @@ class UserService:
                 'error': f'获取用户信息失败: {str(e)}'
             }
     
-    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
+    def verify_password(self, plain_password: str, stored_password: str) -> bool:
         """验证密码"""
         try:
-            # 如果哈希密码是字符串，需要先编码
-            if isinstance(hashed_password, str):
-                hashed_password = hashed_password.encode('utf-8')
-            logger.info(f"Plain password: {plain_password}")
-            logger.info(f"Hashed password: {hashed_password}")
-            result = bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password)
-            logger.info(f"Password verification result: {result}")
+            if not plain_password or not stored_password:
+                logger.warning("密码为空")
+                return False
+            
+            logger.info(f"明文密码: {plain_password}")
+            logger.info(f"存储的密码: {stored_password}")
+            
+            # 直接比较明文密码
+            result = plain_password == stored_password
+            logger.info(f"密码验证结果: {result}")
             return result
+            
         except Exception as e:
             logger.error(f"密码验证失败: {str(e)}")
             return False
@@ -214,172 +256,135 @@ class UserService:
     def authenticate_user(self, username: str, password: str):
         """验证用户"""
         try:
+            logger.info(f"开始验证用户: {username}")
+            
+            # 查询用户
             with get_db_session() as session:
-                # 查询用户（支持用户名或用户编码登录）
-                logger.info(f"Authenticating user: {username}")
-                result = session.execute(
-                    text("""
-                        SELECT u.*, r.role_code, o.org_name 
-                        FROM users u 
-                        JOIN roles r ON u.role_id = r.id 
-                        JOIN organizations o ON u.org_code = o.org_code 
-                        WHERE (u.username = :username OR u.user_code = :username) 
-                        AND u.status = 1
-                    """),
-                    {"username": username}
-                ).fetchone()
-
+                sql = """
+                    SELECT u.*, r.role_code, o.org_name 
+                    FROM users u 
+                    JOIN roles r ON u.role_id = r.id 
+                    JOIN organizations o ON u.org_code = o.org_code 
+                    WHERE (u.username = :username OR u.user_code = :username) 
+                    AND u.status = 1
+                """
+                logger.info(f"执行SQL查询: {sql}")
+                logger.info(f"查询参数: username={username}")
+                result = session.execute(text(sql), {"username": username}).fetchone()
+                
                 if not result:
                     logger.warning(f"用户不存在或已禁用: {username}")
                     return None
+                
+                logger.info(f"找到用户: {username}")
+                
+                # 将查询结果转换为字典
+                user_data = {
+                    'id': result.id,
+                    'username': result.username,
+                    'user_code': result.user_code,
+                    'password_hash': result.password_hash,
+                    'org_code': result.org_code,
+                    'org_name': result.org_name,
+                    'role_code': result.role_code
+                }
+                
+                logger.info(f"用户数据: {user_data}")
 
                 # 验证密码
-                logger.info(f"Found user: {result.username}, password_hash: {result.password_hash}")
-                password_hash = result.password_hash
-                if isinstance(password_hash, str):
-                    password_hash = password_hash.encode('utf-8')
-                if not self.verify_password(password, password_hash):
+                logger.info(f"开始验证密码")
+                if not self.verify_password(password, user_data['password_hash']):
                     logger.warning(f"密码验证失败: {username}")
                     return None
-
-                # 更新登录信息
-                session.execute(
-                    text("""
-                        UPDATE users 
-                        SET last_login_at = :login_time, 
-                            login_count = login_count + 1 
-                        WHERE id = :user_id
-                    """),
-                    {
-                        "login_time": datetime.now(),
-                        "user_id": result.id
-                    }
-                )
-                session.commit()
-
+                
+                logger.info(f"密码验证成功: {username}")
+                
                 return {
-                    "user_id": result.id,
-                    "username": result.username,
-                    "user_code": result.user_code,
-                    "org_code": result.org_code,
-                    "org_name": result.org_name,
-                    "role_code": result.role_code,
-                    "avatar": result.avatar if hasattr(result, 'avatar') else None,
-                    "email": result.email if hasattr(result, 'email') else None
+                    "user_id": user_data['id'],
+                    "username": user_data['username'],
+                    "user_code": user_data['user_code'],
+                    "org_code": user_data['org_code'],
+                    "org_name": user_data['org_name'],
+                    "role_code": user_data['role_code']
                 }
-
+                
         except Exception as e:
-            logger.error(f"用户认证失败: {str(e)}")
-            return None
+            logger.error(f"用户验证失败: {str(e)}")
+            raise
 
-    def create_tokens(self, user_data: dict):
-        """创建访问令牌和刷新令牌"""
+    def create_tokens(self, user_info: Dict[str, Any]) -> Dict[str, str]:
+        """生成访问令牌和刷新令牌"""
         try:
-            # 创建访问令牌
-            access_token_expires = datetime.utcnow() + timedelta(minutes=self.ACCESS_TOKEN_EXPIRE_MINUTES)
-            access_token_data = {
-                **user_data,
-                "exp": access_token_expires,
-                "token_type": "access"
+            # 生成访问令牌
+            access_token_payload = {
+                'user_id': user_info['user_id'],
+                'username': user_info['username'],
+                'user_code': user_info['user_code'],
+                'org_code': user_info['org_code'],
+                'role_code': user_info['role_code'],
+                'type': 'access',
+                'exp': datetime.utcnow() + timedelta(minutes=30)  # 30分钟过期
             }
-            access_token = jwt.encode(access_token_data, self.JWT_SECRET, algorithm="HS256")
-
-            # 创建刷新令牌
-            refresh_token_expires = datetime.utcnow() + timedelta(days=self.REFRESH_TOKEN_EXPIRE_DAYS)
-            refresh_token_data = {
-                "user_id": user_data["user_id"],
-                "exp": refresh_token_expires,
-                "token_type": "refresh"
-            }
-            refresh_token = jwt.encode(refresh_token_data, self.JWT_SECRET, algorithm="HS256")
-
-            # 将令牌存储在Redis中
-            self.redis.set_token(
-                f"access_token:{user_data['user_id']}", 
-                access_token,
-                self.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-            )
-            self.redis.set_token(
-                f"refresh_token:{user_data['user_id']}", 
-                refresh_token,
-                self.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
-            )
-
-            return {
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-                "expires_in": self.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # 转换为秒
-                "token_type": "Bearer"
-            }
-
-        except Exception as e:
-            logger.error(f"创建令牌失败: {str(e)}")
-            return None
-
-    def refresh_access_token(self, refresh_token: str):
-        """使用刷新令牌获取新的访问令牌"""
-        try:
-            # 验证刷新令牌
-            payload = jwt.decode(refresh_token, self.JWT_SECRET, algorithms=["HS256"])
-            if payload["token_type"] != "refresh":
-                return None
-
-            user_id = payload["user_id"]
-            stored_refresh_token = self.redis.get_token(f"refresh_token:{user_id}")
+            access_token = jwt.encode(access_token_payload, self.JWT_SECRET, algorithm='HS256')
             
-            if not stored_refresh_token or stored_refresh_token != refresh_token:
-                return None
-
-            # 获取用户信息
-            with get_db_session() as session:
-                result = session.execute(
-                    text("""
-                        SELECT u.*, r.role_code, o.org_name 
-                        FROM users u 
-                        JOIN roles r ON u.role_id = r.id 
-                        JOIN organizations o ON u.org_code = o.org_code 
-                        WHERE u.id = :user_id AND u.status = 1
-                    """),
-                    {"user_id": user_id}
-                ).fetchone()
-
-                if not result:
-                    return None
-
-                user_data = {
-                    "user_id": result.id,
-                    "username": result.username,
-                    "org_code": result.org_code,
-                    "org_name": result.org_name,
-                    "role_code": result.role_code
-                }
-
-            # 创建新的访问令牌
-            access_token_expires = datetime.utcnow() + timedelta(minutes=self.ACCESS_TOKEN_EXPIRE_MINUTES)
-            access_token_data = {
-                **user_data,
-                "exp": access_token_expires,
-                "token_type": "access"
+            # 生成刷新令牌
+            refresh_token_payload = {
+                'user_id': user_info['user_id'],
+                'type': 'refresh',
+                'exp': datetime.utcnow() + timedelta(days=7)  # 7天过期
             }
-            new_access_token = jwt.encode(access_token_data, self.JWT_SECRET, algorithm="HS256")
-
-            # 更新Redis中的访问令牌
-            self.redis.set_token(
-                f"access_token:{user_id}", 
-                new_access_token,
-                expire_time=self.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-            )
-
+            refresh_token = jwt.encode(refresh_token_payload, self.JWT_SECRET, algorithm='HS256')
+            
+            # 存储刷新令牌到Redis
+            redis_service = get_redis_service()
+            refresh_token_key = f"refresh_token:{user_info['user_id']}"
+            redis_service.set_cache(refresh_token_key, refresh_token, 7 * 24 * 60 * 60)  # 7天过期
+            
             return {
-                "access_token": new_access_token,
-                "token_type": "bearer",
-                "expires_in": self.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+                'access_token': access_token,
+                'refresh_token': refresh_token,
+                'token_type': 'Bearer',
+                'expires_in': 1800  # 30分钟（秒）
             }
-
+        except Exception as e:
+            logger.error(f"生成令牌失败: {str(e)}")
+            raise Exception('令牌生成失败')
+            
+    def verify_token(self, token: str) -> Dict[str, Any]:
+        """验证令牌"""
+        try:
+            # 解码并验证令牌
+            payload = jwt.decode(token, self.JWT_SECRET, algorithms=['HS256'])
+            
+            # 检查令牌类型
+            if payload.get('type') != 'access':
+                raise Exception('无效的令牌类型')
+            
+            # 获取用户信息
+            user_info = self.get_user_by_id(payload['user_id'])
+            if not user_info['success']:
+                raise Exception('用户不存在或已禁用')
+            
+            return {
+                'success': True,
+                'data': user_info['data']
+            }
         except jwt.ExpiredSignatureError:
-            return None
+            return {
+                'success': False,
+                'error': '令牌已过期'
+            }
         except jwt.InvalidTokenError:
-            return None
+            return {
+                'success': False,
+                'error': '无效的令牌'
+            }
+        except Exception as e:
+            logger.error(f"验证令牌失败: {str(e)}")
+            return {
+                'success': False,
+                'error': f'令牌验证失败: {str(e)}'
+            }
 
     def revoke_tokens(self, user_id: int):
         """撤销用户的所有令牌"""
@@ -403,36 +408,68 @@ class UserService:
                     'data': json.loads(cached_data)
                 }
             
-            query = select(User)
-            if keyword:
-                query = query.where(
-                    (User.username.like(f"%{keyword}%")) |
-                    (User.real_name.like(f"%{keyword}%")) |
-                    (User.phone.like(f"%{keyword}%"))
-                )
-            if status is not None:
-                query = query.where(User.status == status)
-
-            total = self.db_service.scalar(select(func.count()).select_from(query.subquery()))
-            query = query.offset((page - 1) * page_size).limit(page_size)
-            users = self.db_service.scalars(query).all()
-            
-            result_data = {
-                'list': [user.to_dict() for user in users],
-                'pagination': {
-                    'total': total,
-                    'page': page,
-                    'page_size': page_size
+            # 构建SQL查询
+            with get_db_session() as session:
+                # 计算总数
+                count_sql = """
+                    SELECT COUNT(*) as total
+                    FROM users u
+                    JOIN roles r ON u.role_id = r.id
+                    JOIN organizations o ON u.org_code = o.org_code
+                    WHERE 1=1
+                """
+                params = {}
+                
+                if keyword:
+                    count_sql += " AND (u.username LIKE :keyword OR u.user_code LIKE :keyword)"
+                    params['keyword'] = f"%{keyword}%"
+                if status is not None:
+                    count_sql += " AND u.status = :status"
+                    params['status'] = status
+                if org_code:
+                    count_sql += " AND u.org_code LIKE :org_code"
+                    params['org_code'] = f"{org_code}%"
+                
+                total = session.execute(text(count_sql), params).scalar()
+                
+                # 查询用户列表
+                sql = """
+                    SELECT u.*, r.role_code, r.role_name, o.org_name
+                    FROM users u
+                    JOIN roles r ON u.role_id = r.id
+                    JOIN organizations o ON u.org_code = o.org_code
+                    WHERE 1=1
+                """
+                
+                if keyword:
+                    sql += " AND (u.username LIKE :keyword OR u.user_code LIKE :keyword)"
+                if status is not None:
+                    sql += " AND u.status = :status"
+                if org_code:
+                    sql += " AND u.org_code LIKE :org_code"
+                
+                sql += " ORDER BY u.created_at DESC LIMIT :offset, :limit"
+                params['offset'] = (page - 1) * page_size
+                params['limit'] = page_size
+                
+                users = session.execute(text(sql), params).fetchall()
+                
+                result_data = {
+                    'list': [dict(user) for user in users],
+                    'pagination': {
+                        'total': total,
+                        'page': page,
+                        'page_size': page_size
+                    }
                 }
-            }
-            
-            # 缓存结果
-            redis_service.set_cache(cache_key, json.dumps(result_data, default=str), 600)  # 10分钟
-            
-            return {
-                'success': True,
-                'data': result_data
-            }
+                
+                # 缓存结果
+                redis_service.set_cache(cache_key, json.dumps(result_data, default=str), 600)  # 10分钟
+                
+                return {
+                    'success': True,
+                    'data': result_data
+                }
             
         except Exception as e:
             logger.error(f"获取用户列表失败: {str(e)}")
@@ -600,57 +637,62 @@ class UserService:
 
     def get_user_permissions(self, user_id: int) -> List[dict]:
         """获取用户权限列表"""
-        with get_db_session() as session:
-            user = session.get(User, user_id)
-            if not user:
-                return []
-            return [permission.to_dict() for permission in user.permissions]
-
-    def verify_password(self, username: str, password: str) -> Optional[dict]:
-        """验证用户密码"""
-        with get_db_session() as session:
-            user = session.scalar(select(User).where(User.username == username))
-            if not user:
-                return None
-            
-            if not self.verify_password(password, user.password_hash):
-                return None
-            
-            return user.to_dict()
+        permission_service = get_permission_service()
+        return permission_service.get_user_permissions(user_id)
 
     def change_password(self, user_id: int, old_password: str, new_password: str) -> bool:
-        """修改用户密码"""
+        """修改密码"""
         try:
+            # 获取用户信息
+            user_info = self.get_user_by_id(user_id)
+            if not user_info['success']:
+                return False
+            
+            # 验证旧密码
+            if not self.verify_password(old_password, user_info['data']['password_hash']):
+                return False
+            
+            # 更新密码
             with get_db_session() as session:
-                user = session.get(User, user_id)
-                if not user:
-                    return False
-                
-                if not self.verify_password(old_password, user.password_hash):
-                    return False
-                
-                # 加密新密码
-                salt = bcrypt.gensalt()
-                password_hash = bcrypt.hashpw(new_password.encode('utf-8'), salt)
-                user.password_hash = password_hash
-                
+                sql = """
+                    UPDATE users 
+                    SET password_hash = :new_password,
+                        updated_at = NOW()
+                    WHERE id = :user_id
+                """
+                session.execute(text(sql), {
+                    'user_id': user_id,
+                    'new_password': self._hash_password(new_password)
+                })
                 session.commit()
-                return True
+            
+            return True
+            
         except Exception as e:
             logger.error(f"修改密码失败: {str(e)}")
             return False
 
-# 全局用户服务实例
-user_service = None
+    def _hash_password(self, password: str) -> str:
+        """对密码进行哈希处理"""
+        try:
+            # 使用bcrypt加密密码
+            salt = bcrypt.gensalt()
+            hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+            return hashed.decode('utf-8')
+        except Exception as e:
+            logger.error(f"密码加密失败: {str(e)}")
+            raise
 
-def init_user_service():
-    """初始化用户管理服务"""
-    global user_service
-    user_service = UserService()
-    return user_service
+# 创建单例实例
+_user_service_instance = None
 
-def get_user_service():
-    """获取用户管理服务实例"""
-    if user_service is None:
-        return init_user_service()
-    return user_service 
+def get_user_service_instance() -> UserService:
+    """获取UserService的单例实例"""
+    global _user_service_instance
+    if _user_service_instance is None:
+        _user_service_instance = UserService()
+    return _user_service_instance
+
+# 保持原有的get_user_service函数以兼容现有代码
+def get_user_service() -> UserService:
+    return get_user_service_instance() 

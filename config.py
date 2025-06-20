@@ -8,6 +8,7 @@ class Config:
     # 基础配置
     SECRET_KEY = 'dev-secret-key'
     DEBUG = True
+    PORT = 9000  # 后端服务端口号，固定为9000
     
     # License配置
     LICENSE_ENABLED = False

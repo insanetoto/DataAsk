@@ -8,7 +8,7 @@ from functools import wraps
 from typing import Dict, Any, Optional
 import jwt
 from flask import request, jsonify, g
-from service.user_service import get_user_service
+from service.user_service import get_user_service, get_user_service_instance
 from service.permission_service import get_permission_service
 from tools.redis_service import get_redis_service
 from config import Config
@@ -24,7 +24,7 @@ class TokenService:
         self.redis = get_redis_service()
         self.access_token_expires = 1800  # 30分钟
         self.refresh_token_expires = 604800  # 7天
-        self.secret_key = "your-secret-key"  # 应从配置文件读取
+        self.secret_key = JWT_SECRET  # 使用配置中的密钥
         
     def _generate_token(self, user_id: int, token_type: str = "access") -> str:
         """生成JWT token"""
@@ -130,15 +130,6 @@ def auth_required(f):
             payload = verify_token(token)
             user_id = payload.get('user_id')
             
-            # 检查token是否在Redis中
-            redis_service = get_redis_service()
-            stored_token = redis_service.get_token(f"access_token:{user_id}")
-            if not stored_token or stored_token != token:
-                return jsonify({
-                    'success': False,
-                    'error': 'Token已失效'
-                }), 401
-            
             # 获取用户信息（不检查状态）
             user_service = get_user_service()
             user = user_service._get_user_by_id_without_status_check(user_id)
@@ -175,75 +166,44 @@ def auth_required(f):
     return decorated
 
 def token_required(f):
-    """Token验证装饰器"""
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
         
-        # 从请求头获取token
+        # 从请求头获取令牌
         auth_header = request.headers.get('Authorization')
         if auth_header:
             try:
-                token = auth_header.split(" ")[1]
-            except IndexError:
+                token_type, token = auth_header.split(' ')
+                if token_type.lower() != 'bearer':
+                    return jsonify({
+                        'code': 401,
+                        'message': '无效的令牌类型'
+                    }), 401
+            except ValueError:
                 return jsonify({
-                    'success': False,
-                    'error': '无效的Authorization头'
+                    'code': 401,
+                    'message': '无效的Authorization头'
                 }), 401
         
         if not token:
             return jsonify({
-                'success': False,
-                'error': '缺少Token'
+                'code': 401,
+                'message': '缺少访问令牌'
             }), 401
-        
-        try:
-            # 验证token
-            payload = verify_token(token)
-            user_id = payload.get('user_id')
             
-            # 检查token是否在Redis中
-            redis_service = get_redis_service()
-            stored_token = redis_service.get_token(f"access_token:{user_id}")
-            if not stored_token or stored_token != token:
-                return jsonify({
-                    'success': False,
-                    'error': 'Token已失效'
-                }), 401
-            
-            # 获取用户信息（不检查状态）
-            user_service = get_user_service()
-            user = user_service._get_user_by_id_without_status_check(user_id)
-            if not user['success']:
-                return jsonify({
-                    'success': False,
-                    'error': '用户不存在'
-                }), 401
-            
-            # 检查用户状态
-            if user['data']['status'] != 1:
-                return jsonify({
-                    'success': False,
-                    'error': '用户已禁用'
-                }), 401
-            
-            # 获取用户权限
-            permission_service = get_permission_service()
-            permissions = permission_service.get_user_permissions(user_id)
-            if permissions['success']:
-                user['data']['permissions'] = permissions['data']
-            
-            # 保存用户信息到g对象
-            g.current_user = user['data']
-            return f(*args, **kwargs)
-            
-        except Exception as e:
-            logger.error(f"Token验证失败: {str(e)}")
+        # 验证令牌
+        result = get_user_service_instance().verify_token(token)
+        if not result['success']:
             return jsonify({
-                'success': False,
-                'error': f'Token验证失败: {str(e)}'
+                'code': 401,
+                'message': result['error']
             }), 401
             
+        # 将用户信息添加到请求上下文
+        request.user = result['data']
+        return f(*args, **kwargs)
+        
     return decorated
 
 def permission_required(permission_code):

@@ -12,6 +12,7 @@ from tools.database import init_database_service
 from tools.redis_service import get_redis_service
 from AIEngine.vanna_service import init_vanna_service
 from service.organization_service import init_organization_service
+from service.user_service import get_user_service_instance
 from api.routes import api_bp
 from datetime import datetime
 
@@ -36,7 +37,7 @@ def create_app(config_name='default'):
     # 启用CORS
     CORS(app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:4200"],
+            "origins": ["*"],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"]
         }
@@ -107,6 +108,11 @@ def init_services(config_obj):
         logger.info("正在初始化机构管理服务...")
         init_organization_service()
         logger.info("机构管理服务初始化成功")
+        
+        # 初始化用户服务
+        logger.info("正在初始化用户服务...")
+        get_user_service_instance()
+        logger.info("用户服务初始化成功")
         
     except Exception as e:
         logger.error(f"服务初始化失败: {str(e)}")
@@ -593,7 +599,12 @@ def register_error_handlers(app):
         }), 500
 
 if __name__ == '__main__':
-    # 创建应用实例
-    app = create_app()
-    # 启动服务器
-    app.run(host='0.0.0.0', port=9000, debug=True) 
+    try:
+        app = create_app()
+        port = app.config['PORT']
+        debug = app.config['DEBUG']
+        logger.info(f"正在启动应用，端口: {port}, 调试模式: {debug}")
+        app.run(host='0.0.0.0', port=port, debug=debug)
+    except Exception as e:
+        logger.error(f"应用启动失败: {str(e)}")
+        raise 
