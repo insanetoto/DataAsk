@@ -4,7 +4,6 @@ import { Router } from '@angular/router';
 import { ACLService } from '@delon/acl';
 import { DA_SERVICE_TOKEN } from '@delon/auth';
 import { MenuService, SettingsService, TitleService } from '@delon/theme';
-import type { NzSafeAny } from 'ng-zorro-antd/core/types';
 import { Observable, of, catchError, map } from 'rxjs';
 
 /**
@@ -33,185 +32,109 @@ export class StartupService {
   private httpClient = inject(HttpClient);
   private router = inject(Router);
 
-  private appData$ = this.httpClient.get('./assets/tmp/app-data.json').pipe(
-    catchError((res: NzSafeAny) => {
-      console.warn(`StartupService.load: Network request failed`, res);
-      setTimeout(() => this.router.navigateByUrl(`/exception/500`));
-      return of({});
-    })
-  );
-
-  private handleAppData(res: NzSafeAny): void {
-    // Application information: including site name, description, year
-    this.settingService.setApp(res.app);
-    // User information: including name, avatar, email address
-    this.settingService.setUser(res.user);
-    // ACL: Set the permissions to full, https://ng-alain.com/acl/getting-started
-    this.aclService.setFull(true);
-    // Menu data, https://ng-alain.com/theme/menu
-    this.menuService.add([
-      {
-        text: '主导航',
-        group: true,
-        children: [
-          {
-            text: '仪表盘',
-            link: '/dashboard',
-            icon: { type: 'icon', value: 'dashboard' }
-          },
-          {
-            text: '系统管理',
-            icon: { type: 'icon', value: 'setting' },
-            children: [
-              {
-                text: '组织管理',
-                link: '/sys/org'
-              },
-              {
-                text: '用户管理',
-                link: '/sys/uer'
-              },
-              {
-                text: '角色管理',
-                link: '/sys/role'
-              },
-              {
-                text: '权限管理',
-                link: '/sys/permission'
-              }
-            ]
-          },
-          {
-            text: '工作空间',
-            icon: { type: 'icon', value: 'appstore' },
-            children: [
-              {
-                text: '工作台',
-                link: '/workspace/workplace'
-              },
-              {
-                text: '仪表盘',
-                link: '/workspace/dashboard'
-              },
-              {
-                text: '报表',
-                link: '/workspace/report'
-              }
-            ]
-          },
-          {
-            text: 'AI工作区',
-            icon: { type: 'icon', value: 'robot' },
-            link: '/ai-workspace'
-          }
-        ]
-      }
-    ]);
-    // Can be set page suffix title, https://ng-alain.com/theme/title
-    this.titleService.suffix = res.app?.name;
-  }
-
   private viaHttp(): Observable<void> {
-    return this.appData$.pipe(
-      map((appData: NzSafeAny) => {
-        this.handleAppData(appData);
+    const tokenData = this.tokenService.get();
+    
+    // 设置应用基础信息
+    const app = {
+      name: '百惟数问',
+      description: '问数，洞见随心'
+    };
+    this.settingService.setApp(app);
+    this.titleService.suffix = app.name;
+
+    // 如果没有token，直接返回
+    if (!tokenData?.token) {
+      // 清空用户信息和菜单
+      this.settingService.setUser(null);
+      this.menuService.clear();
+      this.aclService.setAbility([]);
+      
+      // 如果当前不在登录页，跳转到登录页
+      if (!this.router.url.includes('/passport/login')) {
+        this.router.navigateByUrl(this.tokenService.login_url!);
+      }
+      return of(void 0);
+    }
+
+    // 有token才获取用户信息
+    return this.httpClient.get('/api/user/info').pipe(
+      map((res: any) => {
+        if (!res.success) {
+          throw new Error(res.error || '获取用户信息失败');
+        }
+        
+        // 设置用户信息
+        const user = {
+          id: res.data.user.id,
+          name: res.data.user.username,
+          avatar: res.data.user.avatar || './assets/tmp/img/avatar.jpg',
+          email: res.data.user.email || '',
+          token: tokenData?.token || ''
+        };
+        this.settingService.setUser(user);
+        
+        // 设置权限
+        if (res.data.user.permissions) {
+          this.aclService.setAbility(res.data.user.permissions);
+        } else {
+          this.aclService.setFull(true);
+        }
+        
+        // 转换菜单数据格式
+        const menus = this.transformMenuData(res.data.menus);
+        
+        // 设置菜单
+        this.menuService.add([
+          {
+            text: '主导航',
+            group: true,
+            children: menus
+          }
+        ]);
+
+        return void 0;
+      }),
+      catchError(error => {
+        console.error('获取用户信息失败:', error);
+        // 清空用户信息和菜单
+        this.settingService.setUser(null);
+        this.menuService.clear();
+        this.aclService.setAbility([]);
+        
+        // 跳转到登录页
+        this.router.navigateByUrl(this.tokenService.login_url!);
+        return of(void 0);
       })
     );
   }
 
-  private viaMock(): Observable<void> {
-    // const tokenData = this.tokenService.get();
-    // if (!tokenData.token) {
-    //   this.router.navigateByUrl(this.tokenService.login_url!);
-    //   return;
-    // }
-    // mock
-    const app: any = {
-      name: `NG-ALAIN`,
-      description: `NG-ZORRO admin panel front-end framework`
-    };
-    const user: any = {
-      name: 'Admin',
-      avatar: './assets/tmp/img/avatar.jpg',
-      email: 'cipchk@qq.com',
-      token: '123456789'
-    };
-    // Application information: including site name, description, year
-    this.settingService.setApp(app);
-    // User information: including name, avatar, email address
-    this.settingService.setUser(user);
-    // ACL: Set the permissions to full, https://ng-alain.com/acl/getting-started
-    this.aclService.setFull(true);
-    // Menu data, https://ng-alain.com/theme/menu
-    this.menuService.add([
-      {
-        text: '主导航',
-        group: true,
-        children: [
-          {
-            text: '仪表盘',
-            link: '/dashboard',
-            icon: { type: 'icon', value: 'dashboard' }
-          },
-          {
-            text: '系统管理',
-            icon: { type: 'icon', value: 'setting' },
-            children: [
-              {
-                text: '组织管理',
-                link: '/sys/org'
-              },
-              {
-                text: '用户管理',
-                link: '/sys/uer'
-              },
-              {
-                text: '角色管理',
-                link: '/sys/role'
-              },
-              {
-                text: '权限管理',
-                link: '/sys/permission'
-              }
-            ]
-          },
-          {
-            text: '工作空间',
-            icon: { type: 'icon', value: 'appstore' },
-            children: [
-              {
-                text: '工作台',
-                link: '/workspace/workplace'
-              },
-              {
-                text: '仪表盘',
-                link: '/workspace/dashboard'
-              },
-              {
-                text: '报表',
-                link: '/workspace/report'
-              }
-            ]
-          },
-          {
-            text: 'AI工作区',
-            icon: { type: 'icon', value: 'robot' },
-            link: '/ai-workspace'
-          }
-        ]
-      }
-    ]);
-    // Can be set page suffix title, https://ng-alain.com/theme/title
-    this.titleService.suffix = app.name;
+  private transformMenuData(menus: any[]): any[] {
+    return menus.map(menu => {
+      const result: any = {
+        text: menu.name,
+        icon: menu.icon ? { type: 'icon', value: menu.icon } : undefined
+      };
 
-    return of(void 0);
+      // 处理链接
+      if (menu.type === 'M') {
+        // 目录类型
+        result.group = true;
+      } else if (menu.type === 'C') {
+        // 菜单类型
+        result.link = menu.path;
+      }
+
+      // 处理子菜单
+      if (menu.children && menu.children.length > 0) {
+        result.children = this.transformMenuData(menu.children);
+      }
+
+      return result;
+    });
   }
 
   load(): Observable<void> {
-    // http
-    // return this.viaHttp();
-    // mock: Don't use it in a production environment. ViaMock is just to simulate some data to make the scaffolding work normally
-    // mock：请勿在生产环境中这么使用，viaMock 单纯只是为了模拟一些数据使脚手架一开始能正常运行
-    return this.viaMock();
+    return this.viaHttp();
   }
 }

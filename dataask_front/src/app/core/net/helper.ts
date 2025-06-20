@@ -40,8 +40,17 @@ export function toLogin(injector: Injector): void {
 export function getAdditionalHeaders(headers?: HttpHeaders): Record<string, string> {
   const res: Record<string, string> = {};
   const lang = inject(ALAIN_I18N_TOKEN).currentLang;
+  const tokenService = inject(DA_SERVICE_TOKEN);
+  
+  // 添加语言头
   if (!headers?.has('Accept-Language') && lang) {
     res['Accept-Language'] = lang;
+  }
+
+  // 添加token到Authorization头
+  const tokenData = tokenService.get();
+  if (tokenData?.token && !headers?.has('Authorization')) {
+    res['Authorization'] = `Bearer ${tokenData.token}`;
   }
 
   return res;

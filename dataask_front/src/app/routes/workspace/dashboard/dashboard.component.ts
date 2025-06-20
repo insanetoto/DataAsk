@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, inject } from '@angular/core';
+import { Component, ViewChild, inject } from '@angular/core';
 import { STColumn, STComponent } from '@delon/abc/st';
 import { SFSchema } from '@delon/form';
 import { ModalHelper, _HttpClient } from '@delon/theme';
@@ -8,8 +8,9 @@ import { SHARED_IMPORTS } from '@shared';
   selector: 'app-workspace-dashboard',
   imports: [...SHARED_IMPORTS],
   templateUrl: './dashboard.component.html',
+  standalone: true
 })
-export class WorkspaceDashboardComponent implements OnInit {
+export class WorkspaceDashboardComponent {
   private readonly http = inject(_HttpClient);
   private readonly modal = inject(ModalHelper);
 
@@ -37,12 +38,9 @@ export class WorkspaceDashboardComponent implements OnInit {
     }
   ];
 
-  ngOnInit(): void { }
-
   add(): void {
     // this.modal
     //   .createStatic(FormEditComponent, { i: { id: 0 } })
     //   .subscribe(() => this.st.reload());
   }
-
 }

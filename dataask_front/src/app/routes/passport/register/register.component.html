@@ -6,7 +6,8 @@
   <nz-form-item>
     <nz-form-control [nzErrorTip]="mailErrorTip">
       <nz-input-group nzSize="large" nzAddonBeforeIcon="user">
-        <input nz-input formControlName="mail" placeholder="邮箱" />
+        <label for="register_mail" class="visually-hidden">邮箱</label>
+        <input id="register_mail" nz-input formControlName="mail" placeholder="邮箱" />
       </nz-input-group>
       <ng-template #mailErrorTip let-i>
         @if (i.errors?.required) {
@@ -31,7 +32,8 @@
         [nzPopoverOverlayStyle]="{ 'width.px': 240 }"
         [nzPopoverContent]="pwdCdkTpl"
       >
-        <input nz-input type="password" formControlName="password" placeholder="密码" />
+        <label for="register_password" class="visually-hidden">密码</label>
+        <input id="register_password" nz-input type="password" formControlName="password" placeholder="密码" />
       </nz-input-group>
       <ng-template #pwdCdkTpl>
         <div style="padding: 4px 0">
@@ -57,7 +59,8 @@
   <nz-form-item>
     <nz-form-control [nzErrorTip]="confirmErrorTip">
       <nz-input-group nzSize="large" nzAddonBeforeIcon="lock">
-        <input nz-input type="password" formControlName="confirm" placeholder="确认密码" />
+        <label for="register_confirm" class="visually-hidden">确认密码</label>
+        <input id="register_confirm" nz-input type="password" formControlName="confirm" placeholder="确认密码" />
       </nz-input-group>
       <ng-template #confirmErrorTip let-i>
         @if (i.errors?.required) {
@@ -73,12 +76,14 @@
     <nz-form-control [nzErrorTip]="mobileErrorTip">
       <nz-input-group nzSize="large" [nzAddOnBefore]="addOnBeforeTemplate">
         <ng-template #addOnBeforeTemplate>
-          <nz-select formControlName="mobilePrefix" style="width: 100px">
+          <label for="register_mobile_prefix" class="visually-hidden">手机号前缀</label>
+          <nz-select id="register_mobile_prefix" formControlName="mobilePrefix" style="width: 100px">
             <nz-option [nzLabel]="'+86'" [nzValue]="'+86'" />
             <nz-option [nzLabel]="'+87'" [nzValue]="'+87'" />
           </nz-select>
         </ng-template>
-        <input formControlName="mobile" nz-input placeholder="手机号" />
+        <label for="register_mobile" class="visually-hidden">手机号</label>
+        <input id="register_mobile" formControlName="mobile" nz-input placeholder="手机号" />
       </nz-input-group>
       <ng-template #mobileErrorTip let-i>
         @if (i.errors?.required) {
@@ -95,7 +100,8 @@
       <div nz-row [nzGutter]="8">
         <div nz-col [nzSpan]="16">
           <nz-input-group nzSize="large" nzAddonBeforeIcon="mail">
-            <input nz-input formControlName="captcha" placeholder="验证码" />
+            <label for="register_captcha" class="visually-hidden">验证码</label>
+            <input id="register_captcha" nz-input formControlName="captcha" placeholder="验证码" />
           </nz-input-group>
         </div>
         <div nz-col [nzSpan]="8">

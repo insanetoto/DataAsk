@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { StartupService } from '@core';
 import { ReuseTabService } from '@delon/abc/reuse-tab';
-import { ALLOW_ANONYMOUS, DA_SERVICE_TOKEN, ITokenService } from '@delon/auth';
+import { ALLOW_ANONYMOUS, DA_SERVICE_TOKEN } from '@delon/auth';
 import { SettingsService, _HttpClient } from '@delon/theme';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -83,8 +83,8 @@ export class UserLoginComponent {
       )
       .subscribe({
         next: (res: any) => {
-          if (res.code !== 200) {
-            this.error = res.message;
+          if (!res.success) {
+            this.error = res.error || '登录失败';
             this.cdr.detectChanges();
             return;
           }
@@ -99,14 +99,11 @@ export class UserLoginComponent {
           this.tokenService.set(token);
           // 重新获取 StartupService 内容，我们始终认为应用信息一般都会受当前用户授权范围而影响
           this.startupSrv.load().subscribe(() => {
-            let url = this.tokenService.referrer!.url || '/';
-            if (url.includes('/passport')) {
-              url = '/';
-            }
-            this.router.navigateByUrl(url);
+            // 登录成功后直接跳转到dashboard
+            this.router.navigateByUrl('/dashboard');
           });
         },
-        error: (err) => {
+        error: err => {
           this.error = err.error?.message || '登录失败，请稍后重试';
           this.cdr.detectChanges();
         }

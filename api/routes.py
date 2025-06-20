@@ -1154,4 +1154,54 @@ def get_chart():
             }
         ]
     }
-    return jsonify(data) 
+    return jsonify(data)
+
+@api_bp.route('/user/info', methods=['GET'])
+@auth_required
+def get_user_info():
+    """获取当前登录用户信息"""
+    try:
+        current_user = g.current_user
+        if not current_user:
+            return jsonify({
+                'success': False,
+                'error': '用户未登录'
+            }), 401
+
+        # 获取用户菜单
+        from service.menu_service import get_menu_service
+        menu_service = get_menu_service()
+        menu_result = menu_service.get_user_menus(current_user['id'])
+        
+        if not menu_result['success']:
+            return jsonify({
+                'success': False,
+                'error': menu_result['error']
+            }), 500
+
+        # 构建用户信息响应
+        user_info = {
+            'success': True,
+            'data': {
+                'user': {
+                    'id': current_user['id'],
+                    'username': current_user['username'],
+                    'name': current_user['username'],
+                    'avatar': current_user.get('avatar', './assets/tmp/img/avatar.jpg'),
+                    'email': current_user.get('email', ''),
+                    'status': current_user['status'],
+                    'orgCode': current_user['org_code'],
+                    'roleCode': current_user['role_code'],
+                    'permissions': current_user.get('permissions', [])
+                },
+                'menus': menu_result['data']
+            }
+        }
+        
+        return jsonify(user_info), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'获取用户信息失败: {str(e)}'
+        }), 500 

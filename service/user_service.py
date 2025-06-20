@@ -241,13 +241,19 @@ class UserService:
                 logger.warning("密码为空")
                 return False
             
-            logger.info(f"明文密码: {plain_password}")
-            logger.info(f"存储的密码: {stored_password}")
+            logger.info("开始验证密码")
             
-            # 直接比较明文密码
-            result = plain_password == stored_password
-            logger.info(f"密码验证结果: {result}")
-            return result
+            # 使用bcrypt验证密码
+            try:
+                result = bcrypt.checkpw(
+                    plain_password.encode('utf-8'),
+                    stored_password.encode('utf-8')
+                )
+                logger.info(f"密码验证结果: {result}")
+                return result
+            except ValueError as e:
+                logger.error(f"密码格式错误: {str(e)}")
+                return False
             
         except Exception as e:
             logger.error(f"密码验证失败: {str(e)}")
@@ -522,21 +528,42 @@ class UserService:
     def _get_user_by_id_without_status_check(self, user_id: int) -> Dict[str, Any]:
         """根据ID获取用户信息（不检查状态）"""
         try:
-            user = self.db_service.get(User, user_id)
-            
-            if not user:
-                return {
-                    'success': False,
-                    'error': '用户不存在'
+            with get_db_session() as session:
+                result = session.execute(
+                    text("""
+                        SELECT u.*, r.role_code, o.org_name 
+                        FROM users u 
+                        JOIN roles r ON u.role_id = r.id 
+                        JOIN organizations o ON u.org_code = o.org_code 
+                        WHERE u.id = :user_id
+                    """),
+                    {"user_id": user_id}
+                ).fetchone()
+                
+                if not result:
+                    return {
+                        'success': False,
+                        'error': '用户不存在'
+                    }
+                
+                user_info = {
+                    'id': result.id,
+                    'org_code': result.org_code,
+                    'user_code': result.user_code,
+                    'username': result.username,
+                    'role_id': result.role_id,
+                    'role_code': result.role_code,
+                    'org_name': result.org_name,
+                    'status': result.status,
+                    'created_at': str(result.created_at),
+                    'updated_at': str(result.updated_at) if result.updated_at else None
                 }
-            
-            user_info = user.to_dict()
-            
-            return {
-                'success': True,
-                'data': user_info
-            }
-            
+                
+                return {
+                    'success': True,
+                    'data': user_info
+                }
+                
         except Exception as e:
             logger.error(f"根据ID获取用户信息失败: {str(e)}")
             return {

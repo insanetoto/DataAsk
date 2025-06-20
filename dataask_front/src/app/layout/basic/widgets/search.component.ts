@@ -29,7 +29,9 @@ import { BehaviorSubject, debounceTime, distinctUntilChanged, tap } from 'rxjs';
           <i nz-icon nzType="loading"></i>
         }
       </ng-template>
+      <label for="header_search" class="visually-hidden">搜索</label>
       <input
+        id="header_search"
         type="text"
         nz-input
         [(ngModel)]="q"
@@ -47,6 +49,21 @@ import { BehaviorSubject, debounceTime, distinctUntilChanged, tap } from 'rxjs';
       }
     </nz-autocomplete>
   `,
+  styles: [
+    `
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+    `
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, NzInputModule, NzIconModule, NzAutocompleteModule]
 })

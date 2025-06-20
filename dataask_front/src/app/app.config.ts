@@ -9,7 +9,6 @@ import {
   withHashLocation,
   RouterFeatures
 } from '@angular/router';
-import { NzConfig, provideNzConfig } from 'ng-zorro-antd/core/config';
 import { defaultInterceptor, provideStartup } from '@core';
 import { provideCellWidgets } from '@delon/abc/cell';
 import { provideSTWidgets } from '@delon/abc/st';
@@ -19,17 +18,24 @@ import { provideAlain } from '@delon/theme';
 import { AlainConfig } from '@delon/util/config';
 import { environment } from '@env/environment';
 import { CELL_WIDGETS, ST_WIDGETS, SF_WIDGETS } from '@shared';
+import { NzConfig, provideNzConfig } from 'ng-zorro-antd/core/config';
+import { ICONS } from '../style-icons';
+import { ICONS_AUTO } from '../style-icons-auto';
 import { routes } from './routes/routes';
 import { provideBindAuthRefresh } from './core/net';
-import { ICONS_AUTO } from '../style-icons-auto';
-import { ICONS } from '../style-icons';
 
 const alainConfig: AlainConfig = {
   auth: {
     login_url: '/passport/login',
     token_send_key: 'Authorization',
     token_send_template: 'Bearer ${token}',
-    token_send_place: 'header'
+    token_send_place: 'header',
+    ignores: [
+      /\/api\/auth\/login/,
+      /\/api\/auth\/refresh/,
+      /assets\//,
+      /passport\//
+    ]
   }
 };
 

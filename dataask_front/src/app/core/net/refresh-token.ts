@@ -17,14 +17,18 @@ function reAttachToken(injector: Injector, req: HttpRequest<any>): HttpRequest<a
   const token = injector.get(DA_SERVICE_TOKEN).get()?.token;
   return req.clone({
     setHeaders: {
-      token: `Bearer ${token}`
+      Authorization: `Bearer ${token}`
     }
   });
 }
 
 function refreshTokenRequest(injector: Injector): Observable<any> {
   const model = injector.get(DA_SERVICE_TOKEN).get();
-  return injector.get(HttpClient).post(`/api/auth/refresh`, { headers: { refresh_token: model?.['refresh_token'] || '' } });
+  return injector.get(HttpClient).post(`/api/auth/refresh`, null, {
+    headers: {
+      Authorization: `Bearer ${model?.['refresh_token'] || ''}`
+    }
+  });
 }
 
 /**

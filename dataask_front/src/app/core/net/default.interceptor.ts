@@ -1,5 +1,6 @@
 import { HttpErrorResponse, HttpHandlerFn, HttpInterceptorFn, HttpRequest, HttpResponseBase } from '@angular/common/http';
 import { Injector, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { IGNORE_BASE_URL } from '@delon/theme';
 import { environment } from '@env/environment';
 import { Observable, of, throwError, mergeMap } from 'rxjs';
@@ -9,6 +10,8 @@ import { tryRefreshToken } from './refresh-token';
 
 function handleData(injector: Injector, ev: HttpResponseBase, req: HttpRequest<any>, next: HttpHandlerFn): Observable<any> {
   checkStatus(injector, ev);
+  const router = injector.get(Router);
+  
   // 业务处理：一些通用操作
   switch (ev.status) {
     case 200:
@@ -44,7 +47,7 @@ function handleData(injector: Injector, ev: HttpResponseBase, req: HttpRequest<a
     case 403:
     case 404:
     case 500:
-      // goTo(injector, `/exception/${ev.status}?url=${req.urlWithParams}`);
+      router.navigateByUrl(`/exception/${ev.status}`);
       break;
     default:
       if (ev instanceof HttpErrorResponse) {

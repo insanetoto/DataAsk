@@ -6,14 +6,16 @@
   <nz-form-item>
     <nz-form-control [nzErrorTip]="'请输入用户名!'">
       <nz-input-group nzSize="large" nzPrefixIcon="user">
-        <input nz-input formControlName="username" placeholder="用户名" />
+        <label for="username" class="visually-hidden">用户名</label>
+        <input id="username" nz-input formControlName="username" placeholder="用户名" />
       </nz-input-group>
     </nz-form-control>
   </nz-form-item>
   <nz-form-item>
     <nz-form-control [nzErrorTip]="'请输入密码!'">
       <nz-input-group nzSize="large" nzPrefixIcon="lock">
-        <input nz-input type="password" formControlName="password" placeholder="密码" />
+        <label for="password" class="visually-hidden">密码</label>
+        <input id="password" nz-input type="password" formControlName="password" placeholder="密码" />
       </nz-input-group>
     </nz-form-control>
   </nz-form-item>
