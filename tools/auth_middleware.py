@@ -7,12 +7,13 @@ import logging
 from functools import wraps
 from typing import Dict, Any, Optional
 import jwt
-from flask import request, jsonify, g
-from service.user_service import get_user_service, get_user_service_instance
+from flask import request, jsonify, g, current_app
+from service.user_service import get_user_service, get_user_service_instance, UserService
 from service.permission_service import get_permission_service
 from tools.redis_service import get_redis_service
 from config import Config
 from datetime import datetime, timedelta
+import functools
 
 logger = logging.getLogger(__name__)
 JWT_SECRET = Config.JWT_SECRET_KEY
@@ -100,69 +101,172 @@ class TokenService:
             logger.error(f"撤销令牌失败: {str(e)}")
             return False
 
+def generate_token(user_id: int, expires_in: int = 3600 * 24) -> dict:
+    """
+    生成JWT token
+    :param user_id: 用户ID
+    :param expires_in: 过期时间(秒)，默认24小时
+    :return: token信息
+    """
+    now = datetime.utcnow()
+    exp = now + timedelta(seconds=expires_in)
+    refresh_exp = now + timedelta(days=7)  # 刷新token7天有效
+    
+    access_token = jwt.encode(
+        {
+            'user_id': user_id,
+            'exp': exp,
+            'iat': now,
+            'type': 'access'
+        },
+        JWT_SECRET,
+        algorithm='HS256'
+    )
+    
+    refresh_token = jwt.encode(
+        {
+            'user_id': user_id,
+            'exp': refresh_exp,
+            'iat': now,
+            'refresh': True,
+            'type': 'refresh'
+        },
+        JWT_SECRET,
+        algorithm='HS256'
+    )
+    
+    return {
+        'access_token': access_token,
+        'refresh_token': refresh_token,
+        'expires_in': expires_in
+    }
+
 def verify_token(token: str) -> dict:
-    """验证JWT token"""
+    """
+    验证JWT token
+    :param token: JWT token
+    :return: 解码后的payload
+    """
     try:
-        return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=['HS256']
+        )
+        return {'success': True, 'data': payload}
     except jwt.ExpiredSignatureError:
-        logger.warning("Token已过期")
-        raise
+        return {'success': False, 'error': 'Token已过期'}
     except jwt.InvalidTokenError:
-        logger.warning("无效的Token")
-        raise
+        return {'success': False, 'error': '无效的Token'}
 
 def auth_required(f):
-    """基本的认证检查装饰器"""
-    @wraps(f)
+    """
+    认证装饰器
+    """
+    @functools.wraps(f)
     def decorated(*args, **kwargs):
-        try:
-            # 从请求头获取token
-            auth_header = request.headers.get('Authorization')
-            if not auth_header:
-                return jsonify({
-                    'success': False,
-                    'error': '缺少Authorization头'
-                }), 401
-                
-            token = auth_header.split(" ")[1]
-            
-            # 验证token
-            payload = verify_token(token)
-            user_id = payload.get('user_id')
-            
-            # 获取用户信息（不检查状态）
-            user_service = get_user_service()
-            user = user_service._get_user_by_id_without_status_check(user_id)
-            if not user['success']:
-                return jsonify({
-                    'success': False,
-                    'error': '用户不存在'
-                }), 401
-            
-            # 检查用户状态
-            if user['data']['status'] != 1:
-                return jsonify({
-                    'success': False,
-                    'error': '用户已禁用'
-                }), 401
-            
-            # 获取用户权限
-            permission_service = get_permission_service()
-            permissions = permission_service.get_user_permissions(user_id)
-            if permissions['success']:
-                user['data']['permissions'] = permissions['data']
-            
-            # 保存用户信息到g对象
-            g.current_user = user['data']
-            return f(*args, **kwargs)
-            
-        except Exception as e:
-            logger.error(f"认证失败: {str(e)}")
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
             return jsonify({
-                'success': False,
-                'error': f'认证失败: {str(e)}'
+                'code': 401,
+                'message': '未提供认证信息'
             }), 401
-            
+        
+        try:
+            token_type, token = auth_header.split(' ')
+            if token_type.lower() != 'bearer':
+                return jsonify({
+                    'code': 401,
+                    'message': '无效的认证类型'
+                }), 401
+        except ValueError:
+            return jsonify({
+                'code': 401,
+                'message': '无效的认证头格式'
+            }), 401
+        
+        verify_result = verify_token(token)
+        if not verify_result['success']:
+            return jsonify({
+                'code': 401,
+                'message': verify_result['error']
+            }), 401
+        
+        # 获取用户信息
+        user_id = verify_result['data']['user_id']
+        user_service = get_user_service()
+        user_result = user_service.get_user_by_id(user_id)
+        if not user_result['success'] or not user_result['data']:
+            return jsonify({
+                'code': 401,
+                'message': '用户不存在或已被禁用'
+            }), 401
+        
+        user_info = user_result['data']
+        
+        # 将用户信息存储在请求上下文中
+        request.user = user_info
+        return f(*args, **kwargs)
+    
+    return decorated
+
+def refresh_token_required(f):
+    """
+    刷新token装饰器
+    """
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({
+                'code': 401,
+                'message': '未提供认证信息'
+            }), 401
+        
+        try:
+            token_type, token = auth_header.split(' ')
+            if token_type.lower() != 'bearer':
+                return jsonify({
+                    'code': 401,
+                    'message': '无效的认证类型'
+                }), 401
+        except ValueError:
+            return jsonify({
+                'code': 401,
+                'message': '无效的认证头格式'
+            }), 401
+        
+        verify_result = verify_token(token)
+        if not verify_result['success']:
+            return jsonify({
+                'code': 401,
+                'message': verify_result['error']
+            }), 401
+        
+        # 验证是否为刷新token
+        payload = verify_result['data']
+        if not payload.get('refresh'):
+            return jsonify({
+                'code': 401,
+                'message': '无效的刷新Token'
+            }), 401
+        
+        # 获取用户信息
+        user_id = payload['user_id']
+        user_service = get_user_service()
+        user_result = user_service.get_user_by_id(user_id)
+        if not user_result['success'] or not user_result['data']:
+            return jsonify({
+                'code': 401,
+                'message': '用户不存在或已被禁用'
+            }), 401
+        
+        user_info = user_result['data']
+        
+        # 将用户信息存储在请求上下文中
+        request.user = user_info
+        return f(*args, **kwargs)
+    
     return decorated
 
 def token_required(f):
@@ -218,8 +322,9 @@ def permission_required(permission_code):
             # 检查是否有所需权限
             if not any(p['permission_code'] == permission_code for p in user_permissions):
                 return jsonify({
-                    'success': False,
-                    'error': '没有所需权限'
+                    'code': 403,
+                    'message': '没有所需权限',
+                    'data': None
                 }), 403
                 
             return f(*args, **kwargs)
@@ -234,8 +339,9 @@ def admin_required(f):
         current_user = g.current_user
         if current_user.get('role_level', 99) > 2:  # 角色级别1-2为管理员
             return jsonify({
-                'success': False,
-                'error': '需要管理员权限'
+                'code': 403,
+                'message': '需要管理员权限',
+                'data': None
             }), 403
             
         return f(*args, **kwargs)
@@ -249,8 +355,9 @@ def super_admin_required(f):
         current_user = g.current_user
         if current_user.get('role_level', 99) != 1:  # 角色级别1为超级管理员
             return jsonify({
-                'success': False,
-                'error': '需要超级管理员权限'
+                'code': 403,
+                'message': '需要超级管理员权限',
+                'data': None
             }), 403
             
         return f(*args, **kwargs)

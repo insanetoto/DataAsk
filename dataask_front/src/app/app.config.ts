@@ -12,29 +12,26 @@ import {
 import { defaultInterceptor, provideStartup } from '@core';
 import { provideCellWidgets } from '@delon/abc/cell';
 import { provideSTWidgets } from '@delon/abc/st';
-import { authJWTInterceptor, provideAuth } from '@delon/auth';
+import { authSimpleInterceptor, provideAuth } from '@delon/auth';
 import { provideSFConfig } from '@delon/form';
 import { provideAlain } from '@delon/theme';
 import { AlainConfig } from '@delon/util/config';
 import { environment } from '@env/environment';
 import { CELL_WIDGETS, ST_WIDGETS, SF_WIDGETS } from '@shared';
 import { NzConfig, provideNzConfig } from 'ng-zorro-antd/core/config';
+
 import { ICONS } from '../style-icons';
 import { ICONS_AUTO } from '../style-icons-auto';
-import { routes } from './routes/routes';
 import { provideBindAuthRefresh } from './core/net';
+import { routes } from './routes/routes';
 
 const alainConfig: AlainConfig = {
   auth: {
     login_url: '/passport/login',
-    token_send_key: 'Authorization',
-    token_send_template: 'Bearer ${token}',
-    token_send_place: 'header',
     ignores: [
-      /\/api\/auth\/login/,
-      /\/api\/auth\/refresh/,
-      /assets\//,
-      /passport\//
+      /\/assets\//, // 忽略静态资源
+      /\/tmp\//, // 忽略临时资源
+      /\.(png|jpg|ico|gif|svg|css|js|ttf|woff|woff2)$/ // 忽略静态文件格式
     ]
   }
 };
@@ -49,7 +46,7 @@ const routerFeatures: RouterFeatures[] = [
 if (environment.useHash) routerFeatures.push(withHashLocation());
 
 const providers: Array<Provider | EnvironmentProviders> = [
-  provideHttpClient(withInterceptors([...(environment.interceptorFns ?? []), authJWTInterceptor, defaultInterceptor])),
+  provideHttpClient(withInterceptors([...(environment.interceptorFns ?? []), authSimpleInterceptor, defaultInterceptor])),
   provideAnimations(),
   provideRouter(routes, ...routerFeatures),
   provideAlain({ config: alainConfig, icons: [...ICONS_AUTO, ...ICONS] }),

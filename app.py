@@ -11,7 +11,7 @@ from config import config
 from tools.database import init_database_service
 from tools.redis_service import get_redis_service
 from AIEngine.vanna_service import init_vanna_service
-from service.organization_service import init_organization_service
+from service.organization_service import get_organization_service_instance
 from service.user_service import get_user_service_instance
 from api.routes import api_bp
 from datetime import datetime
@@ -106,7 +106,7 @@ def init_services(config_obj):
         
         # 初始化机构管理服务
         logger.info("正在初始化机构管理服务...")
-        init_organization_service()
+        get_organization_service_instance()
         logger.info("机构管理服务初始化成功")
         
         # 初始化用户服务
@@ -599,12 +599,5 @@ def register_error_handlers(app):
         }), 500
 
 if __name__ == '__main__':
-    try:
-        app = create_app()
-        port = app.config['PORT']
-        debug = app.config['DEBUG']
-        logger.info(f"正在启动应用，端口: {port}, 调试模式: {debug}")
-        app.run(host='0.0.0.0', port=port, debug=debug)
-    except Exception as e:
-        logger.error(f"应用启动失败: {str(e)}")
-        raise 
+    app = create_app()
+    app.run(host='0.0.0.0', port=9000, debug=True) 

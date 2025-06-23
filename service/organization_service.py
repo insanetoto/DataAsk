@@ -7,18 +7,26 @@ import json
 import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
-from tools.database import get_database_service
-from tools.redis_service import get_redis_service
+from tools.database import DatabaseService, get_database_service
+from tools.redis_service import RedisService, get_redis_service
+from tools.di_container import DIContainer
 
 logger = logging.getLogger(__name__)
 
 class OrganizationService:
     """机构管理服务类"""
     
-    def __init__(self):
+    def __init__(self, redis_service: RedisService = None, db_service: DatabaseService = None):
         self.cache_prefix = "org:"
         self.cache_timeout = 3600  # 缓存1小时
         self.list_cache_key = "org:list"
+        self.redis = redis_service
+        self.db_service = db_service
+        
+        if not self.redis:
+            raise RuntimeError("Redis服务未初始化")
+        if not self.db_service:
+            raise RuntimeError("数据库服务未初始化")
         
     def create_organization(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -31,8 +39,6 @@ class OrganizationService:
             创建结果
         """
         try:
-            db_service = get_database_service()
-            
             # 验证必要字段
             required_fields = ['org_code', 'org_name', 'contact_person', 'contact_phone', 'contact_email']
             for field in required_fields:
@@ -99,7 +105,7 @@ class OrganizationService:
                 'status': data.get('status', 1)
             }
             
-            db_service.execute_update(sql, params)
+            self.db_service.execute_update(sql, params)
             
             # 获取新创建的机构信息
             new_org = self.get_organization_by_code(data['org_code'])
@@ -135,18 +141,18 @@ class OrganizationService:
         try:
             # 先检查缓存
             cache_key = f"{self.cache_prefix}id:{org_id}"
-            redis_service = get_redis_service()
-            cached_data = redis_service.get_cache(cache_key)
+            cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
                 logger.info(f"从缓存获取机构信息: ID={org_id}")
+                # cached_data 已经是字典对象，不需要再json.loads
+                org_data = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 return {
                     'success': True,
-                    'data': json.loads(cached_data)
+                    'data': org_data
                 }
             
             # 从数据库查询
-            db_service = get_database_service()
             sql = """
             SELECT id, org_code, parent_org_code, org_name, contact_person, contact_phone, contact_email, 
                    status, level_depth, level_path, created_at, updated_at
@@ -154,7 +160,7 @@ class OrganizationService:
             WHERE id = :org_id
             """
             
-            result = db_service.execute_query(sql, {'org_id': org_id})
+            result = self.db_service.execute_query(sql, {'org_id': org_id})
             
             if not result:
                 return {
@@ -165,7 +171,7 @@ class OrganizationService:
             org_data = result[0]
             
             # 缓存数据
-            redis_service.set_cache(cache_key, json.dumps(org_data, default=str), self.cache_timeout)
+            self.redis.set_cache(cache_key, json.dumps(org_data, default=str), self.cache_timeout)
             
             return {
                 'success': True,
@@ -192,18 +198,18 @@ class OrganizationService:
         try:
             # 先检查缓存
             cache_key = f"{self.cache_prefix}code:{org_code}"
-            redis_service = get_redis_service()
-            cached_data = redis_service.get_cache(cache_key)
+            cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
                 logger.info(f"从缓存获取机构信息: code={org_code}")
+                # cached_data 已经是字典对象，不需要再json.loads
+                org_data = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 return {
                     'success': True,
-                    'data': json.loads(cached_data)
+                    'data': org_data
                 }
             
             # 从数据库查询
-            db_service = get_database_service()
             sql = """
             SELECT id, org_code, parent_org_code, org_name, contact_person, contact_phone, contact_email, 
                    status, level_depth, level_path, created_at, updated_at
@@ -211,7 +217,7 @@ class OrganizationService:
             WHERE org_code = :org_code
             """
             
-            result = db_service.execute_query(sql, {'org_code': org_code})
+            result = self.db_service.execute_query(sql, {'org_code': org_code})
             
             if not result:
                 return {
@@ -222,7 +228,7 @@ class OrganizationService:
             org_data = result[0]
             
             # 缓存数据
-            redis_service.set_cache(cache_key, json.dumps(org_data, default=str), self.cache_timeout)
+            self.redis.set_cache(cache_key, json.dumps(org_data, default=str), self.cache_timeout)
             
             return {
                 'success': True,
@@ -253,8 +259,7 @@ class OrganizationService:
         try:
             # 生成缓存键
             cache_key = f"{self.list_cache_key}:{page}:{page_size}:{status}:{keyword or ''}"
-            redis_service = get_redis_service()
-            cached_data = redis_service.get_cache(cache_key)
+            cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
                 logger.info(f"从缓存获取机构列表: page={page}, page_size={page_size}")
@@ -262,8 +267,6 @@ class OrganizationService:
                     'success': True,
                     'data': cached_data
                 }
-            
-            db_service = get_database_service()
             
             # 构建查询条件
             where_conditions = []
@@ -283,7 +286,7 @@ class OrganizationService:
             
             # 查询总数
             count_sql = f"SELECT COUNT(*) as total FROM organizations {where_clause}"
-            count_result = db_service.execute_query(count_sql, params)
+            count_result = self.db_service.execute_query(count_sql, params)
             total = count_result[0]['total']
             
             # 计算分页参数
@@ -295,7 +298,7 @@ class OrganizationService:
             params['offset'] = offset
             
             data_sql = f"""
-            SELECT id, org_code, org_name, contact_person, contact_phone, contact_email, 
+            SELECT id, org_code, org_name, parent_org_code, level_depth, contact_person, contact_phone, contact_email, 
                    status, created_at, updated_at
             FROM organizations 
             {where_clause}
@@ -303,7 +306,7 @@ class OrganizationService:
             LIMIT :limit OFFSET :offset
             """
             
-            data_result = db_service.execute_query(data_sql, params)
+            data_result = self.db_service.execute_query(data_sql, params)
             
             result_data = {
                 'list': data_result,
@@ -318,7 +321,7 @@ class OrganizationService:
             }
             
             # 缓存结果（缓存时间稍短，因为列表更新频繁）
-            redis_service.set_cache(cache_key, result_data, 600)  # 10分钟
+            self.redis.set_cache(cache_key, result_data, 600)  # 10分钟
             
             return {
                 'success': True,
@@ -335,7 +338,6 @@ class OrganizationService:
     def _get_organization_by_id_without_status_check(self, org_id: int) -> Dict[str, Any]:
         """根据ID获取机构信息（不检查状态）"""
         try:
-            db_service = get_database_service()
             sql = """
             SELECT id, org_code, parent_org_code, org_name, contact_person, contact_phone, contact_email, 
                    status, level_depth, level_path, created_at, updated_at
@@ -343,7 +345,7 @@ class OrganizationService:
             WHERE id = :org_id
             """
             
-            result = db_service.execute_query(sql, {'org_id': org_id})
+            result = self.db_service.execute_query(sql, {'org_id': org_id})
             
             if not result:
                 return {
@@ -368,8 +370,6 @@ class OrganizationService:
     def update_organization(self, org_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
         """更新机构信息"""
         try:
-            db_service = get_database_service()
-            
             # 获取现有机构信息（不检查状态）
             current_org = self._get_organization_by_id_without_status_check(org_id)
             if not current_org['success'] or not current_org['data']:
@@ -414,7 +414,7 @@ class OrganizationService:
             WHERE id = :org_id
             """
             
-            db_service.execute_update(sql, params)
+            self.db_service.execute_update(sql, params)
             
             # 清除缓存
             self._clear_organization_cache(current_org['data']['org_code'], org_id)
@@ -439,8 +439,6 @@ class OrganizationService:
     def delete_organization(self, org_id: int) -> Dict[str, Any]:
         """删除机构（软删除）"""
         try:
-            db_service = get_database_service()
-            
             # 获取机构信息（不检查状态）
             current_org = self._get_organization_by_id_without_status_check(org_id)
             if not current_org['success'] or not current_org['data']:
@@ -455,7 +453,7 @@ class OrganizationService:
             FROM organizations
             WHERE parent_org_code = :org_code AND status = 1
             """
-            children_result = db_service.execute_query(children_sql, {'org_code': current_org['data']['org_code']})
+            children_result = self.db_service.execute_query(children_sql, {'org_code': current_org['data']['org_code']})
             if children_result[0]['count'] > 0:
                 return {
                     'success': False,
@@ -468,7 +466,7 @@ class OrganizationService:
             FROM users
             WHERE org_code = :org_code AND status = 1
             """
-            users_result = db_service.execute_query(users_sql, {'org_code': current_org['data']['org_code']})
+            users_result = self.db_service.execute_query(users_sql, {'org_code': current_org['data']['org_code']})
             if users_result[0]['count'] > 0:
                 return {
                     'success': False,
@@ -482,7 +480,7 @@ class OrganizationService:
             WHERE id = :org_id
             """
             
-            db_service.execute_update(sql, {'org_id': org_id})
+            self.db_service.execute_update(sql, {'org_id': org_id})
             
             # 清除缓存
             self._clear_organization_cache(current_org['data']['org_code'], org_id)
@@ -503,21 +501,19 @@ class OrganizationService:
     def _clear_organization_cache(self, org_code: str, org_id: int):
         """清除单个机构的缓存"""
         try:
-            redis_service = get_redis_service()
-            redis_service.delete_cache(f"{self.cache_prefix}code:{org_code}")
-            redis_service.delete_cache(f"{self.cache_prefix}id:{org_id}")
+            self.redis.delete_cache(f"{self.cache_prefix}code:{org_code}")
+            self.redis.delete_cache(f"{self.cache_prefix}id:{org_id}")
         except Exception as e:
             logger.warning(f"清除机构缓存失败: {str(e)}")
     
     def _clear_list_cache(self):
         """清除机构列表缓存"""
         try:
-            redis_service = get_redis_service()
             # 使用通配符删除所有列表缓存
-            keys = redis_service.get_keys_by_pattern(f"{self.list_cache_key}:*")
+            keys = self.redis.get_keys_by_pattern(f"{self.list_cache_key}:*")
             if keys:
                 for key in keys:
-                    redis_service.delete_cache(key)
+                    self.redis.delete_cache(key)
         except Exception as e:
             logger.warning(f"清除机构列表缓存失败: {str(e)}")
     
@@ -533,11 +529,9 @@ class OrganizationService:
             子机构列表
         """
         try:
-            db_service = get_database_service()
-            
             # 使用存储过程获取子机构
             sql = "CALL GetOrgChildren(:org_code)"
-            result = db_service.execute_query(sql, {'org_code': org_code})
+            result = self.db_service.execute_query(sql, {'org_code': org_code})
             
             if not result:
                 return {
@@ -573,11 +567,9 @@ class OrganizationService:
             上级机构列表
         """
         try:
-            db_service = get_database_service()
-            
             # 使用存储过程获取上级机构
             sql = "CALL GetOrgParents(:org_code)"
-            result = db_service.execute_query(sql, {'org_code': org_code})
+            result = self.db_service.execute_query(sql, {'org_code': org_code})
             
             if not result:
                 return {
@@ -612,23 +604,14 @@ class OrganizationService:
             机构树结构
         """
         try:
-            db_service = get_database_service()
-            
-            if root_org_code:
-                # 获取指定机构及其子机构
-                result = self.get_organization_children(root_org_code, include_self=True)
-                if not result['success']:
-                    return result
-                org_list = result['data']
-            else:
-                # 获取所有机构
-                sql = """
-                SELECT id, org_code, parent_org_code, org_name, contact_person, contact_phone, 
-                       contact_email, status, level_depth, level_path, created_at, updated_at
-                FROM organizations 
-                ORDER BY level_path, org_code
-                """
-                org_list = db_service.execute_query(sql)
+            # 获取所有机构
+            sql = """
+            SELECT id, org_code, parent_org_code, org_name, contact_person, contact_phone, 
+                   contact_email, status, level_depth, level_path, created_at, updated_at
+            FROM organizations 
+            ORDER BY level_path, org_code
+            """
+            org_list = self.db_service.execute_query(sql)
             
             # 构建树形结构
             tree = self._build_organization_tree(org_list, root_org_code)
@@ -696,8 +679,6 @@ class OrganizationService:
             层级关系列表
         """
         try:
-            db_service = get_database_service()
-            
             # 构建查询条件
             where_conditions = []
             params = {}
@@ -917,17 +898,20 @@ class OrganizationService:
         except Exception as e:
             logger.error(f"重新计算机构层级信息失败: {str(e)}")
 
-# 全局机构服务实例
-organization_service = None
-
-def init_organization_service() -> OrganizationService:
-    """初始化机构管理服务"""
-    global organization_service
-    organization_service = OrganizationService()
-    return organization_service
+def get_organization_service_instance() -> OrganizationService:
+    """
+    获取OrganizationService实例的工厂函数
+    """
+    from tools.redis_service import get_redis_service
+    from tools.database import get_database_service
+    
+    redis_service = get_redis_service()
+    db_service = get_database_service()
+    return OrganizationService(redis_service=redis_service, db_service=db_service)
 
 def get_organization_service() -> OrganizationService:
-    """获取机构管理服务实例"""
-    if organization_service is None:
-        return init_organization_service()
-    return organization_service 
+    """
+    获取OrganizationService的单例实例
+    """
+    # 简化版本，直接返回新实例
+    return get_organization_service_instance() 

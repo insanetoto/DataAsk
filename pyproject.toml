@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dataask"
+version = "0.1.0"
+description = "百惟数问 - 智能数据问答平台"
+requires-python = ">=3.9"
+dependencies = [
+    "flask",
+    "flask-cors",
+    "pytest",
+]
+
+[tool.setuptools]
+packages = ["tools", "service", "api", "AIEngine"] 

@@ -47,6 +47,7 @@ export class UserLoginComponent {
     password: ['', [Validators.required]],
     remember: [true]
   });
+
   error = '';
   loading = false;
 
@@ -83,8 +84,8 @@ export class UserLoginComponent {
       )
       .subscribe({
         next: (res: any) => {
-          if (!res.success) {
-            this.error = res.error || '登录失败';
+          if (res.code !== 200) {
+            this.error = res.message || '登录失败';
             this.cdr.detectChanges();
             return;
           }

@@ -1,16 +1,30 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from typing import Dict, Any, List
-from tools.database import get_db_session
+from typing import Dict, Any, List, Optional
+from tools.database import DatabaseService, get_database_service
 from sqlalchemy import text
 
 class MenuService:
+    """菜单服务
+    
+    负责处理系统菜单相关的业务逻辑
+    """
+    
+    def __init__(self, db_service: Optional[DatabaseService] = None):
+        """
+        初始化菜单服务
+        
+        Args:
+            db_service: 数据库服务实例，如果不提供则使用全局实例
+        """
+        self.db_service = db_service or get_database_service()
+    
     def get_user_menus(self, user_id: int) -> Dict[str, Any]:
         """获取用户菜单列表"""
         try:
             # 查询用户的菜单
-            with get_db_session() as session:
+            with self.db_service.get_session() as session:
                 result = session.execute(
                     text("""
                     SELECT DISTINCT 

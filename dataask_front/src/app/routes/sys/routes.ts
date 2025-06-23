@@ -6,9 +6,8 @@ import { SysRoleComponent } from './role/role.component';
 import { SysUserComponent } from './user/user.component';
 
 export const routes: Routes = [
-  { path: 'org', title: '机构管理', component: SysOrgComponent },
-  { path: 'user', title: '用户管理', component: SysUserComponent },
-  { path: 'role', title: '角色管理', component: SysRoleComponent },
-  { path: 'permission', title: '权限管理', component: SysPermissionComponent }
+  { path: 'user', component: SysUserComponent },
+  { path: 'org', component: SysOrgComponent },
+  { path: 'role', component: SysRoleComponent },
+  { path: 'permission', component: SysPermissionComponent }
 ];
-

@@ -1,4 +1,5 @@
 import { waitForAsync, ComponentFixture, TestBed } from '@angular/core/testing';
+
 import { SysPermissionComponent } from './permission.component';
 
 describe('SysPermissionComponent', () => {
@@ -7,9 +8,8 @@ describe('SysPermissionComponent', () => {
 
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
-      declarations: [ SysPermissionComponent ]
-    })
-    .compileComponents();
+      declarations: [SysPermissionComponent]
+    }).compileComponents();
   }));
 
   beforeEach(() => {

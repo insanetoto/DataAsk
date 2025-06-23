@@ -1,4 +1,5 @@
 import { waitForAsync, ComponentFixture, TestBed } from '@angular/core/testing';
+
 import { SysOrgComponent } from './org.component';
 
 describe('SysOrgComponent', () => {
@@ -7,9 +8,8 @@ describe('SysOrgComponent', () => {
 
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
-      declarations: [ SysOrgComponent ]
-    })
-    .compileComponents();
+      declarations: [SysOrgComponent]
+    }).compileComponents();
   }));
 
   beforeEach(() => {

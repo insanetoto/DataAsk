@@ -75,16 +75,13 @@ function buildAuthRefresh(injector: Injector): void {
   tokenSrv.refresh
     .pipe(
       filter(() => !refreshToking),
-      switchMap(res => {
-        console.log(res);
+      switchMap(() => {
         refreshToking = true;
         return refreshTokenRequest(injector);
       })
     )
     .subscribe({
       next: res => {
-        // TODO: Mock expired value
-        res.expired = +new Date() + 1000 * 60 * 5;
         refreshToking = false;
         tokenSrv.set(res);
       },

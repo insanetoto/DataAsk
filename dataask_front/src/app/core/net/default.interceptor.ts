@@ -1,88 +1,130 @@
-import { HttpErrorResponse, HttpHandlerFn, HttpInterceptorFn, HttpRequest, HttpResponseBase } from '@angular/common/http';
-import { Injector, inject } from '@angular/core';
+import { HttpErrorResponse, HttpHandlerFn, HttpRequest, HttpResponse } from '@angular/common/http';
+import { inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { DA_SERVICE_TOKEN } from '@delon/auth';
 import { IGNORE_BASE_URL } from '@delon/theme';
-import { environment } from '@env/environment';
-import { Observable, of, throwError, mergeMap } from 'rxjs';
+import { NzNotificationService } from 'ng-zorro-antd/notification';
+import { Observable, catchError, mergeMap, of, throwError } from 'rxjs';
 
-import { ReThrowHttpError, checkStatus, getAdditionalHeaders, toLogin } from './helper';
-import { tryRefreshToken } from './refresh-token';
-
-function handleData(injector: Injector, ev: HttpResponseBase, req: HttpRequest<any>, next: HttpHandlerFn): Observable<any> {
-  checkStatus(injector, ev);
-  const router = injector.get(Router);
-  
-  // 业务处理：一些通用操作
-  switch (ev.status) {
-    case 200:
-      // 业务层级错误处理，以下是假定restful有一套统一输出格式（指不管成功与否都有相应的数据格式）情况下进行处理
-      // 例如响应内容：
-      //  错误内容：{ status: 1, msg: '非法参数' }
-      //  正确内容：{ status: 0, response: {  } }
-      // 则以下代码片断可直接适用
-      // if (ev instanceof HttpResponse) {
-      //   const body = ev.body;
-      //   if (body && body.status !== 0) {
-      //     const customError = req.context.get(CUSTOM_ERROR);
-      //     if (customError) injector.get(NzMessageService).error(body.msg);
-      //     return customError ? throwError(() => ({ body, _throw: true }) as ReThrowHttpError) : of({});
-      //   } else {
-      //     // 返回原始返回体
-      //     if (req.context.get(RAW_BODY) || ev.body instanceof Blob) {
-      //       return of(ev);
-      //     }
-      //     // 重新修改 `body` 内容为 `response` 内容，对于绝大多数场景已经无须再关心业务状态码
-      //     return of(new HttpResponse({ ...ev, body: body.response } as any));
-      //     // 或者依然保持完整的格式
-      //     return of(ev);
-      //   }
-      // }
-      break;
-    case 401:
-      if (environment.api.refreshTokenEnabled && environment.api.refreshTokenType === 're-request') {
-        return tryRefreshToken(injector, ev, req, next);
-      }
-      toLogin(injector);
-      break;
-    case 403:
-    case 404:
-    case 500:
-      router.navigateByUrl(`/exception/${ev.status}`);
-      break;
-    default:
-      if (ev instanceof HttpErrorResponse) {
-        console.warn('未可知错误，大部分是由于后端不支持跨域CORS或无效配置引起，请参考 https://ng-alain.com/docs/server 解决跨域问题', ev);
-      }
-      break;
-  }
-  if (ev instanceof HttpErrorResponse) {
-    return throwError(() => ev);
-  } else if ((ev as unknown as ReThrowHttpError)._throw === true) {
-    return throwError(() => (ev as unknown as ReThrowHttpError).body);
-  } else {
-    return of(ev);
-  }
+interface ApiResponse<T = any> {
+  code?: number;
+  success?: boolean;
+  message?: string;
+  data?: T;
 }
 
-export const defaultInterceptor: HttpInterceptorFn = (req, next) => {
-  // 统一加上服务端前缀
+export function defaultInterceptor(req: HttpRequest<any>, next: HttpHandlerFn): Observable<any> {
+  const router = inject(Router);
+  const notification = inject(NzNotificationService);
+  const tokenService = inject(DA_SERVICE_TOKEN);
+
+  // 统一处理请求
   let url = req.url;
   if (!req.context.get(IGNORE_BASE_URL) && !url.startsWith('https://') && !url.startsWith('http://')) {
-    const { baseUrl } = environment.api;
-    url = baseUrl + (baseUrl.endsWith('/') && url.startsWith('/') ? url.substring(1) : url);
+    // 移除开头的斜杠和点
+    url = url.replace(/^[./]+/, '');
+
+    // 对于assets目录下的静态资源，不添加API前缀
+    if (url.startsWith('assets/')) {
+      url = `/${url}`;
+    } else if (url.startsWith('api/')) {
+      // 已经有api前缀的不再添加
+      url = `/${url}`;
+    } else {
+      // 其他API请求添加api前缀
+      url = `/api/${url}`;
+    }
   }
-  const newReq = req.clone({ url, setHeaders: getAdditionalHeaders(req.headers) });
-  const injector = inject(Injector);
+
+  // 添加认证头
+  let newReq = req.clone({ url });
+
+  // 获取token并添加到请求头
+  const token = tokenService.get()?.token;
+  if (token && !req.url.includes('/auth/login') && !req.url.includes('/auth/refresh')) {
+    newReq = newReq.clone({
+      setHeaders: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+  }
 
   return next(newReq).pipe(
-    mergeMap(ev => {
-      // 允许统一对请求错误处理
-      if (ev instanceof HttpResponseBase) {
-        return handleData(injector, ev, newReq, next);
+    mergeMap(event => {
+      // 统一处理HTTP响应
+      if (event instanceof HttpResponse) {
+        const body = event.body as ApiResponse;
+        // 对于app/init接口，即使返回401也不处理
+        if (req.url.includes('app/init')) {
+          return of(event);
+        }
+
+        // 兼容两种响应格式：{code: 200, ...} 和 {success: true, ...}
+        const isSuccess = body?.code === 200 || body?.success === true;
+        const isUnauthorized = body?.code === 401;
+
+        if (!isSuccess && body !== null) {
+          if (isUnauthorized) {
+            // 清除token并跳转到登录页
+            tokenService.clear();
+            router.navigateByUrl('/passport/login');
+            return throwError(() => event);
+          }
+          if (body?.message) {
+            notification.error('错误', body.message);
+          }
+          return throwError(() => event);
+        }
+        return of(event);
       }
-      // 若一切都正常，则后续操作
-      return of(ev);
+      return of(event);
+    }),
+    catchError((err: HttpErrorResponse) => {
+      // 对于app/init接口，即使返回401也不处理
+      if (req.url.includes('app/init')) {
+        return of(
+          new HttpResponse({
+            body: {
+              code: 200,
+              data: {
+                app: {
+                  name: 'DataAsk',
+                  description: '数据分析问答系统'
+                },
+                user: null,
+                menus: [],
+                permissions: []
+              }
+            }
+          })
+        );
+      }
+
+      // 统一处理HTTP错误
+      switch (err.status) {
+        case 401:
+          // 清除token并跳转到登录页
+          tokenService.clear();
+          router.navigateByUrl('/passport/login');
+          break;
+        case 403:
+          router.navigateByUrl('/exception/403');
+          break;
+        case 404:
+          router.navigateByUrl('/exception/404');
+          break;
+        case 500:
+          router.navigateByUrl('/exception/500');
+          break;
+        default:
+          if (err.error?.message) {
+            notification.error('错误', err.error.message);
+          } else {
+            notification.error('错误', '服务器异常，请稍后重试');
+          }
+          break;
+      }
+      return throwError(() => err);
     })
-    // catchError((err: HttpErrorResponse) => handleData(injector, err, newReq, next))
   );
-};
+}

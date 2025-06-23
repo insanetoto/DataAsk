@@ -189,6 +189,17 @@ class RedisService:
     def delete_cache(self, key: str) -> bool:
         """删除缓存（通用方法）"""
         return self.delete(key)
+    
+    def delete_pattern(self, pattern: str) -> bool:
+        """根据模式删除缓存"""
+        try:
+            keys = self.get_keys_by_pattern(pattern)
+            if keys:
+                return bool(self.redis_client.delete(*keys))
+            return True
+        except Exception as e:
+            logger.error(f"按模式删除缓存失败 pattern={pattern}: {str(e)}")
+            return False
 
     def set_token(self, key: str, token: str, expire_time: int = None):
         """

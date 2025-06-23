@@ -5,7 +5,7 @@ API路由模块
 """
 import logging
 from typing import Dict, Any
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, current_app
 from AIEngine.vanna_service import get_vanna_service
 from tools.database import get_database_service
 from tools.redis_service import get_redis_service
@@ -13,7 +13,8 @@ from service.organization_service import get_organization_service
 from service.user_service import get_user_service
 from service.role_service import get_role_service
 from service.permission_service import get_permission_service
-from tools.auth_middleware import token_required, token_service
+from service.menu_service import get_menu_service
+from tools.auth_middleware import token_required, token_service, auth_required, generate_token
 
 # License授权检查
 from tools.license_middleware import require_license
@@ -28,8 +29,40 @@ logger = logging.getLogger(__name__)
 # 创建蓝图
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
+def standardize_response(success: bool, data: Any = None, message: str = None, error: str = None, code: int = None) -> tuple:
+    """
+    标准化API响应格式
+    
+    Args:
+        success: 操作是否成功
+        data: 响应数据
+        message: 成功消息
+        error: 错误消息
+        code: HTTP状态码
+    
+    Returns:
+        (response_dict, status_code)
+    """
+    if success:
+        status_code = code or 200
+        return {
+            'code': status_code,
+            'message': message or '操作成功',
+            'data': data
+        }, status_code
+    else:
+        status_code = code or 400
+        return {
+            'code': status_code,
+            'message': error or '操作失败',
+            'data': None
+        }, status_code
+
 def get_user_service_instance():
     return get_user_service()
+
+def get_menu_service_instance():
+    return get_menu_service()
 
 @api_bp.route('/health', methods=['GET'])
 def health_check():
@@ -71,17 +104,13 @@ def ask_question():
         # 获取请求参数
         data = request.get_json()
         if not data or 'question' not in data:
-            return jsonify({
-                'success': False,
-                'error': '缺少必要参数: question'
-            }), 400
+            response, status = standardize_response(False, error='缺少必要参数: question', code=400)
+            return jsonify(response), status
         
         question = data['question'].strip()
         if not question:
-            return jsonify({
-                'success': False,
-                'error': '问题内容不能为空'
-            }), 400
+            response, status = standardize_response(False, error='问题内容不能为空', code=400)
+            return jsonify(response), status
         
         use_cache = data.get('use_cache', True)
         
@@ -89,14 +118,17 @@ def ask_question():
         vanna_service = get_vanna_service()
         result = vanna_service.ask_question(question, use_cache)
         
-        return jsonify(result), 200 if result['success'] else 400
+        # 转换服务层响应为标准格式
+        if result.get('success'):
+            response, status = standardize_response(True, data=result.get('data'), message='问答处理成功')
+        else:
+            response, status = standardize_response(False, error=result.get('error', '问答处理失败'), code=400)
+        return jsonify(response), status
         
     except Exception as e:
         logger.error(f"问答处理失败: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
 
 @api_bp.route('/generate_sql', methods=['POST'])
 @require_license('sql_generation')
@@ -106,17 +138,13 @@ def generate_sql():
         # 获取请求参数
         data = request.get_json()
         if not data or 'question' not in data:
-            return jsonify({
-                'success': False,
-                'error': '缺少必要参数: question'
-            }), 400
+            response, status = standardize_response(False, error='缺少必要参数: question', code=400)
+            return jsonify(response), status
         
         question = data['question'].strip()
         if not question:
-            return jsonify({
-                'success': False,
-                'error': '问题内容不能为空'
-            }), 400
+            response, status = standardize_response(False, error='问题内容不能为空', code=400)
+            return jsonify(response), status
         
         use_cache = data.get('use_cache', True)
         
@@ -125,24 +153,21 @@ def generate_sql():
         sql, confidence = vanna_service.generate_sql(question, use_cache)
         
         if sql:
-            return jsonify({
-                'success': True,
+            response_data = {
                 'question': question,
                 'sql': sql,
                 'confidence': confidence
-            }), 200
+            }
+            response, status = standardize_response(True, data=response_data, message='SQL生成成功')
+            return jsonify(response), status
         else:
-            return jsonify({
-                'success': False,
-                'error': '无法生成SQL语句'
-            }), 400
+            response, status = standardize_response(False, error='无法生成SQL语句', code=400)
+            return jsonify(response), status
         
     except Exception as e:
         logger.error(f"SQL生成失败: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
 
 @api_bp.route('/execute_sql', methods=['POST'])
 def execute_sql():
@@ -151,42 +176,35 @@ def execute_sql():
         # 获取请求参数
         data = request.get_json()
         if not data or 'sql' not in data:
-            return jsonify({
-                'success': False,
-                'error': '缺少必要参数: sql'
-            }), 400
+            response, status = standardize_response(False, error='缺少必要参数: sql', code=400)
+            return jsonify(response), status
         
         sql = data['sql'].strip()
         if not sql:
-            return jsonify({
-                'success': False,
-                'error': 'SQL语句不能为空'
-            }), 400
+            response, status = standardize_response(False, error='SQL语句不能为空', code=400)
+            return jsonify(response), status
         
         # 安全检查 - 只允许SELECT语句
         if not sql.upper().strip().startswith('SELECT'):
-            return jsonify({
-                'success': False,
-                'error': '仅支持SELECT查询语句'
-            }), 400
+            response, status = standardize_response(False, error='仅支持SELECT查询语句', code=400)
+            return jsonify(response), status
         
         # 执行SQL查询
         db_service = get_database_service()
         result_data = db_service.execute_query(sql)
         
-        return jsonify({
-            'success': True,
+        response_data = {
             'sql': sql,
             'data': result_data,
             'count': len(result_data)
-        }), 200
+        }
+        response, status = standardize_response(True, data=response_data, message='SQL执行成功')
+        return jsonify(response), status
         
     except Exception as e:
         logger.error(f"SQL执行失败: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
 
 @api_bp.route('/train', methods=['POST'])
 @require_license('training_enabled')
@@ -221,22 +239,16 @@ def train_model():
             }), 400
         
         if success:
-            return jsonify({
-                'success': True,
-                'message': '模型训练成功'
-            }), 200
+            response, status = standardize_response(True, message='模型训练成功')
+            return jsonify(response), status
         else:
-            return jsonify({
-                'success': False,
-                'error': '模型训练失败'
-            }), 500
+            response, status = standardize_response(False, error='模型训练失败', code=500)
+            return jsonify(response), status
         
     except Exception as e:
         logger.error(f"模型训练失败: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
 
 @api_bp.route('/auto_train', methods=['POST'])  
 @require_license('training_enabled')
@@ -352,21 +364,34 @@ def create_organization():
         data = request.get_json()
         if not data:
             return jsonify({
-                'success': False,
-                'error': '缺少请求数据'
+                'code': 400,
+                'message': '缺少请求数据',
+                'data': None
             }), 400
         
         org_service = get_organization_service()
         result = org_service.create_organization(data)
         
-        status_code = 201 if result['success'] else 400
-        return jsonify(result), status_code
+        # 转换为标准格式
+        if result['success']:
+            return jsonify({
+                'code': 201,
+                'message': '创建机构成功',
+                'data': result['data']
+            }), 201
+        else:
+            return jsonify({
+                'code': 400,
+                'message': result.get('error', '创建机构失败'),
+                'data': None
+            }), 400
         
     except Exception as e:
         logger.error(f"创建机构失败: {str(e)}")
         return jsonify({
-            'success': False,
-            'error': f'创建机构失败: {str(e)}'
+            'code': 500,
+            'message': f'创建机构失败: {str(e)}',
+            'data': None
         }), 500
 
 @api_bp.route('/organizations/<int:org_id>', methods=['GET'])
@@ -408,8 +433,8 @@ def get_organizations_list():
     """获取机构列表接口"""
     try:
         # 获取查询参数
-        page = request.args.get('page', 1, type=int)
-        page_size = request.args.get('page_size', 10, type=int)
+        page = request.args.get('pi', 1, type=int)  # 前端使用pi参数
+        page_size = request.args.get('ps', 10, type=int)  # 前端使用ps参数
         status = request.args.get('status', type=int)
         keyword = request.args.get('keyword')
         
@@ -421,13 +446,26 @@ def get_organizations_list():
             keyword=keyword
         )
         
-        return jsonify(result), 200 if result['success'] else 500
+        # 转换为标准格式
+        if result['success']:
+            return jsonify({
+                'code': 200,
+                'message': '获取机构列表成功',
+                'data': result['data']
+            }), 200
+        else:
+            return jsonify({
+                'code': 500,
+                'message': result.get('error', '获取机构列表失败'),
+                'data': None
+            }), 500
         
     except Exception as e:
         logger.error(f"获取机构列表失败: {str(e)}")
         return jsonify({
-            'success': False,
-            'error': f'获取机构列表失败: {str(e)}'
+            'code': 500,
+            'message': f'获取机构列表失败: {str(e)}',
+            'data': None
         }), 500
 
 @api_bp.route('/organizations/<int:org_id>', methods=['PUT'])
@@ -437,20 +475,34 @@ def update_organization(org_id):
         data = request.get_json()
         if not data:
             return jsonify({
-                'success': False,
-                'error': '缺少请求数据'
+                'code': 400,
+                'message': '缺少请求数据',
+                'data': None
             }), 400
         
         org_service = get_organization_service()
         result = org_service.update_organization(org_id, data)
         
-        return jsonify(result), 200 if result['success'] else 400
+        # 转换为标准格式
+        if result['success']:
+            return jsonify({
+                'code': 200,
+                'message': '更新机构成功',
+                'data': result['data']
+            }), 200
+        else:
+            return jsonify({
+                'code': 400,
+                'message': result.get('error', '更新机构失败'),
+                'data': None
+            }), 400
         
     except Exception as e:
         logger.error(f"更新机构信息失败: {str(e)}")
         return jsonify({
-            'success': False,
-            'error': f'更新机构信息失败: {str(e)}'
+            'code': 500,
+            'message': f'更新机构信息失败: {str(e)}',
+            'data': None
         }), 500
 
 @api_bp.route('/organizations/<int:org_id>', methods=['DELETE'])
@@ -460,13 +512,26 @@ def delete_organization(org_id):
         org_service = get_organization_service()
         result = org_service.delete_organization(org_id)
         
-        return jsonify(result), 200 if result['success'] else 400
+        # 转换为标准格式
+        if result['success']:
+            return jsonify({
+                'code': 200,
+                'message': '删除机构成功',
+                'data': result.get('data')
+            }), 200
+        else:
+            return jsonify({
+                'code': 400,
+                'message': result.get('error', '删除机构失败'),
+                'data': None
+            }), 400
         
     except Exception as e:
         logger.error(f"删除机构失败: {str(e)}")
         return jsonify({
-            'success': False,
-            'error': f'删除机构失败: {str(e)}'
+            'code': 500,
+            'message': f'删除机构失败: {str(e)}',
+            'data': None
         }), 500
 
 @api_bp.route('/organizations/cache/clear', methods=['POST'])
@@ -533,14 +598,17 @@ def get_organization_tree():
         org_service = get_organization_service()
         result = org_service.get_organization_tree(root_org_code)
         
-        return jsonify(result), 200 if result['success'] else 500
+        # 转换为标准响应格式
+        if result['success']:
+            response, status = standardize_response(True, data=result['data'], message='获取机构树成功')
+        else:
+            response, status = standardize_response(False, error=result.get('error', '获取机构树失败'), code=500)
+        return jsonify(response), status
         
     except Exception as e:
         logger.error(f"获取机构树失败: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'获取机构树失败: {str(e)}'
-        }), 500
+        response, status = standardize_response(False, error=f'获取机构树失败: {str(e)}', code=500)
+        return jsonify(response), status
 
 @api_bp.route('/organizations/hierarchy', methods=['GET'])
 def get_organization_hierarchy():
@@ -590,61 +658,45 @@ def move_organization(org_code):
 
 @api_bp.route('/auth/login', methods=['POST'])
 def login():
-    """用户登录"""
+    """
+    用户登录接口
+    """
     try:
-        logger.info("收到登录请求")
         data = request.get_json()
-        if not data:
-            logger.warning("请求数据为空")
-            return jsonify({
-                'success': False,
-                'error': '无效的请求数据'
-            }), 400
-            
-        logger.info(f"登录请求数据: {data}")
-        
         username = data.get('username')
         password = data.get('password')
-
-        if not username or not password:
-            logger.warning("用户名或密码为空")
-            return jsonify({
-                'success': False,
-                'error': '用户名和密码不能为空'
-            }), 400
-
-        logger.info(f"开始验证用户: {username}")
-        # 验证用户
-        user = get_user_service_instance().authenticate_user(username, password)
-        if not user:
-            logger.warning(f"用户验证失败: {username}")
-            return jsonify({
-                'success': False,
-                'error': '用户名或密码错误'
-            }), 401
-
-        logger.info(f"用户验证成功，开始生成令牌: {username}")
-        # 生成令牌
-        tokens = get_user_service_instance().create_tokens(user)
-        if not tokens:
-            logger.error(f"令牌生成失败: {username}")
-            return jsonify({
-                'success': False,
-                'error': '生成令牌失败'
-            }), 500
         
-        logger.info(f"登录成功: {username}")
+        if not username or not password:
+            return jsonify({
+                'code': 400,
+                'message': '用户名和密码不能为空',
+                'data': None
+            }), 400
+        
+        # 验证用户名和密码
+        user = get_user_service_instance().verify_password(username, password)
+        if not user:
+            return jsonify({
+                'code': 401,
+                'message': '用户名或密码错误',
+                'data': None
+            }), 401
+        
+        # 生成token
+        token_info = generate_token(user['id'])
+        
         return jsonify({
-            'success': True,
-            'data': tokens,
-            'message': '登录成功'
-        }), 200
+            'code': 200,
+            'message': '登录成功',
+            'data': token_info
+        })
         
     except Exception as e:
-        logger.error(f"登录过程出错: {str(e)}")
+        current_app.logger.error(f"Error in login: {str(e)}")
         return jsonify({
-            'success': False,
-            'error': f'登录失败: {str(e)}'
+            'code': 500,
+            'message': '登录失败',
+            'data': None
         }), 500
 
 @api_bp.route('/auth/refresh', methods=['POST'])
@@ -691,30 +743,25 @@ def get_profile():
     try:
         current_user = get_current_user()
         if not current_user:
-            return jsonify({
-                'success': False,
-                'error': '获取用户信息失败'
-            }), 401
+            response, status = standardize_response(False, error='获取用户信息失败', code=401)
+            return jsonify(response), status
             
-        return jsonify({
-            'success': True,
-            'data': {
-                'id': current_user['id'],
-                'name': current_user['username'],
-                'avatar': current_user.get('avatar', ''),
-                'email': current_user.get('email', ''),
-                'role_code': current_user['role_code'],
-                'org_code': current_user['org_code'],
-                'permissions': current_user.get('permissions', [])
-            }
-        }), 200
+        user_data = {
+            'id': current_user['id'],
+            'name': current_user['username'],
+            'avatar': current_user.get('avatar', ''),
+            'email': current_user.get('email', ''),
+            'role_code': current_user['role_code'],
+            'org_code': current_user['org_code'],
+            'permissions': current_user.get('permissions', [])
+        }
+        response, status = standardize_response(True, data=user_data, message='获取用户信息成功')
+        return jsonify(response), status
         
     except Exception as e:
         logger.error(f"获取用户信息失败: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'获取用户信息失败: {str(e)}'
-        }), 500
+        response, status = standardize_response(False, error=f'获取用户信息失败: {str(e)}', code=500)
+        return jsonify(response), status
 
 @api_bp.route('/auth/permissions', methods=['GET'])
 @token_required
@@ -727,19 +774,16 @@ def get_user_permissions():
         permissions_result = permission_service.get_user_permissions(current_user['id'])
         
         if not permissions_result['success']:
-            return jsonify(permissions_result), 500
+            response, status = standardize_response(False, error=permissions_result.get('error', '获取权限失败'), code=500)
+            return jsonify(response), status
             
-        return jsonify({
-            'success': True,
-            'data': permissions_result['data']
-        }), 200
+        response, status = standardize_response(True, data=permissions_result['data'], message='获取用户权限成功')
+        return jsonify(response), status
         
     except Exception as e:
         logger.error(f"获取用户权限失败: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'获取用户权限失败: {str(e)}'
-        }), 500
+        response, status = standardize_response(False, error=f'获取用户权限失败: {str(e)}', code=500)
+        return jsonify(response), status
 
 # ==================== 用户管理接口 ====================
 
@@ -748,54 +792,82 @@ def get_user_permissions():
 def get_users():
     """获取用户列表"""
     try:
-        page = request.args.get('page', 1, type=int)
-        page_size = request.args.get('page_size', 10, type=int)
+        # 支持ng-alain表格组件的参数格式：pi, ps
+        page = request.args.get('pi', request.args.get('page', 1), type=int)
+        page_size = request.args.get('ps', request.args.get('page_size', 10), type=int)
         keyword = request.args.get('keyword', '')
-        status = request.args.get('status', None, type=int)
         
-        user_service = get_user_service()
+        # 处理undefined字符串值
+        status_str = request.args.get('status')
+        if status_str and status_str != 'undefined':
+            status = int(status_str)
+        else:
+            status = None
+        
+        user_service = get_user_service_instance()
         result = user_service.get_users_list(page, page_size, keyword=keyword, status=status)
         
-        return jsonify(result), 200 if result['success'] else 400
+        # 转换服务层响应为标准格式
+        if result['success']:
+            response, status_code = standardize_response(True, data=result['data'], message='获取用户列表成功')
+        else:
+            response, status_code = standardize_response(False, error=result.get('error', '获取用户列表失败'), code=400)
+        return jsonify(response), status_code
         
     except Exception as e:
         logger.error(f"获取用户列表失败: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
 
 @api_bp.route('/users/<int:user_id>', methods=['GET'], endpoint='get_user_by_id')
 @auth_required
 def get_user(user_id):
     """获取用户信息"""
-    user_service = get_user_service()
+    user_service = get_user_service_instance()
     result = user_service.get_user_by_id(user_id)
-    return jsonify(result), 200 if result['success'] else 400
+    
+    # 转换服务层响应为标准格式
+    if result['success']:
+        response, status = standardize_response(True, data=result['data'], message='获取用户信息成功')
+    else:
+        response, status = standardize_response(False, error=result.get('error', '获取用户信息失败'), code=400)
+    return jsonify(response), status
 
 @api_bp.route('/users', methods=['POST'], endpoint='create_new_user')
 @auth_required
 def create_user():
     """创建用户"""
     data = request.get_json()
-    user_service = get_user_service()
+    user_service = get_user_service_instance()
     result = user_service.create_user(data)
-    return jsonify(result), 200 if result['success'] else 400
+    
+    # 转换服务层响应为标准格式
+    if result['success']:
+        response, status = standardize_response(True, data=result['data'], message='创建用户成功', code=201)
+    else:
+        response, status = standardize_response(False, error=result.get('error', '创建用户失败'), code=400)
+    return jsonify(response), status
 
 @api_bp.route('/users/<int:user_id>', methods=['PUT'], endpoint='update_user_by_id')
 @auth_required
 def update_user(user_id):
     """更新用户信息"""
     data = request.get_json()
-    user_service = get_user_service()
+    user_service = get_user_service_instance()
     result = user_service.update_user(user_id, data)
-    return jsonify(result), 200 if result['success'] else 400
+    
+    # 转换服务层响应为标准格式
+    if result['success']:
+        response, status = standardize_response(True, data=result['data'], message='更新用户成功')
+    else:
+        response, status = standardize_response(False, error=result.get('error', '更新用户失败'), code=400)
+    return jsonify(response), status
 
 @api_bp.route('/users/<int:user_id>', methods=['DELETE'], endpoint='delete_user_by_id')
 @auth_required
 def delete_user(user_id):
     """删除用户"""
-    user_service = get_user_service()
+    user_service = get_user_service_instance()
     result = user_service.delete_user(user_id)
     return jsonify(result), 200 if result['success'] else 400
 
@@ -803,7 +875,7 @@ def delete_user(user_id):
 @auth_required
 def get_user_roles(user_id):
     """获取用户角色"""
-    user_service = get_user_service()
+    user_service = get_user_service_instance()
     roles = user_service.get_user_roles(user_id)
     return jsonify({'success': True, 'data': roles}), 200
 
@@ -813,7 +885,7 @@ def set_user_roles(user_id):
     """设置用户角色"""
     data = request.get_json()
     role_ids = data.get('role_ids', [])
-    user_service = get_user_service()
+    user_service = get_user_service_instance()
     success = user_service.set_user_roles(user_id, role_ids)
     return jsonify({'success': success}), 200 if success else 400
 
@@ -821,7 +893,7 @@ def set_user_roles(user_id):
 @auth_required
 def get_user_permissions(user_id):
     """获取用户权限"""
-    user_service = get_user_service()
+    user_service = get_user_service_instance()
     permissions = user_service.get_user_permissions(user_id)
     return jsonify({'success': True, 'data': permissions}), 200
 
@@ -832,13 +904,35 @@ def get_user_permissions(user_id):
 def get_roles():
     """获取角色列表"""
     try:
-        page = request.args.get('page', 1, type=int)
-        page_size = request.args.get('page_size', 10, type=int)
+        # 支持ng-alain表格组件的参数格式：pi, ps
+        page = request.args.get('pi', request.args.get('page', 1), type=int)
+        page_size = request.args.get('ps', request.args.get('page_size', 10), type=int)
         keyword = request.args.get('keyword', '')
-        status = request.args.get('status', None, type=int)
+        
+        # 处理undefined字符串值
+        status_str = request.args.get('status')
+        if status_str and status_str != 'undefined':
+            status = int(status_str)
+        else:
+            status = None
+            
+        role_level_str = request.args.get('role_level')
+        if role_level_str and role_level_str != 'undefined':
+            role_level = int(role_level_str)
+        else:
+            role_level = None
+            
+
         
         role_service = get_role_service()
-        result = role_service.get_roles_list(page, page_size, keyword=keyword, status=status)
+        result = role_service.get_roles_list(
+            page=page, 
+            page_size=page_size, 
+            keyword=keyword, 
+            status=status, 
+            role_level=role_level, 
+
+        )
         
         return jsonify(result), 200 if result['success'] else 400
         
@@ -908,10 +1002,17 @@ def set_role_permissions(role_id):
 def get_permissions():
     """获取权限列表"""
     try:
-        page = request.args.get('page', 1, type=int)
-        page_size = request.args.get('page_size', 10, type=int)
+        # 支持ng-alain表格组件的参数格式：pi, ps
+        page = request.args.get('pi', request.args.get('page', 1), type=int)
+        page_size = request.args.get('ps', request.args.get('page_size', 10), type=int)
         keyword = request.args.get('keyword', '')
-        status = request.args.get('status', None, type=int)
+        
+        # 处理undefined字符串值
+        status_str = request.args.get('status')
+        if status_str and status_str != 'undefined':
+            status = int(status_str)
+        else:
+            status = None
         
         permission_service = get_permission_service()
         result = permission_service.get_permissions_list(page, page_size, keyword=keyword, status=status)
@@ -1074,87 +1175,83 @@ def get_activities():
 
 @api_bp.route('/chart', methods=['GET'])
 def get_chart():
-    """获取图表数据"""
+    """获取图表数据 - Dashboard页面使用"""
+    # 为Dashboard组件提供所需的数据格式
     data = {
+        # 网站访问数据 - 用于mini-bar图表
+        "visitData": [
+            {"x": "2024-01", "y": 123},
+            {"x": "2024-02", "y": 234},
+            {"x": "2024-03", "y": 345},
+            {"x": "2024-04", "y": 456},
+            {"x": "2024-05", "y": 567},
+            {"x": "2024-06", "y": 678},
+            {"x": "2024-07", "y": 789},
+            {"x": "2024-08", "y": 890},
+            {"x": "2024-09", "y": 901},
+            {"x": "2024-10", "y": 823}
+        ],
+        
+        # 销售数据 - 用于bar图表
+        "salesData": [
+            {"x": "1月", "y": 2800},
+            {"x": "2月", "y": 3200},
+            {"x": "3月", "y": 3600},
+            {"x": "4月", "y": 3800},
+            {"x": "5月", "y": 4200},
+            {"x": "6月", "y": 4600},
+            {"x": "7月", "y": 5000},
+            {"x": "8月", "y": 5200},
+            {"x": "9月", "y": 4800},
+            {"x": "10月", "y": 5400},
+            {"x": "11月", "y": 5800},
+            {"x": "12月", "y": 6200}
+        ],
+        
+        # 离线数据 - 用于timeline图表
+        "offlineChartData": [
+            {"x": 1577836800000, "y1": 7, "y2": 9},
+            {"x": 1577923200000, "y1": 8, "y2": 12},
+            {"x": 1578009600000, "y1": 12, "y2": 15},
+            {"x": 1578096000000, "y1": 15, "y2": 18},
+            {"x": 1578182400000, "y1": 18, "y2": 21},
+            {"x": 1578268800000, "y1": 21, "y2": 24},
+            {"x": 1578355200000, "y1": 24, "y2": 27},
+            {"x": 1578441600000, "y1": 27, "y2": 30},
+            {"x": 1578528000000, "y1": 30, "y2": 33},
+            {"x": 1578614400000, "y1": 33, "y2": 36},
+            {"x": 1578700800000, "y1": 36, "y2": 39},
+            {"x": 1578787200000, "y1": 39, "y2": 42},
+            {"x": 1578873600000, "y1": 42, "y2": 45},
+            {"x": 1578960000000, "y1": 45, "y2": 48}
+        ],
+        
+        # 保留原雷达图数据（备用）
         "radarData": [
-            {
-                "name": "个人",
-                "label": "引用",
-                "value": 10
-            },
-            {
-                "name": "个人",
-                "label": "口碑",
-                "value": 8
-            },
-            {
-                "name": "个人",
-                "label": "产量",
-                "value": 4
-            },
-            {
-                "name": "个人",
-                "label": "贡献",
-                "value": 5
-            },
-            {
-                "name": "个人",
-                "label": "热度",
-                "value": 7
-            },
-            {
-                "name": "团队",
-                "label": "引用",
-                "value": 3
-            },
-            {
-                "name": "团队",
-                "label": "口碑",
-                "value": 9
-            },
-            {
-                "name": "团队",
-                "label": "产量",
-                "value": 6
-            },
-            {
-                "name": "团队",
-                "label": "贡献",
-                "value": 3
-            },
-            {
-                "name": "团队",
-                "label": "热度",
-                "value": 1
-            },
-            {
-                "name": "部门",
-                "label": "引用",
-                "value": 4
-            },
-            {
-                "name": "部门",
-                "label": "口碑",
-                "value": 3
-            },
-            {
-                "name": "部门",
-                "label": "产量",
-                "value": 8
-            },
-            {
-                "name": "部门",
-                "label": "贡献",
-                "value": 7
-            },
-            {
-                "name": "部门",
-                "label": "热度",
-                "value": 2
-            }
+            {"name": "个人", "label": "引用", "value": 10},
+            {"name": "个人", "label": "口碑", "value": 8},
+            {"name": "个人", "label": "产量", "value": 4},
+            {"name": "个人", "label": "贡献", "value": 5},
+            {"name": "个人", "label": "热度", "value": 7},
+            {"name": "团队", "label": "引用", "value": 3},
+            {"name": "团队", "label": "口碑", "value": 9},
+            {"name": "团队", "label": "产量", "value": 6},
+            {"name": "团队", "label": "贡献", "value": 3},
+            {"name": "团队", "label": "热度", "value": 1},
+            {"name": "部门", "label": "引用", "value": 4},
+            {"name": "部门", "label": "口碑", "value": 3},
+            {"name": "部门", "label": "产量", "value": 8},
+            {"name": "部门", "label": "贡献", "value": 7},
+            {"name": "部门", "label": "热度", "value": 2}
         ]
     }
-    return jsonify(data)
+    
+    # 返回标准格式：{code: 200, data: ...}
+    return jsonify({
+        "code": 200,
+        "message": "获取图表数据成功",
+        "data": data
+    })
 
 @api_bp.route('/user/info', methods=['GET'])
 @auth_required
@@ -1163,45 +1260,243 @@ def get_user_info():
     try:
         current_user = g.current_user
         if not current_user:
-            return jsonify({
-                'success': False,
-                'error': '用户未登录'
-            }), 401
+            response, status = standardize_response(False, error='用户未登录', code=401)
+            return jsonify(response), status
 
         # 获取用户菜单
-        from service.menu_service import get_menu_service
-        menu_service = get_menu_service()
-        menu_result = menu_service.get_user_menus(current_user['id'])
+        menu_result = get_menu_service_instance().get_user_menus(current_user['id'])
         
         if not menu_result['success']:
-            return jsonify({
-                'success': False,
-                'error': menu_result['error']
-            }), 500
+            response, status = standardize_response(False, error=menu_result['error'], code=500)
+            return jsonify(response), status
 
-        # 构建用户信息响应
-        user_info = {
-            'success': True,
-            'data': {
-                'user': {
-                    'id': current_user['id'],
-                    'username': current_user['username'],
-                    'name': current_user['username'],
-                    'avatar': current_user.get('avatar', './assets/tmp/img/avatar.jpg'),
-                    'email': current_user.get('email', ''),
-                    'status': current_user['status'],
-                    'orgCode': current_user['org_code'],
-                    'roleCode': current_user['role_code'],
-                    'permissions': current_user.get('permissions', [])
-                },
-                'menus': menu_result['data']
-            }
+        # 获取用户权限
+        permissions_result = get_user_service_instance().get_user_permissions(current_user['id'])
+        
+        if not permissions_result['success']:
+            response, status = standardize_response(False, error=permissions_result.get('error', '获取权限失败'), code=500)
+            return jsonify(response), status
+
+        # 构建用户信息响应数据
+        user_data = {
+            'user': {
+                'id': current_user['id'],
+                'username': current_user['username'],
+                'name': current_user['username'],
+                'avatar': current_user.get('avatar', './assets/tmp/img/avatar.jpg'),
+                'email': current_user.get('email', ''),
+                'status': current_user['status'],
+                'orgCode': current_user['org_code'],
+                'roleCode': current_user['role_code'],
+                'permissions': current_user.get('permissions', [])
+            },
+            'menus': menu_result['data'],
+            'permissions': permissions_result['data']
         }
         
-        return jsonify(user_info), 200
+        response, status = standardize_response(True, data=user_data, message='获取用户信息成功')
+        return jsonify(response), status
         
     except Exception as e:
+        response, status = standardize_response(False, error=f'获取用户信息失败: {str(e)}', code=500)
+        return jsonify(response), status
+
+@api_bp.route('/app/init', methods=['GET'])
+def app_init():
+    """
+    系统初始化接口
+    返回应用信息，如果有token则返回用户信息、菜单和权限
+    """
+    try:
+        # 默认响应数据
+        response_data = {
+            'app': {
+                'name': 'DataAsk',
+                'description': '数据分析问答系统'
+            },
+            'user': {
+                'id': 1,
+                'name': 'admin',
+                'avatar': './assets/tmp/img/avatar.jpg',
+                'email': 'admin@dataask.com',
+                'orgCode': 'ORG001',
+                'roleCode': 'ADMIN'
+            },
+            'menus': [],
+            'permissions': []
+        }
+        
+        # 获取用户菜单数据
+        try:
+            # 使用超级管理员用户ID=1获取菜单
+            menu_service = get_menu_service_instance()
+            menu_result = menu_service.get_user_menus(1)
+            
+            if menu_result and menu_result['success']:
+                # 将数据库菜单转换为前端格式
+                response_data['menus'] = convert_menus_to_frontend_format(menu_result['data'])
+
+            else:
+                current_app.logger.warning(f"Failed to load menus: {menu_result.get('error', 'Unknown error')}")
+                # 如果菜单服务失败，使用基本的默认菜单
+                response_data['menus'] = get_default_menus()
+        except Exception as menu_error:
+            current_app.logger.error(f"Menu service error: {str(menu_error)}")
+            response_data['menus'] = get_default_menus()
+        
+        # 尝试获取当前用户（如果有token的话）
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            try:
+                token = auth_header.split(' ')[1]
+                user_service = get_user_service_instance()
+                user_result = user_service.verify_token(token)
+                
+                if user_result and user_result['success']:
+                    current_user = user_result['data']
+                    
+                    # 获取该用户的菜单
+                    user_menu_result = menu_service.get_user_menus(current_user['id'])
+                    if user_menu_result and user_menu_result['success']:
+                        response_data['menus'] = convert_menus_to_frontend_format(user_menu_result['data'])
+                    
+                    # 获取用户权限
+                    permissions_result = user_service.get_user_permissions(current_user['id'])
+                    
+                    # 更新响应数据
+                    response_data.update({
+                        'user': {
+                            'id': current_user['id'],
+                            'name': current_user.get('username', current_user.get('name', 'admin')),
+                            'avatar': current_user.get('avatar', './assets/tmp/img/avatar.jpg'),
+                            'email': current_user.get('email', ''),
+                            'orgCode': current_user['org_code'],
+                            'roleCode': current_user['role_code']
+                        },
+                        'permissions': permissions_result['data'] if permissions_result['success'] else []
+                    })
+                        except Exception as token_error:
+                # Token验证失败，使用默认数据
+                pass
+        
         return jsonify({
-            'success': False,
-            'error': f'获取用户信息失败: {str(e)}'
-        }), 500 
+            'code': 200,
+            'data': response_data,
+            'message': '获取成功'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error in app_init: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': '系统初始化失败',
+            'data': None
+        }), 500
+
+def convert_menus_to_frontend_format(menus):
+    """将数据库菜单格式转换为前端需要的格式"""
+    def convert_menu_item(menu, parent_path=''):
+        # 基本菜单项
+        item = {
+            'text': menu['name'],
+            'icon': {'type': 'icon', 'value': menu['icon']}
+        }
+        
+        # 构建完整路径
+        if menu['type'] == 'C' and menu['path']:
+            # 如果是子菜单，需要拼接父路径
+            if parent_path and not menu['path'].startswith('/'):
+                full_path = f"{parent_path}/{menu['path']}"
+            else:
+                full_path = menu['path']
+            item['link'] = full_path
+        
+        # 如果有子菜单，递归处理
+        if 'children' in menu and menu['children']:
+            # 为子菜单传递当前菜单的路径作为父路径
+            current_path = menu['path'] if menu['path'] else ''
+            item['children'] = [convert_menu_item(child, current_path) for child in menu['children']]
+        
+        return item
+    
+    return [convert_menu_item(menu) for menu in menus]
+
+def get_default_menus():
+    """获取默认菜单（当菜单服务失败时使用）"""
+    return [
+        {
+            'text': '百惟数问',
+            'icon': {'type': 'icon', 'value': 'home'},
+            'children': [
+                {
+                    'text': '监控台',
+                    'icon': {'type': 'icon', 'value': 'dashboard'},
+                    'children': [
+                        {
+                            'text': 'AI监控大屏',
+                            'icon': {'type': 'icon', 'value': 'bar-chart'},
+                            'link': '/dashboard'
+                        }
+                    ]
+                },
+                {
+                    'text': '工作台',
+                    'icon': {'type': 'icon', 'value': 'appstore'},
+                    'children': [
+                        {
+                            'text': '工作区',
+                            'icon': {'type': 'icon', 'value': 'laptop'},
+                            'link': '/workspace/workplace'
+                        },
+                        {
+                            'text': '报表',
+                            'icon': {'type': 'icon', 'value': 'bar-chart'},
+                            'link': '/workspace/report'
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            'text': 'AI引擎',
+            'icon': {'type': 'icon', 'value': 'robot'},
+            'children': [
+                {
+                    'text': 'AI问答',
+                    'icon': {'type': 'icon', 'value': 'message'},
+                    'link': '/ai-engine/ask-data'
+                },
+                {
+                    'text': '知识库',
+                    'icon': {'type': 'icon', 'value': 'database'},
+                    'link': '/ai-engine/knowledge-base'
+                }
+            ]
+        },
+        {
+            'text': '系统管理',
+            'icon': {'type': 'icon', 'value': 'setting'},
+            'children': [
+                {
+                    'text': '用户管理',
+                    'icon': {'type': 'icon', 'value': 'user'},
+                    'link': '/sys/user'
+                },
+                {
+                    'text': '角色管理',
+                    'icon': {'type': 'icon', 'value': 'team'},
+                    'link': '/sys/role'
+                },
+                {
+                    'text': '权限管理',
+                    'icon': {'type': 'icon', 'value': 'safety'},
+                    'link': '/sys/permission'
+                },
+                {
+                    'text': '机构管理',
+                    'icon': {'type': 'icon', 'value': 'cluster'},
+                    'link': '/sys/org'
+                }
+            ]
+        }
+    ] 

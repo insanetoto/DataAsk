@@ -29,9 +29,7 @@ import { BehaviorSubject, debounceTime, distinctUntilChanged, tap } from 'rxjs';
           <i nz-icon nzType="loading"></i>
         }
       </ng-template>
-      <label for="header_search" class="visually-hidden">搜索</label>
       <input
-        id="header_search"
         type="text"
         nz-input
         [(ngModel)]="q"
@@ -40,7 +38,7 @@ import { BehaviorSubject, debounceTime, distinctUntilChanged, tap } from 'rxjs';
         (focus)="qFocus()"
         (blur)="qBlur()"
         hotkey="F1"
-        placeholder="搜索：员工、文件、照片等"
+        placeholder="搜索"
       />
     </nz-input-group>
     <nz-autocomplete nzBackfill #auto>
@@ -49,21 +47,6 @@ import { BehaviorSubject, debounceTime, distinctUntilChanged, tap } from 'rxjs';
       }
     </nz-autocomplete>
   `,
-  styles: [
-    `
-      .visually-hidden {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-      }
-    `
-  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, NzInputModule, NzIconModule, NzAutocompleteModule]
 })
@@ -113,6 +96,10 @@ export class HeaderSearchComponent implements AfterViewInit, OnDestroy {
       });
   }
 
+  search(ev: Event): void {
+    this.search$.next((ev.target as HTMLInputElement).value);
+  }
+
   qFocus(): void {
     this.focus = true;
   }
@@ -122,10 +109,6 @@ export class HeaderSearchComponent implements AfterViewInit, OnDestroy {
     this.searchToggled = false;
     this.options.length = 0;
     this.toggleChangeChange.emit(false);
-  }
-
-  search(ev: Event): void {
-    this.search$.next((ev.target as HTMLInputElement).value);
   }
 
   ngOnDestroy(): void {

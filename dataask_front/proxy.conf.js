@@ -7,9 +7,19 @@
  */
 module.exports = {
   /**
-   * The following means that all requests are directed to the backend `http://localhost:9000/`
+   * The following means that all requests are directed to the backend `http://localhost:9000`
    */
   '/api': {
+    target: 'http://localhost:9000',
+    secure: false,
+    changeOrigin: true
+  },
+  '/app': {
+    target: 'http://localhost:9000',
+    secure: false,
+    changeOrigin: true
+  },
+  '/auth': {
     target: 'http://localhost:9000',
     secure: false,
     changeOrigin: true

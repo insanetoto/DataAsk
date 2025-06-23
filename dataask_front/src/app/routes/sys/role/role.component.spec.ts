@@ -1,4 +1,5 @@
 import { waitForAsync, ComponentFixture, TestBed } from '@angular/core/testing';
+
 import { SysRoleComponent } from './role.component';
 
 describe('SysRoleComponent', () => {
@@ -7,9 +8,8 @@ describe('SysRoleComponent', () => {
 
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
-      declarations: [ SysRoleComponent ]
-    })
-    .compileComponents();
+      declarations: [SysRoleComponent]
+    }).compileComponents();
   }));
 
   beforeEach(() => {

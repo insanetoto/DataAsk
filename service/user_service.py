@@ -11,28 +11,30 @@ from datetime import datetime, timedelta
 import bcrypt
 import jwt
 from service.permission_service import get_permission_service
-from tools.database import get_database_service, get_db_session
-from tools.redis_service import get_redis_service, RedisService
+from tools.database import DatabaseService, get_database_service
+from tools.redis_service import RedisService, get_redis_service
 from sqlalchemy import text, select, func
 from sqlalchemy.orm import Session
 from config import Config
+from tools.di_container import DIContainer
 
 logger = logging.getLogger(__name__)
 
 class UserService:
     """用户管理服务类"""
     
-    def __init__(self):
+    def __init__(self, redis_service: RedisService = None, db_service: DatabaseService = None, permission_service = None):
         self.cache_prefix = "user:"
         self.session_prefix = "session:"
         self.cache_timeout = 3600  # 缓存1小时
         self.session_timeout = 7200  # 会话2小时
         self.list_cache_key = "user:list"
-        self.redis = RedisService()
+        self.redis = redis_service or get_redis_service()
         self.JWT_SECRET = Config.JWT_SECRET_KEY  # 从配置文件读取
         self.ACCESS_TOKEN_EXPIRE_MINUTES = 30
         self.REFRESH_TOKEN_EXPIRE_DAYS = 7
-        self.db_service = get_database_service()
+        self.db_service = db_service or get_database_service()
+        self.permission_service = permission_service or get_permission_service()
         
     def create_user(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """创建用户"""
@@ -46,7 +48,7 @@ class UserService:
                         'error': f'缺少必要字段: {field}'
                     }
             
-            with get_db_session() as session:
+            with self.db_service.get_session() as session:
                 # 检查用户编码是否已存在
                 existing_user = self.get_user_by_code(data['user_code'])
                 if existing_user['success'] and existing_user['data']:
@@ -109,13 +111,13 @@ class UserService:
         try:
             # 先检查缓存
             cache_key = f"{self.cache_prefix}id:{user_id}"
-            redis_service = get_redis_service()
-            cached_data = redis_service.get_cache(cache_key)
+            cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
                 logger.info(f"从缓存获取用户信息: ID={user_id}")
-                cached_user = json.loads(cached_data)
-                if cached_user['status'] != 1:
+                # cached_data 已经是字典对象，不需要再json.loads
+                cached_user = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
+                if cached_user.get('status') != 1:
                     return {
                         'success': False,
                         'error': '用户不存在或已禁用'
@@ -126,7 +128,7 @@ class UserService:
                 }
             
             # 从数据库查询
-            with get_db_session() as session:
+            with self.db_service.get_session() as session:
                 result = session.execute(
                     text("""
                         SELECT u.*, r.role_code, o.org_name 
@@ -158,7 +160,7 @@ class UserService:
                 }
                 
                 # 缓存数据
-                redis_service.set_cache(cache_key, json.dumps(user_info, default=str), self.cache_timeout)
+                self.redis.set_cache(cache_key, json.dumps(user_info, default=str), self.cache_timeout)
                 
                 return {
                     'success': True,
@@ -177,18 +179,19 @@ class UserService:
         try:
             # 先检查缓存
             cache_key = f"{self.cache_prefix}code:{user_code}"
-            redis_service = get_redis_service()
-            cached_data = redis_service.get_cache(cache_key)
+            cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
                 logger.info(f"从缓存获取用户信息: code={user_code}")
+                # cached_data 已经是字典对象，不需要再json.loads
+                user_data = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 return {
                     'success': True,
-                    'data': json.loads(cached_data)
+                    'data': user_data
                 }
             
             # 从数据库查询
-            with get_db_session() as session:
+            with self.db_service.get_session() as session:
                 result = session.execute(
                     text("""
                         SELECT u.*, r.role_code, o.org_name 
@@ -220,7 +223,7 @@ class UserService:
                 }
                 
                 # 缓存数据
-                redis_service.set_cache(cache_key, json.dumps(user_info, default=str), self.cache_timeout)
+                self.redis.set_cache(cache_key, json.dumps(user_info, default=str), self.cache_timeout)
                 
                 return {
                     'success': True,
@@ -234,96 +237,85 @@ class UserService:
                 'error': f'获取用户信息失败: {str(e)}'
             }
     
-    def verify_password(self, plain_password: str, stored_password: str) -> bool:
-        """验证密码"""
+    def verify_password(self, username: str, password: str) -> Optional[Dict[str, Any]]:
+        """
+        验证用户名和密码
+        :param username: 用户名
+        :param password: 密码
+        :return: 用户信息或None
+        """
         try:
-            if not plain_password or not stored_password:
-                logger.warning("密码为空")
-                return False
-            
-            logger.info("开始验证密码")
-            
-            # 使用bcrypt验证密码
-            try:
-                result = bcrypt.checkpw(
-                    plain_password.encode('utf-8'),
-                    stored_password.encode('utf-8')
-                )
-                logger.info(f"密码验证结果: {result}")
-                return result
-            except ValueError as e:
-                logger.error(f"密码格式错误: {str(e)}")
-                return False
-            
+            # 查询用户
+            with self.db_service.get_session() as session:
+                query = """
+                    SELECT id, username, password_hash as password, status
+                    FROM users
+                    WHERE username = :username AND status = 1
+                """
+                result = session.execute(text(query), {"username": username}).fetchone()
+                
+                if not result:
+                    return None
+                
+                # 验证密码
+                stored_password = result.password
+                if not bcrypt.checkpw(password.encode('utf-8'), stored_password.encode('utf-8')):
+                    return None
+                
+                # 返回用户信息（不包含密码）
+                return {
+                    'id': result.id,
+                    'username': result.username,
+                    'status': result.status
+                }
+                
         except Exception as e:
-            logger.error(f"密码验证失败: {str(e)}")
-            return False
+            logger.error(f"Error in verify_password: {str(e)}")
+            return None
 
     def authenticate_user(self, username: str, password: str):
         """验证用户"""
         try:
             logger.info(f"开始验证用户: {username}")
             
-            # 查询用户
-            with get_db_session() as session:
-                sql = """
-                    SELECT u.*, r.role_code, o.org_name 
-                    FROM users u 
-                    JOIN roles r ON u.role_id = r.id 
-                    JOIN organizations o ON u.org_code = o.org_code 
-                    WHERE (u.username = :username OR u.user_code = :username) 
-                    AND u.status = 1
-                """
-                logger.info(f"执行SQL查询: {sql}")
-                logger.info(f"查询参数: username={username}")
-                result = session.execute(text(sql), {"username": username}).fetchone()
-                
-                if not result:
-                    logger.warning(f"用户不存在或已禁用: {username}")
-                    return None
-                
-                logger.info(f"找到用户: {username}")
-                
-                # 将查询结果转换为字典
-                user_data = {
-                    'id': result.id,
-                    'username': result.username,
-                    'user_code': result.user_code,
-                    'password_hash': result.password_hash,
-                    'org_code': result.org_code,
-                    'org_name': result.org_name,
-                    'role_code': result.role_code
-                }
-                
-                logger.info(f"用户数据: {user_data}")
-
-                # 验证密码
-                logger.info(f"开始验证密码")
-                if not self.verify_password(password, user_data['password_hash']):
-                    logger.warning(f"密码验证失败: {username}")
-                    return None
-                
-                logger.info(f"密码验证成功: {username}")
-                
+            # 验证密码
+            user_info = self.verify_password(username, password)
+            if not user_info:
+                logger.warning(f"密码验证失败: {username}")
                 return {
-                    "user_id": user_data['id'],
-                    "username": user_data['username'],
-                    "user_code": user_data['user_code'],
-                    "org_code": user_data['org_code'],
-                    "org_name": user_data['org_name'],
-                    "role_code": user_data['role_code']
+                    'success': False,
+                    'error': '用户名或密码错误'
                 }
+            
+            logger.info(f"密码验证成功: {username}")
+            
+            # 生成令牌
+            tokens = self.create_tokens(user_info)
+            
+            return {
+                'success': True,
+                'data': {
+                    'user': user_info,
+                    'access_token': tokens['access_token'],
+                    'refresh_token': tokens['refresh_token'],
+                    'token_type': tokens['token_type'],
+                    'expires_in': tokens['expires_in']
+                }
+            }
                 
         except Exception as e:
             logger.error(f"用户验证失败: {str(e)}")
-            raise
+            return {
+                'success': False,
+                'error': f'用户验证失败: {str(e)}'
+            }
 
     def create_tokens(self, user_info: Dict[str, Any]) -> Dict[str, str]:
         """生成访问令牌和刷新令牌"""
         try:
             # 生成访问令牌
             access_token_payload = {
-                'user_id': user_info['user_id'],
+                'user_id': user_info['id'],
                 'username': user_info['username'],
                 'user_code': user_info['user_code'],
                 'org_code': user_info['org_code'],
@@ -335,7 +327,7 @@ class UserService:
             
             # 生成刷新令牌
             refresh_token_payload = {
-                'user_id': user_info['user_id'],
+                'user_id': user_info['id'],
                 'type': 'refresh',
                 'exp': datetime.utcnow() + timedelta(days=7)  # 7天过期
             }
@@ -343,7 +335,7 @@ class UserService:
             
             # 存储刷新令牌到Redis
             redis_service = get_redis_service()
-            refresh_token_key = f"refresh_token:{user_info['user_id']}"
+            refresh_token_key = f"refresh_token:{user_info['id']}"
             redis_service.set_cache(refresh_token_key, refresh_token, 7 * 24 * 60 * 60)  # 7天过期
             
             return {
@@ -409,72 +401,111 @@ class UserService:
             
             if cached_data:
                 logger.info(f"从缓存获取用户列表: page={page}, page_size={page_size}")
+                # cached_data 已经是字典对象，不需要再json.loads
+                list_data = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 return {
                     'success': True,
-                    'data': json.loads(cached_data)
+                    'data': list_data
                 }
             
             # 构建SQL查询
-            with get_db_session() as session:
+            with self.db_service.get_session() as session:
+                # 基础查询条件
+                where_clauses = ["1=1"]
+                params = {}
+                
+                if status is not None:
+                    where_clauses.append("u.status = :status")
+                    params['status'] = status
+                
+                if org_code:
+                    where_clauses.append("u.org_code = :org_code")
+                    params['org_code'] = org_code
+                
+                if role_level is not None:
+                    where_clauses.append("r.role_level = :role_level")
+                    params['role_level'] = role_level
+                
+                if keyword:
+                    where_clauses.append("(u.username LIKE :keyword OR u.user_code LIKE :keyword)")
+                    params['keyword'] = f"%{keyword}%"
+                
+                if current_user_org:
+                    where_clauses.append("u.org_code = :current_user_org")
+                    params['current_user_org'] = current_user_org
+                
                 # 计算总数
-                count_sql = """
+                count_sql = f"""
                     SELECT COUNT(*) as total
                     FROM users u
                     JOIN roles r ON u.role_id = r.id
                     JOIN organizations o ON u.org_code = o.org_code
-                    WHERE 1=1
+                    WHERE {' AND '.join(where_clauses)}
                 """
-                params = {}
-                
-                if keyword:
-                    count_sql += " AND (u.username LIKE :keyword OR u.user_code LIKE :keyword)"
-                    params['keyword'] = f"%{keyword}%"
-                if status is not None:
-                    count_sql += " AND u.status = :status"
-                    params['status'] = status
-                if org_code:
-                    count_sql += " AND u.org_code LIKE :org_code"
-                    params['org_code'] = f"{org_code}%"
-                
                 total = session.execute(text(count_sql), params).scalar()
                 
-                # 查询用户列表
-                sql = """
+                # 获取分页数据
+                params['offset'] = (page - 1) * page_size
+                params['limit'] = page_size
+                
+                list_sql = f"""
                     SELECT u.*, r.role_code, r.role_name, o.org_name
                     FROM users u
                     JOIN roles r ON u.role_id = r.id
                     JOIN organizations o ON u.org_code = o.org_code
-                    WHERE 1=1
+                    WHERE {' AND '.join(where_clauses)}
+                    ORDER BY u.created_at DESC
+                    LIMIT :limit OFFSET :offset
                 """
                 
-                if keyword:
-                    sql += " AND (u.username LIKE :keyword OR u.user_code LIKE :keyword)"
-                if status is not None:
-                    sql += " AND u.status = :status"
-                if org_code:
-                    sql += " AND u.org_code LIKE :org_code"
+                users = session.execute(text(list_sql), params).fetchall()
                 
-                sql += " ORDER BY u.created_at DESC LIMIT :offset, :limit"
-                params['offset'] = (page - 1) * page_size
-                params['limit'] = page_size
-                
-                users = session.execute(text(sql), params).fetchall()
-                
-                result_data = {
-                    'list': [dict(user) for user in users],
-                    'pagination': {
-                        'total': total,
-                        'page': page,
-                        'page_size': page_size
+                # 格式化用户数据 - 包含完整的机构和角色对象信息
+                user_list = []
+                for user in users:
+                    user_dict = {
+                        'id': user.id,
+                        'user_code': user.user_code,
+                        'username': user.username,
+                        'org_code': user.org_code,
+                        'role_id': user.role_id,
+                        'phone': getattr(user, 'phone', None),
+                        'address': getattr(user, 'address', None),
+                        'login_count': getattr(user, 'login_count', 0),
+                        'last_login_at': str(user.last_login_at) if getattr(user, 'last_login_at', None) else None,
+                        'status': user.status,
+                        'created_at': str(user.created_at),
+                        'updated_at': str(user.updated_at) if user.updated_at else None
                     }
+                    
+                    # 添加机构信息对象
+                    user_dict['organization'] = {
+                        'org_code': user.org_code,
+                        'org_name': user.org_name
+                    }
+                    
+                    # 添加角色信息对象
+                    user_dict['role'] = {
+                        'id': user.role_id,
+                        'role_code': user.role_code,
+                        'role_name': user.role_name
+                    }
+                    
+                    user_list.append(user_dict)
+                
+                result = {
+                    'items': user_list,
+                    'total': total,
+                    'page': page,
+                    'page_size': page_size
                 }
                 
                 # 缓存结果
-                redis_service.set_cache(cache_key, json.dumps(result_data, default=str), 600)  # 10分钟
+                redis_service.set_cache(cache_key, json.dumps(result), self.cache_timeout)
                 
                 return {
                     'success': True,
-                    'data': result_data
+                    'data': result
                 }
             
         except Exception as e:
@@ -528,7 +559,7 @@ class UserService:
     def _get_user_by_id_without_status_check(self, user_id: int) -> Dict[str, Any]:
         """根据ID获取用户信息（不检查状态）"""
         try:
-            with get_db_session() as session:
+            with self.db_service.get_session() as session:
                 result = session.execute(
                     text("""
                         SELECT u.*, r.role_code, o.org_name 
@@ -574,31 +605,51 @@ class UserService:
     def update_user(self, user_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
         """更新用户信息"""
         try:
-            with get_db_session() as session:
-                user = session.get(User, user_id)
-                if not user:
+            # 检查用户是否存在
+            user_info = self._get_user_by_id_without_status_check(user_id)
+            if not user_info['success']:
+                return user_info
+            
+            # 准备更新数据
+            update_fields = []
+            params = {"user_id": user_id}
+            
+            for field, value in data.items():
+                if field in ['username', 'phone', 'address', 'status']:
+                    update_fields.append(f"{field} = :{field}")
+                    params[field] = value
+            
+            if not update_fields:
+                return {
+                    'success': False,
+                    'error': '没有可更新的字段'
+                }
+            
+            # 执行更新
+            with self.db_service.get_session() as session:
+                sql = f"""
+                    UPDATE users 
+                    SET {', '.join(update_fields)}, 
+                        updated_at = CURRENT_TIMESTAMP 
+                    WHERE id = :user_id
+                """
+                result = session.execute(text(sql), params)
+                session.commit()
+                
+                if result.rowcount > 0:
+                    # 清除缓存
+                    self._clear_user_cache(user_info['data']['user_code'], user_id)
+                    self._clear_list_cache()
+                    
+                    return {
+                        'success': True,
+                        'message': '用户信息更新成功'
+                    }
+                else:
                     return {
                         'success': False,
-                        'error': '用户不存在'
+                        'error': '用户信息更新失败'
                     }
-                
-                # 更新用户信息
-                for key, value in data.items():
-                    if hasattr(user, key):
-                        setattr(user, key, value)
-                
-                session.commit()
-                session.refresh(user)
-                
-                # 清除缓存
-                self._clear_user_cache(user.user_code, user_id)
-                self._clear_list_cache()
-                
-                return {
-                    'success': True,
-                    'data': user.to_dict(),
-                    'message': '用户信息更新成功'
-                }
                 
         except Exception as e:
             logger.error(f"更新用户信息失败: {str(e)}")
@@ -610,26 +661,36 @@ class UserService:
     def delete_user(self, user_id: int) -> Dict[str, Any]:
         """删除用户（软删除）"""
         try:
-            with get_db_session() as session:
-                user = session.get(User, user_id)
-                if not user:
-                    return {
-                        'success': False,
-                        'error': '用户不存在'
-                    }
-                
-                # 软删除用户
-                user.status = 0
+            # 检查用户是否存在
+            user_info = self._get_user_by_id_without_status_check(user_id)
+            if not user_info['success']:
+                return user_info
+            
+            # 执行软删除
+            with self.db_service.get_session() as session:
+                sql = """
+                    UPDATE users 
+                    SET status = 0, 
+                        updated_at = CURRENT_TIMESTAMP 
+                    WHERE id = :user_id
+                """
+                result = session.execute(text(sql), {"user_id": user_id})
                 session.commit()
                 
-                # 清除缓存
-                self._clear_user_cache(user.user_code, user_id)
-                self._clear_list_cache()
-                
-                return {
-                    'success': True,
-                    'message': '用户删除成功'
-                }
+                if result.rowcount > 0:
+                    # 清除缓存
+                    self._clear_user_cache(user_info['data']['user_code'], user_id)
+                    self._clear_list_cache()
+                    
+                    return {
+                        'success': True,
+                        'message': '用户删除成功'
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'error': '用户删除失败'
+                    }
                 
         except Exception as e:
             logger.error(f"删除用户失败: {str(e)}")
@@ -640,7 +701,7 @@ class UserService:
 
     def get_user_roles(self, user_id: int) -> List[dict]:
         """获取用户角色列表"""
-        with get_db_session() as session:
+        with self.db_service.get_session() as session:
             user = session.get(User, user_id)
             if not user:
                 return []
@@ -649,7 +710,7 @@ class UserService:
     def set_user_roles(self, user_id: int, role_ids: List[int]) -> bool:
         """设置用户角色"""
         try:
-            with get_db_session() as session:
+            with self.db_service.get_session() as session:
                 user = session.get(User, user_id)
                 if not user:
                     return False
@@ -664,8 +725,7 @@ class UserService:
 
     def get_user_permissions(self, user_id: int) -> List[dict]:
         """获取用户权限列表"""
-        permission_service = get_permission_service()
-        return permission_service.get_user_permissions(user_id)
+        return self.permission_service.get_user_permissions(user_id)
 
     def change_password(self, user_id: int, old_password: str, new_password: str) -> bool:
         """修改密码"""
@@ -676,11 +736,11 @@ class UserService:
                 return False
             
             # 验证旧密码
-            if not self.verify_password(old_password, user_info['data']['password_hash']):
+            if not self.verify_password(user_info['data']['username'], old_password):
                 return False
             
             # 更新密码
-            with get_db_session() as session:
+            with self.db_service.get_session() as session:
                 sql = """
                     UPDATE users 
                     SET password_hash = :new_password,
@@ -710,16 +770,22 @@ class UserService:
             logger.error(f"密码加密失败: {str(e)}")
             raise
 
-# 创建单例实例
-_user_service_instance = None
-
 def get_user_service_instance() -> UserService:
-    """获取UserService的单例实例"""
-    global _user_service_instance
-    if _user_service_instance is None:
-        _user_service_instance = UserService()
-    return _user_service_instance
+    """
+    获取UserService实例的工厂函数
+    """
+    from tools.redis_service import get_redis_service
+    from tools.database import get_database_service
+    from service.permission_service import get_permission_service_instance
+    
+    redis_service = get_redis_service()
+    db_service = get_database_service()
+    permission_service = get_permission_service_instance()
+    return UserService(redis_service=redis_service, db_service=db_service, permission_service=permission_service)
 
-# 保持原有的get_user_service函数以兼容现有代码
 def get_user_service() -> UserService:
+    """
+    获取UserService的单例实例
+    """
+    # 简化版本，直接返回新实例
     return get_user_service_instance() 

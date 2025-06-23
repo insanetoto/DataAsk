@@ -32,7 +32,8 @@ import { finalize } from 'rxjs';
     NzSelectModule,
     NzGridModule,
     NzButtonModule
-  ]
+  ],
+  standalone: true
 })
 export class UserRegisterComponent implements OnDestroy {
   private readonly router = inject(Router);
@@ -65,6 +66,8 @@ export class UserRegisterComponent implements OnDestroy {
     pass: 'normal',
     pool: 'exception'
   };
+
+  // #endregion
 
   // #region get captcha
 

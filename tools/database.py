@@ -11,6 +11,7 @@ from sqlalchemy.pool import QueuePool
 from config import Config
 from contextlib import contextmanager
 from sqlalchemy.orm import sessionmaker, scoped_session
+from models import Base
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,9 @@ DATABASE_URL = f"mysql+pymysql://{config.DB_USER}:{config.DB_PASSWORD}@{config.D
 
 # 创建数据库引擎
 engine = create_engine(DATABASE_URL)
+
+# 创建所有表
+Base.metadata.create_all(engine)
 
 # 创建会话工厂
 SessionFactory = sessionmaker(bind=engine)
@@ -63,6 +67,19 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"{db_name}引擎创建失败: {str(e)}")
             raise
+
+    @contextmanager
+    def get_session(self):
+        """获取数据库会话的上下文管理器"""
+        session = self.Session()
+        try:
+            yield session
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
     
     def test_connection(self) -> bool:
         """测试主数据库连接"""

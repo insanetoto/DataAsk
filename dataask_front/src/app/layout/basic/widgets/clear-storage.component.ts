@@ -1,24 +1,32 @@
-import { ChangeDetectionStrategy, Component, Inject } from '@angular/core';
-import { DA_SERVICE_TOKEN, ITokenService } from '@delon/auth';
+import { ChangeDetectionStrategy, Component, HostListener, inject } from '@angular/core';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { NzModalService } from 'ng-zorro-antd/modal';
 
 @Component({
   selector: 'header-clear-storage',
-  template: `<i nz-icon nzType="tool" nz-tooltip nzTooltipTitle="清除本地缓存" (click)="clear()"></i>`,
-  standalone: true,
-  imports: [NzIconModule, NzToolTipModule],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  template: `
+    <i nz-icon nzType="tool"></i>
+    清除缓存
+  `,
+  host: {
+    '[class.flex-1]': 'true'
+  },
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [NzIconModule]
 })
 export class HeaderClearStorageComponent {
-  constructor(
-    private messageSrv: NzMessageService,
-    @Inject(DA_SERVICE_TOKEN) private tokenService: ITokenService
-  ) {}
+  private readonly modalSrv = inject(NzModalService);
+  private readonly messageSrv = inject(NzMessageService);
 
-  clear(): void {
-    this.tokenService.clear();
-    this.messageSrv.success('清除成功');
+  @HostListener('click')
+  _click(): void {
+    this.modalSrv.confirm({
+      nzTitle: '确认清除所有本地存储吗？',
+      nzOnOk: () => {
+        localStorage.clear();
+        this.messageSrv.success('清除完成！');
+      }
+    });
   }
 }

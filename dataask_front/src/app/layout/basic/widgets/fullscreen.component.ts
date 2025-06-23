@@ -1,30 +1,31 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener } from '@angular/core';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import screenfull from 'screenfull';
 
 @Component({
   selector: 'header-fullscreen',
   template: `
-    <i
-      nz-icon
-      [nzType]="status ? 'fullscreen-exit' : 'fullscreen'"
-      nz-tooltip
-      [nzTooltipTitle]="status ? '退出全屏' : '全屏'"
-      (click)="toggle()"
-    ></i>
+    <i nz-icon [nzType]="status ? 'fullscreen-exit' : 'fullscreen'"></i>
+    {{ status ? '退出全屏' : '全屏' }}
   `,
-  standalone: true,
+  host: {
+    '[class.flex-1]': 'true'
+  },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzIconModule, NzToolTipModule]
+  imports: [NzIconModule]
 })
 export class HeaderFullScreenComponent {
   status = false;
 
-  toggle(): void {
+  @HostListener('window:resize')
+  _resize(): void {
+    this.status = screenfull.isFullscreen;
+  }
+
+  @HostListener('click')
+  _click(): void {
     if (screenfull.isEnabled) {
       screenfull.toggle();
-      this.status = !this.status;
     }
   }
 }

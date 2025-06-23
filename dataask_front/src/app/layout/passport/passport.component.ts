@@ -12,20 +12,21 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
         <div class="top">
           <div class="head">
             <img class="logo" src="./assets/logo-color.svg" />
-            <span class="title">百惟数问</span>
+            <span class="title">NG-ALAIN</span>
           </div>
-          <div class="desc">问数，洞见随心</div>
+          <div class="desc">武林中最有影响力的《葵花宝典》；欲练神功，挥刀自宫</div>
         </div>
         <router-outlet />
         <global-footer [links]="links">
           Copyright
-          <i class="anticon anticon-copyright"></i> 2025中科百惟出品
+          <nz-icon nzType="copyright"></nz-icon> 2025 <a href="//github.com/cipchk" target="_blank">卡色</a>出品
         </global-footer>
       </div>
     </div>
   `,
   styleUrls: ['./passport.component.less'],
-  imports: [RouterOutlet, GlobalFooterModule, NzIconModule]
+  imports: [RouterOutlet, GlobalFooterModule, NzIconModule],
+  standalone: true
 })
 export class LayoutPassportComponent implements OnInit {
   private tokenService = inject(DA_SERVICE_TOKEN);

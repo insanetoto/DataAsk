@@ -65,10 +65,9 @@ class LicenseMiddleware:
             result = self.verify_current_license()
             if not result['valid']:
                 return jsonify({
-                    "error": "License验证失败",
-                    "message": result['error'],
-                    "code": "LICENSE_ERROR",
-                    "timestamp": datetime.now().isoformat()
+                    "code": 403,
+                    "message": f"License验证失败: {result['error']}",
+                    "data": None
                 }), 403
             
             # 将License信息存储到g对象中
@@ -154,10 +153,9 @@ def require_license(feature: Optional[str] = None):
             # 检查License是否有效
             if not hasattr(g, 'license_valid') or not g.license_valid:
                 return jsonify({
-                    "error": "无效的License",
-                    "message": "请联系管理员获取有效的License授权",
-                    "code": "LICENSE_INVALID",
-                    "timestamp": datetime.now().isoformat()
+                    "code": 403,
+                    "message": "无效的License，请联系管理员获取有效的License授权",
+                    "data": None
                 }), 403
             
             # 检查特定功能是否启用

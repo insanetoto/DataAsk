@@ -1,102 +1,189 @@
 <page-header [title]="'权限管理'" />
 <nz-card [nzBordered]="false">
+  <!-- 搜索表单 -->
   <form nz-form [nzLayout]="'inline'" (ngSubmit)="getData()" class="search__form">
     <div nz-row [nzGutter]="{ xs: 8, sm: 8, md: 8, lg: 24, xl: 48, xxl: 48 }">
       <div nz-col nzMd="8" nzSm="24">
         <nz-form-item>
-          <nz-form-label>关键词</nz-form-label>
+          <nz-form-label nzFor="keyword">关键词</nz-form-label>
           <nz-form-control>
-            <input nz-input [(ngModel)]="q.keyword" name="keyword" placeholder="权限名称/编码" />
+            <input nz-input [(ngModel)]="q.keyword" name="keyword" placeholder="权限编码/名称" id="keyword" />
           </nz-form-control>
         </nz-form-item>
       </div>
       <div nz-col nzMd="8" nzSm="24">
         <nz-form-item>
-          <nz-form-label>状态</nz-form-label>
+          <nz-form-label nzFor="status">状态</nz-form-label>
           <nz-form-control>
-            <nz-select [(ngModel)]="q.status" name="status" [nzPlaceHolder]="'请选择'" [nzShowSearch]="true">
-              @for (i of status; track $index) {
-                <nz-option [nzLabel]="i.text" [nzValue]="i.index" />
+            <nz-select [(ngModel)]="q.status" name="status" id="status" [nzPlaceHolder]="'请选择状态'" [nzShowSearch]="true">
+              @for (option of statusOptions; track $index) {
+                <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
               }
             </nz-select>
           </nz-form-control>
         </nz-form-item>
       </div>
-      <div nz-col [nzSpan]="8" class="text-right">
+      @if (expandForm) {
+        <div nz-col nzMd="8" nzSm="24">
+          <nz-form-item>
+            <nz-form-label nzFor="apiMethod">HTTP方法</nz-form-label>
+            <nz-form-control>
+              <nz-select [(ngModel)]="q.api_method" name="apiMethod" id="apiMethod" [nzPlaceHolder]="'请选择HTTP方法'" [nzShowSearch]="true" [nzAllowClear]="true">
+                @for (method of httpMethodOptions; track method.value) {
+                  <nz-option [nzLabel]="method.label" [nzValue]="method.value" />
+                }
+              </nz-select>
+            </nz-form-control>
+          </nz-form-item>
+        </div>
+        <div nz-col nzMd="8" nzSm="24">
+          <nz-form-item>
+            <nz-form-label nzFor="resourceType">资源类型</nz-form-label>
+            <nz-form-control>
+              <nz-select [(ngModel)]="q.resource_type" name="resourceType" id="resourceType" [nzPlaceHolder]="'请选择资源类型'" [nzShowSearch]="true" [nzAllowClear]="true">
+                @for (type of resourceTypeOptions; track type.value) {
+                  <nz-option [nzLabel]="type.label" [nzValue]="type.value" />
+                }
+              </nz-select>
+            </nz-form-control>
+          </nz-form-item>
+        </div>
+      }
+      <div nz-col [nzSpan]="expandForm ? 24 : 8" [class.text-right]="expandForm">
         <button nz-button type="submit" [nzType]="'primary'" [nzLoading]="loading">查询</button>
-        <button nz-button type="button" (click)="reset()" class="mx-sm">重置</button>
+        <button nz-button type="reset" (click)="reset()" class="mx-sm">重置</button>
+        <a (click)="expandForm = !expandForm">
+          {{ expandForm ? '收起' : '展开' }}
+          <i nz-icon [nzType]="expandForm ? 'up' : 'down'"></i>
+        </a>
       </div>
     </div>
   </form>
-  <button nz-button (click)="add(modalContent)" [nzType]="'primary'">
-    <i nz-icon nzType="plus"></i>
-    <span>新建</span>
-  </button>
-  @if (selectedRows.length > 0) {
-    <button nz-button nz-dropdown [nzDropdownMenu]="batchMenu" nzPlacement="bottomLeft">
-      批量操作
-      <i nz-icon nzType="down"></i>
+
+  <!-- 操作按钮 -->
+  <div class="mb-md">
+    <button nz-button (click)="addPermission(modalContent)" [nzType]="'primary'">
+      <i nz-icon nzType="plus"></i>
+      <span>新增权限</span>
     </button>
-    <nz-dropdown-menu #batchMenu="nzDropdownMenu">
-      <ul nz-menu>
-        <li nz-menu-item (click)="deletePermission(selectedRows)">批量删除</li>
-      </ul>
-    </nz-dropdown-menu>
-  }
-  <div class="my-md">
-    <nz-alert [nzType]="'info'" [nzShowIcon]="true" [nzMessage]="message">
-      <ng-template #message>
-        已选择
-        <strong class="text-primary">{{ selectedRows.length }}</strong> 项
-        @if (selectedRows.length > 0) {
-          <a (click)="st.clearCheck()" class="ml-lg">清空</a>
-        }
-      </ng-template>
-    </nz-alert>
+    <button nz-button (click)="toggleView()" class="ml-sm">
+      <i nz-icon [nzType]="isTreeView ? 'table' : 'cluster'"></i>
+      <span>{{ isTreeView ? '列表视图' : '树形视图' }}</span>
+    </button>
+    @if (selectedRows.length > 0) {
+      <button nz-button nz-dropdown [nzDropdownMenu]="batchMenu" nzPlacement="bottomLeft" class="ml-sm">
+        批量操作
+        <i nz-icon nzType="down"></i>
+      </button>
+      <nz-dropdown-menu #batchMenu="nzDropdownMenu">
+        <ul nz-menu>
+          <li nz-menu-item (click)="batchDelete()">删除</li>
+        </ul>
+      </nz-dropdown-menu>
+    }
   </div>
-  <st #st 
-    [columns]="columns" 
-    [data]="data"
-    [loading]="loading"
-    [total]="total"
-    [page]="{ front: false, show: true, showSize: true }"
-    (change)="stChange($event)">
-    <ng-template st-row="status" let-i>
-      <nz-badge [nzStatus]="i.status === 1 ? 'success' : 'default'" [nzText]="i.status === 1 ? '启用' : '禁用'" />
-    </ng-template>
-  </st>
+
+  <!-- 选择提示 -->
+  @if (selectedRows.length > 0) {
+    <div class="my-md">
+      <nz-alert [nzType]="'info'" [nzShowIcon]="true" [nzMessage]="message">
+        <ng-template #message>
+          已选择
+          <strong class="text-primary">{{ selectedRows.length }}</strong> 项
+          <a (click)="st.clearCheck()" class="ml-lg">清空</a>
+        </ng-template>
+      </nz-alert>
+    </div>
+  }
+
+  <!-- 数据表格 -->
+  @if (!isTreeView) {
+    <st #st [columns]="columns" [data]="data" [loading]="loading" (change)="stChange($event)" [scroll]="{ x: '1400px' }">
+      <ng-template st-row="status" let-i>
+        <nz-badge [nzStatus]="i.status === 1 ? 'success' : 'default'" [nzText]="i.status === 1 ? '启用' : '禁用'" />
+      </ng-template>
+      <ng-template st-row="method" let-i>
+        <span class="method-tag" [class]="'method-' + i.api_method.toLowerCase()">{{ i.api_method }}</span>
+      </ng-template>
+    </st>
+  }
+
+  <!-- 树形视图 -->
+  @if (isTreeView) {
+    <nz-tree [nzData]="treeData" [nzShowLine]="true" [nzShowIcon]="false" [nzBlockNode]="true">
+      <ng-template #nzTreeTemplate let-node>
+        <span class="custom-node">
+          <span class="node-title">{{ node.title }}</span>
+          <span class="node-actions">
+            <a (click)="editPermission(node.origin)" class="mr-sm">编辑</a>
+            <a (click)="deletePermission(node.origin)" class="text-red">删除</a>
+          </span>
+        </span>
+      </ng-template>
+    </nz-tree>
+  }
 </nz-card>
 
+<!-- 编辑模态框 -->
 <ng-template #modalContent>
-  <form nz-form>
+  <form nz-form [nzLayout]="'vertical'">
     <nz-form-item>
-      <nz-form-label [nzSpan]="5" nzRequired>权限名称</nz-form-label>
-      <nz-form-control [nzSpan]="19">
-        <input nz-input [(ngModel)]="formData.permission_name" name="permission_name" placeholder="请输入权限名称" />
+      <nz-form-label nzFor="permissionCode" nzRequired>权限编码</nz-form-label>
+      <nz-form-control>
+        <input nz-input [(ngModel)]="editingPermission.permission_code" name="permissionCode" placeholder="请输入权限编码" id="permissionCode" [disabled]="isEditMode" />
       </nz-form-control>
     </nz-form-item>
+    
     <nz-form-item>
-      <nz-form-label [nzSpan]="5" nzRequired>权限编码</nz-form-label>
-      <nz-form-control [nzSpan]="19">
-        <input nz-input [(ngModel)]="formData.permission_code" name="permission_code" placeholder="请输入权限编码" />
+      <nz-form-label nzFor="permissionName" nzRequired>权限名称</nz-form-label>
+      <nz-form-control>
+        <input nz-input [(ngModel)]="editingPermission.permission_name" name="permissionName" placeholder="请输入权限名称" id="permissionName" />
       </nz-form-control>
     </nz-form-item>
+    
     <nz-form-item>
-      <nz-form-label [nzSpan]="5">上级权限</nz-form-label>
-      <nz-form-control [nzSpan]="19">
-        <input nz-input [(ngModel)]="formData.parent_code" name="parent_code" placeholder="请输入上级权限编码" />
+      <nz-form-label nzFor="apiPath" nzRequired>API路径</nz-form-label>
+      <nz-form-control>
+        <input nz-input [(ngModel)]="editingPermission.api_path" name="apiPath" placeholder="如：/api/users" id="apiPath" />
       </nz-form-control>
     </nz-form-item>
+    
     <nz-form-item>
-      <nz-form-label [nzSpan]="5">描述</nz-form-label>
-      <nz-form-control [nzSpan]="19">
-        <textarea nz-input [(ngModel)]="formData.description" name="description" placeholder="请输入描述" [nzAutosize]="{ minRows: 3, maxRows: 6 }"></textarea>
+      <nz-form-label nzFor="apiMethod" nzRequired>HTTP方法</nz-form-label>
+      <nz-form-control>
+        <nz-select [(ngModel)]="editingPermission.api_method" name="apiMethod" id="apiMethod" [nzPlaceHolder]="'请选择HTTP方法'" [nzShowSearch]="true">
+          @for (method of httpMethodOptions; track method.value) {
+            <nz-option [nzLabel]="method.label" [nzValue]="method.value" />
+          }
+        </nz-select>
       </nz-form-control>
     </nz-form-item>
+    
     <nz-form-item>
-      <nz-form-label [nzSpan]="5">状态</nz-form-label>
-      <nz-form-control [nzSpan]="19">
-        <nz-switch [(ngModel)]="formData.status" name="status" [nzCheckedChildren]="'启用'" [nzUnCheckedChildren]="'禁用'" />
+      <nz-form-label nzFor="resourceType">资源类型</nz-form-label>
+      <nz-form-control>
+        <nz-select [(ngModel)]="editingPermission.resource_type" name="resourceType" id="resourceType" [nzPlaceHolder]="'请选择资源类型'" [nzShowSearch]="true" [nzAllowClear]="true">
+          @for (type of resourceTypeOptions; track type.value) {
+            <nz-option [nzLabel]="type.label" [nzValue]="type.value" />
+          }
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+    
+    <nz-form-item>
+      <nz-form-label nzFor="description">描述</nz-form-label>
+      <nz-form-control>
+        <textarea nz-input [(ngModel)]="editingPermission.description" name="description" placeholder="请输入权限描述" id="description" rows="3"></textarea>
+      </nz-form-control>
+    </nz-form-item>
+    
+    <nz-form-item>
+      <nz-form-label nzFor="permissionStatus">状态</nz-form-label>
+      <nz-form-control>
+        <nz-radio-group [(ngModel)]="editingPermission.status" name="permissionStatus" id="permissionStatus">
+          <label nz-radio [nzValue]="1">启用</label>
+          <label nz-radio [nzValue]="0">禁用</label>
+        </nz-radio-group>
       </nz-form-control>
     </nz-form-item>
   </form>

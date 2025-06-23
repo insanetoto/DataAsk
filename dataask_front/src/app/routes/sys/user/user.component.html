@@ -1,22 +1,23 @@
 <page-header [title]="'用户管理'" />
 <nz-card [nzBordered]="false">
+  <!-- 搜索表单 -->
   <form nz-form [nzLayout]="'inline'" (ngSubmit)="getData()" class="search__form">
     <div nz-row [nzGutter]="{ xs: 8, sm: 8, md: 8, lg: 24, xl: 48, xxl: 48 }">
       <div nz-col nzMd="8" nzSm="24">
         <nz-form-item>
-          <nz-form-label>关键词</nz-form-label>
+          <nz-form-label nzFor="keyword">关键词</nz-form-label>
           <nz-form-control>
-            <input nz-input [(ngModel)]="q.keyword" name="keyword" placeholder="用户名/姓名/手机号" />
+            <input nz-input [(ngModel)]="q.keyword" name="keyword" placeholder="用户编码/名称" id="keyword" />
           </nz-form-control>
         </nz-form-item>
       </div>
       <div nz-col nzMd="8" nzSm="24">
         <nz-form-item>
-          <nz-form-label>状态</nz-form-label>
+          <nz-form-label nzFor="status">状态</nz-form-label>
           <nz-form-control>
-            <nz-select [(ngModel)]="q.status" name="status" [nzPlaceHolder]="'请选择'" [nzShowSearch]="true">
-              @for (i of status; track $index) {
-                <nz-option [nzLabel]="i.text" [nzValue]="i.index" />
+            <nz-select [(ngModel)]="q.status" name="status" id="status" [nzPlaceHolder]="'请选择状态'" [nzShowSearch]="true">
+              @for (option of statusOptions; track $index) {
+                <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
               }
             </nz-select>
           </nz-form-control>
@@ -25,16 +26,32 @@
       @if (expandForm) {
         <div nz-col nzMd="8" nzSm="24">
           <nz-form-item>
-            <nz-form-label>所属机构</nz-form-label>
+            <nz-form-label nzFor="orgCode">所属机构</nz-form-label>
             <nz-form-control>
-              <input nz-input [(ngModel)]="q.org_code" name="org_code" placeholder="请输入" />
+              <nz-select [(ngModel)]="q.org_code" name="orgCode" id="orgCode" [nzPlaceHolder]="'请选择机构'" [nzShowSearch]="true" [nzAllowClear]="true">
+                @for (org of organizationOptions; track org.id) {
+                  <nz-option [nzLabel]="org.org_name" [nzValue]="org.org_code" />
+                }
+              </nz-select>
+            </nz-form-control>
+          </nz-form-item>
+        </div>
+        <div nz-col nzMd="8" nzSm="24">
+          <nz-form-item>
+            <nz-form-label nzFor="roleId">角色</nz-form-label>
+            <nz-form-control>
+              <nz-select [(ngModel)]="q.role_id" name="roleId" id="roleId" [nzPlaceHolder]="'请选择角色'" [nzShowSearch]="true" [nzAllowClear]="true">
+                @for (role of roleOptions; track role.id) {
+                  <nz-option [nzLabel]="role.role_name" [nzValue]="role.id" />
+                }
+              </nz-select>
             </nz-form-control>
           </nz-form-item>
         </div>
       }
       <div nz-col [nzSpan]="expandForm ? 24 : 8" [class.text-right]="expandForm">
         <button nz-button type="submit" [nzType]="'primary'" [nzLoading]="loading">查询</button>
-        <button nz-button type="button" (click)="reset()" class="mx-sm">重置</button>
+        <button nz-button type="reset" (click)="reset()" class="mx-sm">重置</button>
         <a (click)="expandForm = !expandForm">
           {{ expandForm ? '收起' : '展开' }}
           <i nz-icon [nzType]="expandForm ? 'up' : 'down'"></i>
@@ -42,88 +59,117 @@
       </div>
     </div>
   </form>
-  <button nz-button (click)="add(modalContent)" [nzType]="'primary'">
-    <i nz-icon nzType="plus"></i>
-    <span>新建</span>
-  </button>
-  @if (selectedRows.length > 0) {
-    <button nz-button nz-dropdown [nzDropdownMenu]="batchMenu" nzPlacement="bottomLeft">
-      批量操作
-      <i nz-icon nzType="down"></i>
+
+  <!-- 操作按钮 -->
+  <div class="mb-md">
+    <button nz-button (click)="addUser(modalContent)" [nzType]="'primary'">
+      <i nz-icon nzType="plus"></i>
+      <span>新增用户</span>
     </button>
-    <nz-dropdown-menu #batchMenu="nzDropdownMenu">
-      <ul nz-menu>
-        <li nz-menu-item (click)="deleteUser(selectedRows)">批量删除</li>
-      </ul>
-    </nz-dropdown-menu>
-  }
-  <div class="my-md">
-    <nz-alert [nzType]="'info'" [nzShowIcon]="true" [nzMessage]="message">
-      <ng-template #message>
-        已选择
-        <strong class="text-primary">{{ selectedRows.length }}</strong> 项
-        @if (selectedRows.length > 0) {
-          <a (click)="st.clearCheck()" class="ml-lg">清空</a>
-        }
-      </ng-template>
-    </nz-alert>
+    @if (selectedRows.length > 0) {
+      <button nz-button nz-dropdown [nzDropdownMenu]="batchMenu" nzPlacement="bottomLeft" class="ml-sm">
+        批量操作
+        <i nz-icon nzType="down"></i>
+      </button>
+      <nz-dropdown-menu #batchMenu="nzDropdownMenu">
+        <ul nz-menu>
+          <li nz-menu-item (click)="batchDelete()">删除</li>
+        </ul>
+      </nz-dropdown-menu>
+    }
   </div>
-  <st #st 
-    [columns]="columns" 
-    [data]="data"
-    [loading]="loading"
-    [total]="total"
-    [page]="{ front: false, show: true, showSize: true }"
-    (change)="stChange($event)">
+
+  <!-- 选择提示 -->
+  @if (selectedRows.length > 0) {
+    <div class="my-md">
+      <nz-alert [nzType]="'info'" [nzShowIcon]="true" [nzMessage]="message">
+        <ng-template #message>
+          已选择
+          <strong class="text-primary">{{ selectedRows.length }}</strong> 项
+          <a (click)="st.clearCheck()" class="ml-lg">清空</a>
+        </ng-template>
+      </nz-alert>
+    </div>
+  }
+
+  <!-- 数据表格 -->
+  <st #st [columns]="columns" [data]="data" [loading]="loading" (change)="stChange($event)" [scroll]="{ x: '1400px' }">
     <ng-template st-row="status" let-i>
       <nz-badge [nzStatus]="i.status === 1 ? 'success' : 'default'" [nzText]="i.status === 1 ? '启用' : '禁用'" />
     </ng-template>
   </st>
 </nz-card>
 
+<!-- 编辑模态框 -->
 <ng-template #modalContent>
-  <form nz-form>
+  <form nz-form [nzLayout]="'vertical'">
     <nz-form-item>
-      <nz-form-label [nzSpan]="5" nzRequired>用户名</nz-form-label>
-      <nz-form-control [nzSpan]="19">
-        <input nz-input [(ngModel)]="formData.username" name="username" placeholder="请输入用户名" />
+      <nz-form-label nzFor="userCode" nzRequired>用户编码</nz-form-label>
+      <nz-form-control>
+        <input nz-input [(ngModel)]="editingUser.user_code" name="userCode" placeholder="请输入用户编码" id="userCode" [disabled]="isEditMode" />
       </nz-form-control>
     </nz-form-item>
+    
     <nz-form-item>
-      <nz-form-label [nzSpan]="5" nzRequired>密码</nz-form-label>
-      <nz-form-control [nzSpan]="19">
-        <input nz-input type="password" [(ngModel)]="formData.password" name="password" placeholder="请输入密码" />
+      <nz-form-label nzFor="username" nzRequired>用户名称</nz-form-label>
+      <nz-form-control>
+        <input nz-input [(ngModel)]="editingUser.username" name="username" placeholder="请输入用户名称" id="username" />
       </nz-form-control>
     </nz-form-item>
+    
     <nz-form-item>
-      <nz-form-label [nzSpan]="5" nzRequired>姓名</nz-form-label>
-      <nz-form-control [nzSpan]="19">
-        <input nz-input [(ngModel)]="formData.real_name" name="real_name" placeholder="请输入姓名" />
+      <nz-form-label nzFor="orgCode" nzRequired>所属机构</nz-form-label>
+      <nz-form-control>
+        <nz-select [(ngModel)]="editingUser.org_code" name="orgCode" id="orgCode" [nzPlaceHolder]="'请选择所属机构'" [nzShowSearch]="true">
+          @for (org of organizationOptions; track org.id) {
+            <nz-option [nzLabel]="org.org_name + ' (' + org.org_code + ')'" [nzValue]="org.org_code" />
+          }
+        </nz-select>
       </nz-form-control>
     </nz-form-item>
+    
     <nz-form-item>
-      <nz-form-label [nzSpan]="5" nzRequired>所属机构</nz-form-label>
-      <nz-form-control [nzSpan]="19">
-        <input nz-input [(ngModel)]="formData.org_code" name="org_code" placeholder="请输入机构编码" />
+      <nz-form-label nzFor="roleId" nzRequired>角色</nz-form-label>
+      <nz-form-control>
+        <nz-select [(ngModel)]="editingUser.role_id" name="roleId" id="roleId" [nzPlaceHolder]="'请选择角色'" [nzShowSearch]="true">
+          @for (role of roleOptions; track role.id) {
+            <nz-option [nzLabel]="role.role_name" [nzValue]="role.id" />
+          }
+        </nz-select>
       </nz-form-control>
     </nz-form-item>
+    
+    @if (!isEditMode) {
+      <nz-form-item>
+        <nz-form-label nzFor="password" nzRequired>初始密码</nz-form-label>
+        <nz-form-control>
+          <input nz-input type="password" [(ngModel)]="editingUser.password_hash" name="password" placeholder="默认密码为：123456" id="password" />
+        </nz-form-control>
+      </nz-form-item>
+    }
+    
     <nz-form-item>
-      <nz-form-label [nzSpan]="5">手机号</nz-form-label>
-      <nz-form-control [nzSpan]="19">
-        <input nz-input [(ngModel)]="formData.phone" name="phone" placeholder="请输入手机号" />
+      <nz-form-label nzFor="phone">联系电话</nz-form-label>
+      <nz-form-control>
+        <input nz-input [(ngModel)]="editingUser.phone" name="phone" placeholder="请输入联系电话" id="phone" />
       </nz-form-control>
     </nz-form-item>
+    
     <nz-form-item>
-      <nz-form-label [nzSpan]="5">邮箱</nz-form-label>
-      <nz-form-control [nzSpan]="19">
-        <input nz-input [(ngModel)]="formData.email" name="email" placeholder="请输入邮箱" />
+      <nz-form-label nzFor="address">联系地址</nz-form-label>
+      <nz-form-control>
+        <input nz-input [(ngModel)]="editingUser.address" name="address" placeholder="请输入联系地址" id="address" />
       </nz-form-control>
     </nz-form-item>
+    
     <nz-form-item>
-      <nz-form-label [nzSpan]="5">状态</nz-form-label>
-      <nz-form-control [nzSpan]="19">
-        <nz-switch [(ngModel)]="formData.status" name="status" [nzCheckedChildren]="'启用'" [nzUnCheckedChildren]="'禁用'" />
+      <nz-form-label nzFor="userStatus">状态</nz-form-label>
+      <nz-form-control>
+        <nz-radio-group [(ngModel)]="editingUser.status" name="userStatus" id="userStatus">
+          <label nz-radio [nzValue]="1">启用</label>
+          <label nz-radio [nzValue]="0">禁用</label>
+        </nz-radio-group>
       </nz-form-control>
     </nz-form-item>
   </form>
-</ng-template> 
+</ng-template>

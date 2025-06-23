@@ -16,6 +16,6 @@ export class TestWidget extends ControlWidget implements OnInit {
   static readonly KEY = 'test';
 
   ngOnInit(): void {
-    console.warn('init test widget');
+    // Test widget initialized
   }
 }

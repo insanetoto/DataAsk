@@ -1,37 +1,28 @@
-@if (error) {
-  <nz-alert [nzType]="'error'" [nzMessage]="error" [nzShowIcon]="true" class="mb-lg" />
-}
-
 <form nz-form [formGroup]="form" (ngSubmit)="submit()" role="form">
+  @if (error) {
+    <nz-alert [nzType]="'error'" [nzMessage]="error" [nzShowIcon]="true" class="mb-lg" />
+  }
   <nz-form-item>
-    <nz-form-control [nzErrorTip]="'请输入用户名!'">
+    <nz-form-control nzErrorTip="请输入用户名">
       <nz-input-group nzSize="large" nzPrefixIcon="user">
-        <label for="username" class="visually-hidden">用户名</label>
-        <input id="username" nz-input formControlName="username" placeholder="用户名" />
+        <input nz-input formControlName="username" placeholder="用户名" />
       </nz-input-group>
     </nz-form-control>
   </nz-form-item>
   <nz-form-item>
-    <nz-form-control [nzErrorTip]="'请输入密码!'">
+    <nz-form-control nzErrorTip="请输入密码">
       <nz-input-group nzSize="large" nzPrefixIcon="lock">
-        <label for="password" class="visually-hidden">密码</label>
-        <input id="password" nz-input type="password" formControlName="password" placeholder="密码" />
+        <input nz-input type="password" formControlName="password" placeholder="密码" />
       </nz-input-group>
     </nz-form-control>
   </nz-form-item>
   <nz-form-item>
-    <nz-form-control>
-      <div nz-row class="d-flex justify-content-between">
-        <div nz-col>
-          <label nz-checkbox formControlName="remember">
-            <span>记住我</span>
-          </label>
-        </div>
-        <div nz-col>
-          <a class="forgot" routerLink="/passport/register">注册账号</a>
-        </div>
-      </div>
-    </nz-form-control>
+    <nz-col [nzSpan]="12">
+      <label nz-checkbox formControlName="remember">记住我</label>
+    </nz-col>
+    <nz-col [nzSpan]="12" class="text-right">
+      <a class="forgot" routerLink="/passport/register">忘记密码</a>
+    </nz-col>
   </nz-form-item>
   <nz-form-item>
     <button nz-button type="submit" nzType="primary" nzSize="large" [nzLoading]="loading" nzBlock>

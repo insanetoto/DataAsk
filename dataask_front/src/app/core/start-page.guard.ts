@@ -1,21 +1,18 @@
-import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
-import { DA_SERVICE_TOKEN } from '@delon/auth';
+import { CanActivateFn } from '@angular/router';
+import { Observable } from 'rxjs';
 
 /**
  * Dynamically load the start page
  *
  * 动态加载启动页
  */
-export const startPageGuard: CanActivateFn = (): boolean => {
-  const tokenService = inject(DA_SERVICE_TOKEN);
-  const router = inject(Router);
-
-  // 如果未登录，重定向到登录页
-  if (!tokenService.get()?.token) {
-    router.navigateByUrl('/passport/login');
-    return false;
-  }
-
+export const startPageGuard: CanActivateFn = (): boolean | Observable<boolean> => {
+  // Re-jump according to the first item of the menu, you can re-customize the logic
+  // 以下代码是根据菜单的第一项进行重新跳转，你可以重新定制逻辑
+  // const menuSrv = inject(MenuService);
+  // if (menuSrv.find({ url: state.url }) == null) {
+  //   inject(Router).navigateByUrl(menuSrv.menus[0].link!);
+  //   return false;
+  // }
   return true;
 };

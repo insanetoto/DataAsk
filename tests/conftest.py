@@ -8,6 +8,8 @@ import pytest
 import sys
 import os
 from unittest.mock import Mock, patch
+from flask import Flask
+from tools.di_container import DIContainer
 
 # 添加项目根目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -52,29 +54,29 @@ def test_config():
     return TestConfig()
 
 
-@pytest.fixture(scope="session")
-def app(test_config):
-    """创建Flask应用fixture"""
-    if create_app is not None:
-        with patch('config.config', {'testing': test_config}):
-            app = create_app('testing')
-            app.config.from_object(test_config)
-            
-            # 创建应用上下文
-            with app.app_context():
-                yield app
-    else:
-        # 如果无法导入，创建简单的Mock应用
-        from unittest.mock import Mock
-        mock_app = Mock()
-        mock_app.test_client.return_value = Mock()
-        yield mock_app
+@pytest.fixture
+def app():
+    """创建测试用的Flask应用"""
+    app = Flask(__name__)
+    app.config['TESTING'] = True
+    
+    # 创建DI容器
+    container = DIContainer()
+    app.container = container
+    
+    return app
 
 
-@pytest.fixture(scope="session") 
+@pytest.fixture
 def client(app):
-    """Flask测试客户端fixture"""
+    """创建测试客户端"""
     return app.test_client()
+
+
+@pytest.fixture
+def runner(app):
+    """创建测试命令运行器"""
+    return app.test_cli_runner()
 
 
 @pytest.fixture(scope="function")

@@ -1,11 +1,9 @@
 import { Routes } from '@angular/router';
-import { WorkspaceDashboardComponent } from './dashboard/dashboard.component';
-import { WorkspaceWorkplaceComponent } from './workplace/workplace.component';
-import { WorkspaceReportComponent } from './report/report.component';
+
+import { WorkspaceMonitorComponent } from './monitor/monitor.component';
+import { WorkspaceWorkbenchComponent } from './workbench/workbench.component';
 
 export const routes: Routes = [
-
-  { path: 'dashboard', component: WorkspaceDashboardComponent },
-  { path: 'workplace', component: WorkspaceWorkplaceComponent },
-  { path: 'report', component: WorkspaceReportComponent }];
-
+  { path: 'monitor', component: WorkspaceMonitorComponent },
+  { path: 'workbench', component: WorkspaceWorkbenchComponent }
+];

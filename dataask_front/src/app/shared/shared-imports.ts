@@ -1,7 +1,7 @@
-import { AsyncPipe, JsonPipe, NgClass, NgStyle, NgTemplateOutlet } from '@angular/common';
+import { AsyncPipe, JsonPipe, NgClass, NgFor, NgStyle, NgTemplateOutlet } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RouterOutlet, RouterLink } from '@angular/router';
-import { DatePipe } from '@delon/theme';
+import { DatePipe, I18nPipe } from '@delon/theme';
 
 import { SHARED_DELON_MODULES } from './shared-delon.module';
 import { SHARED_ZORRO_MODULES } from './shared-zorro.module';
@@ -13,7 +13,9 @@ export const SHARED_IMPORTS = [
   RouterOutlet,
   NgTemplateOutlet,
   NgClass,
+  NgFor,
   NgStyle,
+  I18nPipe,
   JsonPipe,
   DatePipe,
   AsyncPipe,

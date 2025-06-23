@@ -1,131 +1,269 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, TemplateRef, ViewChild, inject } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { STChange, STColumn, STComponent, STData } from '@delon/abc/st';
 import { _HttpClient } from '@delon/theme';
 import { SHARED_IMPORTS } from '@shared';
-import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalService } from 'ng-zorro-antd/modal';
-import { NzSwitchModule } from 'ng-zorro-antd/switch';
-import { map, tap } from 'rxjs';
+import { finalize } from 'rxjs';
+
+import { SysUserService, User, UserQuery } from './user.service';
 
 @Component({
   selector: 'app-sys-user',
   templateUrl: './user.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [...SHARED_IMPORTS, NzBadgeModule, NzSwitchModule, FormsModule],
-  standalone: true
+  imports: SHARED_IMPORTS
 })
 export class SysUserComponent implements OnInit {
   private readonly http = inject(_HttpClient);
   private readonly msg = inject(NzMessageService);
   private readonly modalSrv = inject(NzModalService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly userService = inject(SysUserService);
 
-  @ViewChild('modalContent')
-  modalContent!: TemplateRef<unknown>;
-
-  @ViewChild('st', { static: false })
-  st!: STComponent;
-
-  q = {
-    page: 1,
-    page_size: 10,
-    status: null as number | null,
+  // 查询参数
+  q: UserQuery = {
+    pi: 1,
+    ps: 10,
+    keyword: '',
+    status: undefined,
     org_code: '',
-    keyword: ''
+    role_id: undefined
   };
 
-  data: STData[] = [];
-  total = 0;
+  // 数据和状态
+  data: User[] = [];
   loading = false;
-  status = [
-    { index: 1, text: '启用', value: true, type: 'success', checked: false },
-    { index: 0, text: '禁用', value: false, type: 'default', checked: false }
+  selectedRows: STData[] = [];
+  expandForm = false;
+
+  // 表单数据
+  editingUser: Partial<User> = {};
+  isEditMode = false;
+  modalTitle = '';
+
+  // 选项数据
+  organizationOptions: any[] = [];
+  roleOptions: any[] = [];
+
+  // 状态选项
+  statusOptions = [
+    { label: '全部', value: undefined },
+    { label: '启用', value: 1 },
+    { label: '禁用', value: 0 }
   ];
 
+  @ViewChild('st', { static: true })
+  st!: STComponent;
+
+  // 表格列配置
   columns: STColumn[] = [
     { title: '', index: 'key', type: 'checkbox' },
-    { title: '用户名', index: 'username' },
-    { title: '姓名', index: 'real_name' },
-    { title: '所属机构', index: 'org_name' },
-    { title: '手机号', index: 'phone' },
-    { title: '邮箱', index: 'email' },
+    {
+      title: '用户编码',
+      index: 'user_code',
+      width: 120,
+      sort: true
+    },
+    {
+      title: '用户名称',
+      index: 'username',
+      width: 150,
+      sort: true
+    },
+    {
+      title: '所属机构',
+      index: 'org_code',
+      width: 150,
+      format: (item: User) => (item as any).org_name || item.org_code || '-'
+    },
+    {
+      title: '角色',
+      index: 'role_id',
+      width: 120,
+      format: (item: User) => this.getRoleNameByCode((item as any).role_code) || '-'
+    },
+    {
+      title: '联系电话',
+      index: 'phone',
+      width: 120
+    },
+    {
+      title: '登录次数',
+      index: 'login_count',
+      width: 100,
+      type: 'number'
+    },
+    {
+      title: '最后登录',
+      index: 'last_login_at',
+      type: 'date',
+      width: 150,
+      sort: true
+    },
     {
       title: '状态',
       index: 'status',
       render: 'status',
+      width: 80,
       filter: {
-        menus: this.status,
-        fn: (filter, record) => record.status === filter['index']
+        menus: [
+          { text: '启用', value: 1 },
+          { text: '禁用', value: 0 }
+        ],
+        fn: (filter, record) => record.status === filter.value
       }
     },
     {
+      title: '创建时间',
+      index: 'created_at',
+      type: 'date',
+      width: 150,
+      sort: true
+    },
+    {
       title: '操作',
+      width: 280,
+      fixed: 'right',
       buttons: [
         {
+          text: '查看',
+          icon: 'eye',
+          click: (item: User) => this.viewUser(item)
+        },
+        {
           text: '编辑',
-          click: (item: any) => this.edit(this.modalContent, item)
+          icon: 'edit',
+          click: (item: User) => this.editUser(item)
+        },
+        {
+          text: '重置密码',
+          icon: 'lock',
+          click: (item: User) => this.resetPassword(item)
         },
         {
           text: '删除',
-          click: (item: any) => this.deleteUser(item)
+          icon: 'delete',
+          type: 'del',
+          click: (item: User) => this.deleteUser(item)
         }
       ]
     }
   ];
 
-  selectedRows: STData[] = [];
-  formData = {
-    username: '',
-    password: '',
-    real_name: '',
-    org_code: '',
-    phone: '',
-    email: '',
-    status: 1
-  };
-  expandForm = false;
-
   ngOnInit(): void {
     this.getData();
+    this.loadOrganizationOptions();
+    this.loadRoleOptions();
   }
 
+  /**
+   * 根据角色编码获取角色名称
+   */
+  getRoleNameByCode(roleCode: string): string {
+    const roleMap: Record<string, string> = {
+      SUPER_ADMIN: '超级系统管理员',
+      ORG_ADMIN: '机构管理员',
+      NORMAL_USER: '普通用户'
+    };
+    return roleMap[roleCode] || roleCode || '-';
+  }
+
+  /**
+   * 获取用户列表数据
+   */
   getData(): void {
     this.loading = true;
-    this.http
-      .get('/api/users', {
-        params: {
-          ...this.q,
-          type: 'list'
-        }
-      })
+    const params = {
+      pi: this.q.pi,
+      ps: this.q.ps,
+      keyword: this.q.keyword || '',
+      status: this.q.status,
+      org_code: this.q.org_code || '',
+      role_id: this.q.role_id
+    };
+
+    this.userService
+      .getUsers(params)
       .pipe(
-        map((res: any) => {
-          if (res.success) {
-            this.total = res.data.pagination.total;
-            return res.data.list || [];
-          }
-          throw new Error(res.error || '获取数据失败');
-        }),
-        tap(() => {
+        finalize(() => {
           this.loading = false;
           this.cdr.detectChanges();
         })
       )
       .subscribe({
         next: res => {
-          this.data = res;
-          this.cdr.detectChanges();
+          if (res.code === 200 || res.success === true) {
+            this.data = res.data?.list || res.data?.items || res.data || [];
+          } else {
+            this.msg.error(res.message || '获取用户数据失败');
+            this.data = [];
+          }
         },
-        error: err => {
-          this.loading = false;
-          this.msg.error(err.message || '获取数据失败');
-          this.cdr.detectChanges();
+        error: error => {
+          console.error('获取用户数据失败:', error);
+
+          // 检查是否是被HTTP拦截器误判的成功响应
+          if (error.status === 200 && error.ok && error.body) {
+            if (error.body.success === true || error.body.code === 200) {
+              this.data = error.body.data?.list || error.body.data?.items || error.body.data || [];
+              return;
+            }
+          }
+
+          this.msg.error('获取用户数据失败');
+          this.data = [];
         }
       });
   }
 
+  /**
+   * 加载机构选项
+   */
+  loadOrganizationOptions(): void {
+    this.http.get('/organizations', { pi: 1, ps: 1000, status: 1 }).subscribe({
+      next: res => {
+        if (res.code === 200 || res.success === true) {
+          this.organizationOptions = res.data?.list || res.data?.items || res.data || [];
+        }
+      },
+      error: error => {
+        console.error('加载机构选项失败:', error);
+
+        if (error.status === 200 && error.ok && error.body) {
+          if (error.body.success === true || error.body.code === 200) {
+            this.organizationOptions = error.body.data?.list || error.body.data?.items || error.body.data || [];
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * 加载角色选项
+   */
+  loadRoleOptions(): void {
+    this.http.get('/roles', { pi: 1, ps: 1000, status: 1 }).subscribe({
+      next: res => {
+        if (res.code === 200 || res.success === true) {
+          this.roleOptions = res.data?.list || res.data?.items || res.data || [];
+        }
+      },
+      error: error => {
+        console.error('加载角色选项失败:', error);
+
+        if (error.status === 200 && error.ok && error.body) {
+          if (error.body.success === true || error.body.code === 200) {
+            this.roleOptions = error.body.data?.list || error.body.data?.items || error.body.data || [];
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * 表格变化事件
+   */
   stChange(e: STChange): void {
     switch (e.type) {
       case 'checkbox':
@@ -135,99 +273,196 @@ export class SysUserComponent implements OnInit {
       case 'filter':
         this.getData();
         break;
+      case 'sort':
+        this.getData();
+        break;
       case 'pi':
-        this.q.page = e.pi!;
+        this.q.pi = e.pi!;
         this.getData();
         break;
       case 'ps':
-        this.q.page_size = e.ps!;
+        this.q.ps = e.ps!;
         this.getData();
         break;
     }
   }
 
-  add(tpl: TemplateRef<unknown>): void {
-    this.formData = {
-      username: '',
-      password: '',
-      real_name: '',
-      org_code: '',
-      phone: '',
-      email: '',
+  /**
+   * 新增用户
+   */
+  addUser(tpl: TemplateRef<unknown>): void {
+    this.editingUser = {
       status: 1
     };
-    this.modalSrv.create({
-      nzTitle: '新建用户',
-      nzContent: tpl,
-      nzOnOk: () => {
-        this.loading = true;
-        this.http.post('/api/users', this.formData).subscribe({
-          next: () => {
-            this.msg.success('创建成功');
-            this.getData();
-          },
-          error: err => {
-            this.loading = false;
-            this.msg.error(err.message || '创建失败');
-            this.cdr.detectChanges();
-          }
-        });
-      }
-    });
+    this.isEditMode = false;
+    this.modalTitle = '新增用户';
+    this.showModal(tpl);
   }
 
-  edit(tpl: TemplateRef<unknown>, item: any): void {
-    this.formData = { ...item };
-    this.modalSrv.create({
-      nzTitle: '编辑用户',
-      nzContent: tpl,
-      nzOnOk: () => {
-        this.loading = true;
-        this.http.put(`/api/users/${item.id}`, this.formData).subscribe({
-          next: () => {
-            this.msg.success('更新成功');
-            this.getData();
-          },
-          error: err => {
-            this.loading = false;
-            this.msg.error(err.message || '更新失败');
-            this.cdr.detectChanges();
-          }
-        });
-      }
-    });
+  /**
+   * 查看用户
+   */
+  viewUser(item: User): void {
+    this.editingUser = { ...item };
+    this.isEditMode = false;
+    this.modalTitle = '查看用户';
+    this.msg.info(`查看用户: ${item.username}`);
   }
 
-  deleteUser(item: any): void {
+  /**
+   * 编辑用户
+   */
+  editUser(item: User, tpl?: TemplateRef<unknown>): void {
+    this.editingUser = { ...item };
+    this.isEditMode = true;
+    this.modalTitle = '编辑用户';
+    if (tpl) {
+      this.showModal(tpl);
+    }
+  }
+
+  /**
+   * 删除用户
+   */
+  deleteUser(item: User): void {
     this.modalSrv.confirm({
-      nzTitle: '确定要删除此用户吗？',
-      nzContent: '删除后不可恢复',
-      nzOkText: '确定',
-      nzCancelText: '取消',
+      nzTitle: '确认删除',
+      nzContent: `确定要删除用户 "${item.username}" 吗？`,
       nzOnOk: () => {
-        this.http.delete(`/api/users/${item.id}`).subscribe({
-          next: () => {
-            this.msg.success('删除成功');
-            this.getData();
+        return this.userService.deleteUser(item.id!).subscribe({
+          next: res => {
+            if (res.code === 200 || res.success === true) {
+              this.msg.success('删除成功');
+              this.getData();
+            } else {
+              this.msg.error(res.message || res.error || '删除失败');
+            }
           },
-          error: err => {
-            this.loading = false;
-            this.msg.error(err.message || '删除失败');
-            this.cdr.detectChanges();
+          error: () => {
+            this.msg.error('删除失败');
           }
         });
       }
     });
   }
 
+  /**
+   * 重置密码
+   */
+  resetPassword(item: User): void {
+    this.modalSrv.confirm({
+      nzTitle: '重置密码',
+      nzContent: `确定要重置用户 "${item.username}" 的密码吗？密码将重置为默认密码。`,
+      nzOnOk: () => {
+        return this.userService.resetPassword(item.id!, '123456').subscribe({
+          next: res => {
+            if (res.code === 200 || res.success === true) {
+              this.msg.success('密码重置成功，默认密码为：123456');
+            } else {
+              this.msg.error(res.message || res.error || '密码重置失败');
+            }
+          },
+          error: () => {
+            this.msg.error('密码重置失败');
+          }
+        });
+      }
+    });
+  }
+
+  /**
+   * 批量删除
+   */
+  batchDelete(): void {
+    if (this.selectedRows.length === 0) {
+      this.msg.warning('请选择要删除的用户');
+      return;
+    }
+
+    this.modalSrv.confirm({
+      nzTitle: '确认批量删除',
+      nzContent: `确定要删除选中的 ${this.selectedRows.length} 个用户吗？`,
+      nzOnOk: () => {
+        const userIds = this.selectedRows.map(row => row['id']);
+        return this.userService.batchDeleteUsers(userIds).subscribe({
+          next: res => {
+            if (res.code === 200 || res.success === true) {
+              this.msg.success('批量删除成功');
+              this.getData();
+              this.st.clearCheck();
+            } else {
+              this.msg.error(res.message || res.error || '批量删除失败');
+            }
+          },
+          error: () => {
+            this.msg.error('批量删除失败');
+          }
+        });
+      }
+    });
+  }
+
+  /**
+   * 显示模态框
+   */
+  showModal(tpl: TemplateRef<unknown>): void {
+    this.modalSrv.create({
+      nzTitle: this.modalTitle,
+      nzContent: tpl,
+      nzWidth: 600,
+      nzOnOk: () => {
+        return this.saveUser();
+      }
+    });
+  }
+
+  /**
+   * 保存用户
+   */
+  saveUser(): Promise<boolean> {
+    return new Promise(resolve => {
+      // 表单验证
+      if (!this.editingUser.user_code || !this.editingUser.username || !this.editingUser.org_code || !this.editingUser.role_id) {
+        this.msg.error('请填写完整信息');
+        resolve(false);
+        return;
+      }
+
+      const request = this.isEditMode
+        ? this.userService.updateUser(this.editingUser.id!, this.editingUser)
+        : this.userService.createUser(this.editingUser);
+
+      request.subscribe({
+        next: res => {
+          if (res.code === 200 || res.success === true) {
+            this.msg.success(this.isEditMode ? '更新成功' : '创建成功');
+            this.getData();
+            resolve(true);
+          } else {
+            this.msg.error(res.message || res.error || '保存失败');
+            resolve(false);
+          }
+        },
+        error: () => {
+          this.msg.error('保存失败');
+          resolve(false);
+        }
+      });
+    });
+  }
+
+  /**
+   * 重置搜索
+   */
   reset(): void {
     this.q = {
-      page: 1,
-      page_size: 10,
-      status: null,
+      pi: 1,
+      ps: 10,
+      keyword: '',
+      status: undefined,
       org_code: '',
-      keyword: ''
+      role_id: undefined
     };
     this.getData();
   }
-} 
+}
