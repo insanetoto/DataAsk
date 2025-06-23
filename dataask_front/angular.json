@@ -142,9 +142,7 @@
                 "input": "public"
               }
             ],
-            "styles": [
-              "src/styles.less"
-            ],
+            "styles": [],
             "scripts": []
           }
         },

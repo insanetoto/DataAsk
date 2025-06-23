@@ -1,4 +1,8 @@
-import { waitForAsync, ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideAnimations } from '@angular/platform-browser/animations';
+import { ALAIN_SETTING_KEYS } from '@delon/theme';
 
 import { SysOrgComponent } from './org.component';
 
@@ -6,13 +10,17 @@ describe('SysOrgComponent', () => {
   let component: SysOrgComponent;
   let fixture: ComponentFixture<SysOrgComponent>;
 
-  beforeEach(waitForAsync(() => {
-    TestBed.configureTestingModule({
-      declarations: [SysOrgComponent]
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [SysOrgComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideAnimations(),
+        { provide: ALAIN_SETTING_KEYS, useValue: { layout: {}, theme: {}, app: {} } }
+      ]
     }).compileComponents();
-  }));
 
-  beforeEach(() => {
     fixture = TestBed.createComponent(SysOrgComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();

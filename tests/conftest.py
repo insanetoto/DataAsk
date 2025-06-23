@@ -7,7 +7,7 @@ pytest配置文件和全局fixtures
 import pytest
 import sys
 import os
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
 from flask import Flask
 from tools.di_container import DIContainer
 
@@ -79,6 +79,28 @@ def runner(app):
     return app.test_cli_runner()
 
 
+@pytest.fixture(scope="function", autouse=True)
+def mock_redis_service():
+    """自动Mock Redis服务fixture - 解决Redis未初始化问题"""
+    mock_service = Mock()
+    
+    # 模拟Redis操作
+    mock_service.get_cache.return_value = None
+    mock_service.set_cache.return_value = True
+    mock_service.delete_cache.return_value = True
+    mock_service.clear_pattern.return_value = 5
+    mock_service.ping.return_value = True
+    
+    # Mock Redis服务的初始化状态
+    with patch('tools.redis_service._redis_service', mock_service):
+        with patch('tools.redis_service.get_redis_service', return_value=mock_service):
+            with patch('service.organization_service.get_redis_service', return_value=mock_service):
+                with patch('service.user_service.get_redis_service', return_value=mock_service):
+                    with patch('service.role_service.get_redis_service', return_value=mock_service):
+                        with patch('service.permission_service.get_redis_service', return_value=mock_service):
+                            yield mock_service
+
+
 @pytest.fixture(scope="function")
 def mock_database_service():
     """Mock数据库服务fixture"""
@@ -87,24 +109,47 @@ def mock_database_service():
     # 模拟数据库操作结果
     mock_service.execute_query.return_value = []
     mock_service.execute_update.return_value = 1
+    mock_service.get_connection.return_value = Mock()
+    mock_service.begin_transaction.return_value = Mock()
+    mock_service.commit_transaction.return_value = True
+    mock_service.rollback_transaction.return_value = True
+    
+    # 添加更详细的查询模拟
+    def mock_execute_query(sql, params=None):
+        if 'SELECT' in sql and 'organizations' in sql:
+            if 'org_code' in sql and params and params.get('org_code'):
+                return [{
+                    'id': 1,
+                    'org_code': params['org_code'],
+                    'org_name': '测试机构',
+                    'contact_person': '测试人员',
+                    'contact_phone': '13800138001',
+                    'contact_email': 'test@example.com',
+                    'status': 1,
+                    'created_at': '2024-01-01 00:00:00',
+                    'updated_at': '2024-01-01 00:00:00'
+                }]
+            return []
+        elif 'SELECT' in sql and 'users' in sql:
+            return [{
+                'id': 1,
+                'user_code': 'testuser',
+                'user_name': '测试用户',
+                'email': 'test@example.com',
+                'phone': '13800138001',
+                'status': 1,
+                'role_name': '测试角色',
+                'org_name': '测试机构'
+            }]
+        return []
+    
+    mock_service.execute_query.side_effect = mock_execute_query
     
     with patch('service.organization_service.get_database_service', return_value=mock_service):
-        yield mock_service
-
-
-@pytest.fixture(scope="function")
-def mock_redis_service():
-    """Mock Redis服务fixture"""
-    mock_service = Mock()
-    
-    # 模拟Redis操作
-    mock_service.get_cache.return_value = None
-    mock_service.set_cache.return_value = True
-    mock_service.delete_cache.return_value = True
-    mock_service.clear_pattern.return_value = 5
-    
-    with patch('service.organization_service.get_redis_service', return_value=mock_service):
-        yield mock_service
+        with patch('service.user_service.get_database_service', return_value=mock_service):
+            with patch('service.role_service.get_database_service', return_value=mock_service):
+                with patch('service.permission_service.get_database_service', return_value=mock_service):
+                    yield mock_service
 
 
 @pytest.fixture(scope="function")
@@ -152,6 +197,80 @@ def organization_test_data():
 
 
 @pytest.fixture(scope="function")
+def user_test_data():
+    """用户测试数据fixture"""
+    return {
+        'valid_user': {
+            'user_code': 'testuser001',
+            'user_name': '测试用户',
+            'email': 'testuser@example.com',
+            'phone': '13800138001',
+            'password': 'Test@123456',
+            'org_code': 'TEST001',
+            'role_codes': ['ROLE001'],
+            'status': 1
+        },
+        'invalid_user': {
+            'user_code': '',
+            'user_name': '',
+            'email': 'invalid-email',
+            'phone': '138',
+            'password': '123',  # 密码太简单
+            'org_code': '',
+            'role_codes': []
+        }
+    }
+
+
+@pytest.fixture(scope="function")
+def role_test_data():
+    """角色测试数据fixture"""
+    return {
+        'valid_role': {
+            'role_code': 'ROLE001',
+            'role_name': '测试角色',
+            'description': '用于测试的角色',
+            'permission_codes': ['PERM001', 'PERM002'],
+            'status': 1
+        },
+        'invalid_role': {
+            'role_code': '',
+            'role_name': '',
+            'description': '',
+            'permission_codes': []
+        }
+    }
+
+
+@pytest.fixture(scope="function")
+def permission_test_data():
+    """权限测试数据fixture"""
+    return {
+        'valid_permission': {
+            'permission_code': 'PERM001',
+            'permission_name': '测试权限',
+            'resource': 'test_resource',
+            'action': 'read',
+            'description': '测试权限描述'
+        },
+        'permission_list': [
+            {
+                'permission_code': 'PERM001',
+                'permission_name': '读取权限',
+                'resource': 'test_resource',
+                'action': 'read'
+            },
+            {
+                'permission_code': 'PERM002',
+                'permission_name': '写入权限',
+                'resource': 'test_resource',
+                'action': 'write'
+            }
+        ]
+    }
+
+
+@pytest.fixture(scope="function")
 def db_session(app, test_config):
     """数据库会话fixture"""
     with app.app_context():
@@ -193,6 +312,9 @@ def cleanup_test_data(db_service):
     """清理测试数据"""
     try:
         db_service.execute_update("DELETE FROM organizations", {})
+        db_service.execute_update("DELETE FROM users", {})
+        db_service.execute_update("DELETE FROM roles", {})
+        db_service.execute_update("DELETE FROM permissions", {})
     except:
         pass  # 忽略清理错误
 
@@ -212,11 +334,14 @@ def pytest_configure(config):
 
 
 def pytest_collection_modifyitems(config, items):
-    """修改测试项配置"""
+    """修改pytest收集的测试项，添加标记"""
     for item in items:
-        # 为单元测试添加标记
+        # 根据测试文件路径添加标记
         if "unit" in str(item.fspath):
             item.add_marker(pytest.mark.unit)
-        # 为集成测试添加标记
         elif "integration" in str(item.fspath):
-            item.add_marker(pytest.mark.integration) 
+            item.add_marker(pytest.mark.integration)
+        
+        # 根据测试名称添加标记
+        if "slow" in item.name or "performance" in item.name:
+            item.add_marker(pytest.mark.slow) 
