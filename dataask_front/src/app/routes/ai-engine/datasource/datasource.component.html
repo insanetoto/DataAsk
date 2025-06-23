@@ -1,0 +1,45 @@
+<page-header [action]="phActionTpl">
+  <ng-template #phActionTpl>
+    <div style="display: flex; gap: 8px;">
+      <button (click)="add()" nz-button nzType="primary">
+        <nz-icon nzType="plus" nzTheme="outline"></nz-icon>
+        新建数据源
+      </button>
+      <button nz-button nzType="default">
+        <nz-icon nzType="sync" nzTheme="outline"></nz-icon>
+        刷新
+      </button>
+    </div>
+  </ng-template>
+</page-header>
+
+<nz-card>
+  <!-- 搜索表单 -->
+  <sf 
+    mode="search" 
+    [schema]="searchSchema" 
+    (formSubmit)="st.reset($event)" 
+    (formReset)="st.reset($event)" 
+    [formData]="{ type: '', status: '' }" />
+  
+  <!-- 数据表格 -->
+  <st #st 
+     [data]="mockData" 
+     [columns]="columns"
+     [page]="{ show: true, showSize: true, pageSizes: [10, 20, 50] }"
+     [loading]="false"
+     size="middle">
+    
+    <!-- 数据源名称渲染模板 -->
+    <ng-template #nameRender let-item>
+      <strong>{{ item.name }}</strong>
+    </ng-template>
+    
+    <!-- 描述渲染模板 -->
+    <ng-template #descriptionRender let-item>
+      <div style="max-width: 200px; word-wrap: break-word;">
+        {{ item.description }}
+      </div>
+    </ng-template>
+  </st>
+</nz-card>

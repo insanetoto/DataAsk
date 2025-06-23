@@ -1,0 +1,50 @@
+<page-header [action]="phActionTpl">
+  <ng-template #phActionTpl>
+    <div class="action-buttons">
+      <button (click)="add()" nz-button nzType="primary">
+        <nz-icon nzType="plus" nzTheme="outline"></nz-icon>
+        新建模型
+      </button>
+      <button nz-button nzType="default">
+        <nz-icon nzType="sync" nzTheme="outline"></nz-icon>
+        刷新
+      </button>
+    </div>
+  </ng-template>
+</page-header>
+
+<nz-card>
+  <!-- 搜索表单 -->
+  <sf 
+    mode="search" 
+    [schema]="searchSchema" 
+    (formSubmit)="st.reset($event)" 
+    (formReset)="st.reset($event)" 
+    [formData]="{ provider: '', modelType: '', status: '' }" />
+  
+  <!-- 数据表格 -->
+  <st #st 
+     [data]="mockData" 
+     [columns]="columns"
+     [page]="{ show: true, showSize: true, pageSizes: [10, 20, 50] }"
+     [loading]="false"
+     size="middle">
+    
+    <!-- 模型名称渲染模板 -->
+    <ng-template #nameRender let-item>
+      <div>
+        <strong>{{ item.name }}</strong>
+        <div style="font-size: 12px; color: #8c8c8c; margin-top: 2px;">
+          {{ item.description }}
+        </div>
+      </div>
+    </ng-template>
+    
+    <!-- API地址渲染模板 -->
+    <ng-template #apiUrlRender let-item>
+      <span style="font-family: monospace; font-size: 12px;">
+        {{ item.apiUrl.length > 40 ? (item.apiUrl.substring(0, 40) + '...') : item.apiUrl }}
+      </span>
+    </ng-template>
+  </st>
+</nz-card>

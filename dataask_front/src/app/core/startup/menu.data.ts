@@ -41,21 +41,33 @@ export const MENU_DATA: Menu[] = [
     ]
   },
   {
-    text: 'AI工作区',
-    i18n: 'menu.ai-workspace',
+    text: 'AI引擎',
+    i18n: 'menu.ai-engine',
     icon: { type: 'icon', value: 'robot' },
     children: [
       {
         text: 'AI问答',
-        i18n: 'menu.ai-workspace.ask-data',
+        i18n: 'menu.ai-engine.ask-data',
         icon: { type: 'icon', value: 'message' },
-        link: '/ai-workspace/ask-data'
+        link: '/ai-engine/ask-data'
       },
       {
         text: '知识库',
-        i18n: 'menu.ai-workspace.knowledge-base',
+        i18n: 'menu.ai-engine.knowledge-base',
         icon: { type: 'icon', value: 'database' },
-        link: '/ai-workspace/knowledge-base'
+        link: '/ai-engine/knowledge-base'
+      },
+      {
+        text: '数据源管理',
+        i18n: 'menu.ai-engine.datasource',
+        icon: { type: 'icon', value: 'api' },
+        link: '/ai-engine/datasource'
+      },
+      {
+        text: '大模型管理',
+        i18n: 'menu.ai-engine.llmmanage',
+        icon: { type: 'icon', value: 'deployment-unit' },
+        link: '/ai-engine/llmmanage'
       }
     ]
   },

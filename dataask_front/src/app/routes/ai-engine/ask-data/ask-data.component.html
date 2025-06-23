@@ -1,1 +1,127 @@
 <page-header />
+
+<div class="chat-container">
+  <!-- 左侧对话历史列表 -->
+  <div class="chat-sidebar">
+    <!-- 新建对话按钮 -->
+    <div class="sidebar-header">
+      <button 
+        nz-button 
+        nzType="primary" 
+        nzGhost
+        class="new-chat-btn"
+        (click)="startNewChat()"
+        nz-tooltip="开始新对话">
+        <nz-icon nzType="plus" nzTheme="outline"></nz-icon>
+        <span>新对话</span>
+      </button>
+    </div>
+
+    <!-- 对话会话列表 -->
+    <div class="chat-sessions">
+      @for (session of chatSessions; track session.id) {
+        <div 
+          class="session-item"
+          [class.active]="currentSessionId === session.id"
+          (click)="selectSession(session)"
+          nz-tooltip="点击查看对话详情">
+          <div class="session-title">{{ session.title }}</div>
+          <div class="session-preview">{{ session.lastMessage }}</div>
+          <div class="session-meta">
+            <span class="session-time">{{ formatTime(session.timestamp) }}</span>
+            <div class="message-count">
+              <nz-icon nzType="message" nzTheme="outline"></nz-icon>
+              <span>{{ session.messageCount }}</span>
+            </div>
+          </div>
+        </div>
+      }
+      
+      @if (chatSessions.length === 0) {
+        <div class="empty-state">
+          <nz-icon nzType="inbox" class="empty-icon"></nz-icon>
+          <div class="empty-title">暂无对话</div>
+          <div class="empty-desc">点击上方按钮开始新对话</div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- 右侧主要对话区域 -->
+  <div class="chat-main">
+    <!-- 对话标题栏 -->
+    <div class="chat-header">
+      <h3>{{ currentSessionTitle }}</h3>
+    </div>
+
+    <!-- 对话消息区域 -->
+    <div class="chat-messages" #messagesContainer>
+      @if (currentMessages.length === 0) {
+        <div class="empty-state">
+          <nz-icon nzType="robot" class="empty-icon"></nz-icon>
+          <div class="empty-title">我是 DataAsk，很高兴见到你！</div>
+          <div class="empty-desc">我可以帮您分析数据、解答问题，请在下方输入您的需求</div>
+        </div>
+      } @else {
+        @for (message of currentMessages; track message.id) {
+          <div class="message" [class]="message.type + '-message'">
+            <!-- 头像 -->
+            <div class="message-avatar" [class]="message.type + '-avatar'">
+              @if (message.type === 'user') {
+                <nz-icon nzType="user" nzTheme="outline"></nz-icon>
+              } @else {
+                <nz-icon nzType="robot" nzTheme="outline"></nz-icon>
+              }
+            </div>
+
+            <!-- 消息内容 -->
+            <div class="message-wrapper">
+              <div class="message-content" [class.loading]="message.loading">
+                @if (message.loading) {
+                  <span>AI正在思考中</span>
+                  <div class="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                } @else {
+                  {{ message.content }}
+                }
+              </div>
+              <div class="message-time">{{ formatMessageTime(message.timestamp) }}</div>
+            </div>
+          </div>
+        }
+      }
+    </div>
+
+    <!-- 输入区域 -->
+    <div class="chat-input">
+      <div class="input-container">
+        <textarea
+          #messageInput
+          class="input-field"
+          [(ngModel)]="currentMessage"
+          (keydown)="handleKeyDown($event)"
+          [disabled]="sending"
+          placeholder="输入您的问题..."
+          rows="1"></textarea>
+        
+        <div class="input-actions">
+          <span class="input-hint">按 Enter 发送，Shift + Enter 换行</span>
+          <button 
+            nz-button 
+            nzType="primary" 
+            nzSize="small"
+            class="send-btn"
+            [disabled]="!currentMessage.trim() || sending"
+            [nzLoading]="sending"
+            (click)="sendMessage()">
+            <nz-icon nzType="send" nzTheme="outline"></nz-icon>
+            <span>发送</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
