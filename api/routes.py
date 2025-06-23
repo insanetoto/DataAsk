@@ -1311,7 +1311,7 @@ def app_init():
         # 默认响应数据
         response_data = {
             'app': {
-                'name': 'DataAsk',
+                'name': '洞察魔方',
                 'description': '数据分析问答系统'
             },
             'user': {
@@ -1375,7 +1375,7 @@ def app_init():
                         },
                         'permissions': permissions_result['data'] if permissions_result['success'] else []
                     })
-                        except Exception as token_error:
+            except Exception as token_error:
                 # Token验证失败，使用默认数据
                 pass
         
@@ -1449,7 +1449,7 @@ def get_default_menus():
                             'link': '/workspace/workplace'
                         },
                         {
-                            'text': '报表',
+                            'text': '工作报表',
                             'icon': {'type': 'icon', 'value': 'bar-chart'},
                             'link': '/workspace/report'
                         }

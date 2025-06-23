@@ -31,7 +31,7 @@ export const MENU_DATA: Menu[] = [
             link: '/workspace/workplace'
           },
           {
-            text: '报表',
+            text: '工作报表',
             i18n: 'menu.dataask.workspace.report',
             icon: { type: 'icon', value: 'bar-chart' },
             link: '/workspace/report'

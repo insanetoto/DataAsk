@@ -114,7 +114,7 @@ export class SysOrgComponent implements OnInit {
     },
     {
       title: '操作',
-      width: 200,
+      width: 240,
       fixed: 'right',
       buttons: [
         {

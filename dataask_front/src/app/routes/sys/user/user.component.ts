@@ -75,13 +75,25 @@ export class SysUserComponent implements OnInit {
       title: '所属机构',
       index: 'org_code',
       width: 150,
-      format: (item: User) => (item as any).org_name || item.org_code || '-'
+      format: (item: User) => {
+        // 优先使用organization对象中的org_name，然后尝试org_name字段，最后显示org_code
+        return (item as any).organization?.org_name || (item as any).org_name || item.org_code || '-';
+      }
     },
     {
       title: '角色',
       index: 'role_id',
-      width: 120,
-      format: (item: User) => this.getRoleNameByCode((item as any).role_code) || '-'
+      width: 160,
+      format: (item: User) => {
+        // 优先使用role对象中的role_name，然后尝试role_name字段，最后使用role_code映射
+        return (
+          (item as any).role?.role_name ||
+          (item as any).role_name ||
+          this.getRoleNameByCode((item as any).role_code) ||
+          this.getRoleNameByCode((item as any).role?.role_code) ||
+          '-'
+        );
+      }
     },
     {
       title: '联系电话',
@@ -123,7 +135,7 @@ export class SysUserComponent implements OnInit {
     },
     {
       title: '操作',
-      width: 280,
+      width: 320,
       fixed: 'right',
       buttons: [
         {

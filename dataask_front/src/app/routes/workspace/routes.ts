@@ -1,9 +1,11 @@
 import { Routes } from '@angular/router';
 
 import { WorkspaceMonitorComponent } from './monitor/monitor.component';
+import { WorkspaceReportComponent } from './report/report.component';
 import { WorkspaceWorkbenchComponent } from './workbench/workbench.component';
 
 export const routes: Routes = [
-  { path: 'monitor', component: WorkspaceMonitorComponent },
-  { path: 'workbench', component: WorkspaceWorkbenchComponent }
+  { path: 'monitor', component: WorkspaceMonitorComponent, data: { title: '监控' } },
+  { path: 'workbench', component: WorkspaceWorkbenchComponent, data: { title: '工作区' } },
+  { path: 'report', component: WorkspaceReportComponent, data: { title: '工作报表' } }
 ];

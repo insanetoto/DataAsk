@@ -29,7 +29,7 @@ INSERT INTO `sys_menu` (`parent_id`, `name`, `path`, `component`, `type`, `icon`
 (2, 'AI监控大屏', '/dashboard', 'dashboard/dashboard', 'C', 'bar-chart', 1, 1, 'dashboard:view', 1),
 (1, '工作台', '/workspace', '', 'M', 'appstore', 2, 1, 'workspace:view', 1),
 (4, '工作区', 'workbench', 'workspace/workbench/workbench', 'C', 'laptop', 1, 1, 'workspace:workbench:view', 1),
-(4, '报表', 'report', 'workspace/report/report', 'C', 'bar-chart', 2, 1, 'workspace:report:view', 1),
+(4, '工作报表', 'report', 'workspace/report/report', 'C', 'bar-chart', 2, 1, 'workspace:report:view', 1),
 
 -- AI引擎
 (0, 'AI引擎', '/ai-engine', '', 'M', 'robot', 2, 1, 'ai-engine:view', 1),

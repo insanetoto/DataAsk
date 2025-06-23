@@ -1,0 +1,64 @@
+<page-header [title]="'工作报表'" />
+
+<nz-card [nzBordered]="false">
+  <!-- 操作栏 -->
+  <div class="mb-md">
+    <button nz-button [nzType]="'primary'" (click)="refreshReport()" [nzLoading]="loading">
+      <i nz-icon nzType="reload"></i>
+      <span>刷新数据</span>
+    </button>
+    <button nz-button (click)="exportReport()" class="ml-sm">
+      <i nz-icon nzType="download"></i>
+      <span>导出工作报表</span>
+    </button>
+  </div>
+
+  <!-- 报表内容区域 -->
+  <div nz-row [nzGutter]="16">
+    <div nz-col nzXs="24" nzSm="12" nzMd="6" class="mb-md">
+      <nz-card [nzTitle]="'用户统计'" [nzSize]="'small'">
+        <div class="text-center">
+          <div class="h2 text-primary">{{ statistics.total_users.toLocaleString() }}</div>
+          <p class="text-grey mb0">总用户数</p>
+        </div>
+      </nz-card>
+    </div>
+    
+    <div nz-col nzXs="24" nzSm="12" nzMd="6" class="mb-md">
+      <nz-card [nzTitle]="'机构统计'" [nzSize]="'small'">
+        <div class="text-center">
+          <div class="h2 text-success">{{ statistics.total_organizations.toLocaleString() }}</div>
+          <p class="text-grey mb0">活跃机构</p>
+        </div>
+      </nz-card>
+    </div>
+    
+    <div nz-col nzXs="24" nzSm="12" nzMd="6" class="mb-md">
+      <nz-card [nzTitle]="'查询统计'" [nzSize]="'small'">
+        <div class="text-center">
+          <div class="h2 text-orange">{{ statistics.total_queries.toLocaleString() }}</div>
+          <p class="text-grey mb0">今日查询</p>
+        </div>
+      </nz-card>
+    </div>
+    
+    <div nz-col nzXs="24" nzSm="12" nzMd="6" class="mb-md">
+      <nz-card [nzTitle]="'系统状态'" [nzSize]="'small'">
+        <div class="text-center">
+          <div class="h2 text-magenta">{{ statistics.system_availability }}%</div>
+          <p class="text-grey mb0">系统可用率</p>
+        </div>
+      </nz-card>
+    </div>
+  </div>
+
+  <!-- 详细报表表格 -->
+  <nz-card [nzTitle]="'详细工作报表数据'" [nzBordered]="false" class="mt-md">
+    <nz-spin [nzSpinning]="loading">
+      <div class="text-center py-lg">
+        <i nz-icon nzType="file-text" class="text-muted" style="font-size: 48px;"></i>
+        <p class="text-muted mt-md mb0">工作报表功能正在开发中，敬请期待</p>
+      </div>
+    </nz-spin>
+  </nz-card>
+</nz-card> 

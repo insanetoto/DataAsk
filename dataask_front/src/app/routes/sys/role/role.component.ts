@@ -109,7 +109,7 @@ export class SysRoleComponent implements OnInit {
     },
     {
       title: '操作',
-      width: 320,
+      width: 260,
       fixed: 'right',
       buttons: [
         {

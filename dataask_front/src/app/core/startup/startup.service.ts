@@ -31,7 +31,7 @@ export class StartupService {
   load(): Observable<void> {
     const defaultData = {
       app: {
-        name: 'DataAsk',
+        name: '洞察魔方',
         description: '数据分析问答系统'
       },
       user: null,

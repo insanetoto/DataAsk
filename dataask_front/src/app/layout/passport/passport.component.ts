@@ -12,14 +12,14 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
         <div class="top">
           <div class="head">
             <img class="logo" src="./assets/logo-color.svg" />
-            <span class="title">NG-ALAIN</span>
+            <span class="title">洞察魔方</span>
           </div>
-          <div class="desc">武林中最有影响力的《葵花宝典》；欲练神功，挥刀自宫</div>
+          <div class="desc">洞察魔方</div>
         </div>
         <router-outlet />
         <global-footer [links]="links">
           Copyright
-          <nz-icon nzType="copyright"></nz-icon> 2025 <a href="//github.com/cipchk" target="_blank">卡色</a>出品
+          <nz-icon nzType="copyright"></nz-icon> 2025 <a href="" target="_blank">中科百惟</a>出品
         </global-footer>
       </div>
     </div>
