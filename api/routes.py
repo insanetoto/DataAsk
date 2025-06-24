@@ -2018,6 +2018,343 @@ def send_message(message_id):
         response, status = standardize_response(False, error=str(e), code=500)
         return jsonify(response), status 
 
+# ================== 消息订阅和批量操作 API ==================
+
+@api_bp.route('/message/batch/delete', methods=['POST'])
+@auth_required
+def batch_delete_messages():
+    """批量删除消息"""
+    try:
+        data = request.get_json()
+        ids = data.get('ids', [])
+        
+        if not ids:
+            response, status = standardize_response(False, error='请提供要删除的消息ID列表', code=400)
+            return jsonify(response), status
+        
+        # 模拟批量删除操作
+        result = {
+            'success_count': len(ids),
+            'failed_count': 0,
+            'deleted_ids': ids
+        }
+        
+        response, status = standardize_response(True, data=result, message=f'成功删除 {len(ids)} 条消息')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"批量删除消息失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/message/batch/send', methods=['POST'])
+@auth_required
+def batch_send_messages():
+    """批量发送消息"""
+    try:
+        data = request.get_json()
+        ids = data.get('ids', [])
+        
+        if not ids:
+            response, status = standardize_response(False, error='请提供要发送的消息ID列表', code=400)
+            return jsonify(response), status
+        
+        # 模拟批量发送操作
+        result = {
+            'success_count': len(ids) - 1,  # 模拟一个失败
+            'failed_count': 1,
+            'sent_ids': ids[:-1],
+            'failed_ids': [ids[-1]] if ids else []
+        }
+        
+        response, status = standardize_response(True, data=result, message=f'成功发送 {result["success_count"]} 条消息')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"批量发送消息失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/message/stats', methods=['GET'])
+@auth_required
+def get_message_stats():
+    """获取消息统计信息"""
+    try:
+        # 模拟统计数据
+        stats = {
+            'total': 150,
+            'sent': 120,
+            'draft': 25,
+            'read': 95,
+            'today_sent': 15,
+            'this_week_sent': 45,
+            'this_month_sent': 120,
+            'success_rate': '95.5%',
+            'avg_read_rate': '79.2%'
+        }
+        
+        response, status = standardize_response(True, data=stats, message='获取统计信息成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"获取消息统计失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/message/types', methods=['GET'])
+def get_message_types():
+    """获取消息类型列表"""
+    try:
+        # 消息类型配置
+        types = [
+            {
+                'value': 'system',
+                'label': '系统通知',
+                'description': '系统维护、更新等通知',
+                'color': 'blue',
+                'icon': 'setting'
+            },
+            {
+                'value': 'business',
+                'label': '业务消息',
+                'description': '业务流程、数据处理相关消息',
+                'color': 'green',
+                'icon': 'dollar'
+            },
+            {
+                'value': 'alert',
+                'label': '告警消息',
+                'description': '系统异常、错误告警',
+                'color': 'red',
+                'icon': 'warning'
+            }
+        ]
+        
+        response, status = standardize_response(True, data=types, message='获取消息类型成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"获取消息类型失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/message/subscriptions/<int:user_id>', methods=['GET'])
+@auth_required
+def get_user_subscriptions(user_id):
+    """获取用户消息订阅设置"""
+    try:
+        # 模拟用户订阅设置
+        subscriptions = [
+            {
+                'id': 1,
+                'user_id': user_id,
+                'message_type': 'system',
+                'channel': 'email',
+                'enabled': True,
+                'created_at': '2024-01-15 10:30:00'
+            },
+            {
+                'id': 2,
+                'user_id': user_id,
+                'message_type': 'business',
+                'channel': 'system',
+                'enabled': True,
+                'created_at': '2024-01-15 10:30:00'
+            },
+            {
+                'id': 3,
+                'user_id': user_id,
+                'message_type': 'alert',
+                'channel': 'sms',
+                'enabled': False,
+                'created_at': '2024-01-15 10:30:00'
+            }
+        ]
+        
+        response, status = standardize_response(True, data=subscriptions, message='获取订阅设置成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"获取用户订阅设置失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/message/subscriptions/<int:user_id>', methods=['PUT'])
+@auth_required
+def update_user_subscription(user_id):
+    """更新用户消息订阅设置"""
+    try:
+        data = request.get_json()
+        
+        # 验证必要字段
+        required_fields = ['message_type', 'channel', 'enabled']
+        for field in required_fields:
+            if field not in data:
+                response, status = standardize_response(False, error=f'缺少必要字段: {field}', code=400)
+                return jsonify(response), status
+        
+        # 模拟更新订阅设置
+        updated_subscription = {
+            'id': data.get('id', 999),
+            'user_id': user_id,
+            'message_type': data['message_type'],
+            'channel': data['channel'],
+            'enabled': data['enabled'],
+            'updated_at': '2024-01-25 16:30:00'
+        }
+        
+        response, status = standardize_response(True, data=updated_subscription, message='更新订阅设置成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"更新用户订阅设置失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/message/publish', methods=['POST'])
+@auth_required
+def publish_message():
+    """发布消息到指定频道"""
+    try:
+        data = request.get_json()
+        
+        # 验证必要字段
+        required_fields = ['title', 'content', 'type', 'channels']
+        for field in required_fields:
+            if not data.get(field):
+                response, status = standardize_response(False, error=f'缺少必要字段: {field}', code=400)
+                return jsonify(response), status
+        
+        # 模拟发布操作
+        publish_result = {
+            'message_id': 999,
+            'title': data['title'],
+            'channels': data['channels'],
+            'publish_time': '2024-01-25 16:45:00',
+            'total_subscribers': 150,
+            'successful_deliveries': 148,
+            'failed_deliveries': 2,
+            'delivery_channels': {
+                'email': {'sent': 100, 'failed': 1},
+                'sms': {'sent': 30, 'failed': 1},
+                'system': {'sent': 18, 'failed': 0}
+            }
+        }
+        
+        response, status = standardize_response(True, data=publish_result, message='消息发布成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"发布消息失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/message/subscribe', methods=['POST'])
+@auth_required
+def subscribe_message():
+    """订阅消息"""
+    try:
+        data = request.get_json()
+        
+        # 验证必要字段
+        required_fields = ['user_id', 'message_type', 'channel']
+        for field in required_fields:
+            if not data.get(field):
+                response, status = standardize_response(False, error=f'缺少必要字段: {field}', code=400)
+                return jsonify(response), status
+        
+        # 模拟订阅操作
+        subscription = {
+            'id': 999,
+            'user_id': data['user_id'],
+            'message_type': data['message_type'],
+            'channel': data['channel'],
+            'enabled': True,
+            'created_at': '2024-01-25 16:50:00'
+        }
+        
+        response, status = standardize_response(True, data=subscription, message='订阅成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"订阅消息失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/message/unsubscribe', methods=['POST'])
+@auth_required
+def unsubscribe_message():
+    """取消订阅消息"""
+    try:
+        data = request.get_json()
+        
+        # 验证必要字段
+        required_fields = ['user_id', 'message_type']
+        for field in required_fields:
+            if not data.get(field):
+                response, status = standardize_response(False, error=f'缺少必要字段: {field}', code=400)
+                return jsonify(response), status
+        
+        # 模拟取消订阅操作
+        result = {
+            'user_id': data['user_id'],
+            'message_type': data['message_type'],
+            'unsubscribed_at': '2024-01-25 16:55:00'
+        }
+        
+        response, status = standardize_response(True, data=result, message='取消订阅成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"取消订阅消息失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+# ================== 消息发布订阅管理 API ==================
+
+@api_bp.route('/message/channels', methods=['GET'])
+def get_message_channels():
+    """获取消息推送渠道列表"""
+    try:
+        channels = [
+            {
+                'value': 'email',
+                'label': '邮件',
+                'description': '通过邮件发送消息',
+                'icon': 'mail',
+                'enabled': True
+            },
+            {
+                'value': 'sms',
+                'label': '短信',
+                'description': '通过短信发送消息',
+                'icon': 'message',
+                'enabled': True
+            },
+            {
+                'value': 'system',
+                'label': '系统通知',
+                'description': '系统内部消息通知',
+                'icon': 'notification',
+                'enabled': True
+            },
+            {
+                'value': 'webhook',
+                'label': 'Webhook',
+                'description': '通过Webhook推送消息',
+                'icon': 'api',
+                'enabled': False
+            }
+        ]
+        
+        response, status = standardize_response(True, data=channels, message='获取推送渠道成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"获取推送渠道失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
 # ============ 工作流管理接口 ============
 
 @api_bp.route('/workflow', methods=['GET'])
@@ -2140,204 +2477,7 @@ def get_workflows():
         response, status = standardize_response(False, error=str(e), code=500)
         return jsonify(response), status
 
-@api_bp.route('/workflow/<int:workflow_id>', methods=['GET'])
-def get_workflow(workflow_id):
-    """获取单个工作流详情"""
-    try:
-        # 模拟获取工作流详情
-        workflow = {
-            'id': workflow_id,
-            'name': f'工作流 {workflow_id}',
-            'description': f'这是工作流 {workflow_id} 的详细描述...',
-            'category': 'approval',
-            'status': 'active',
-            'steps_count': 5,
-            'execution_count': 123,
-            'success_rate': '95.1%',
-            'creator': '系统管理员',
-            'created_at': '2024-01-15 10:30:00',
-            'updated_at': '2024-01-20 14:45:00',
-            'steps': [
-                {
-                    'id': 1,
-                    'name': '初始化',
-                    'type': 'start',
-                    'description': '工作流开始'
-                },
-                {
-                    'id': 2,
-                    'name': '数据验证',
-                    'type': 'validation',
-                    'description': '验证输入数据的有效性'
-                },
-                {
-                    'id': 3,
-                    'name': '业务处理',
-                    'type': 'process',
-                    'description': '执行核心业务逻辑'
-                },
-                {
-                    'id': 4,
-                    'name': '结果确认',
-                    'type': 'approval',
-                    'description': '等待用户确认处理结果'
-                },
-                {
-                    'id': 5,
-                    'name': '完成',
-                    'type': 'end',
-                    'description': '工作流结束'
-                }
-            ]
-        }
-        
-        response, status = standardize_response(True, data=workflow, message='获取工作流详情成功')
-        return jsonify(response), status
-        
-    except Exception as e:
-        logger.error(f"获取工作流详情失败: {str(e)}")
-        response, status = standardize_response(False, error=str(e), code=500)
-        return jsonify(response), status
 
-@api_bp.route('/workflow', methods=['POST'])
-def create_workflow():
-    """创建新工作流"""
-    try:
-        data = request.get_json()
-        
-        # 验证必要字段
-        required_fields = ['name', 'description', 'category']
-        for field in required_fields:
-            if not data.get(field):
-                response, status = standardize_response(False, error=f'缺少必要字段: {field}', code=400)
-                return jsonify(response), status
-        
-        # 模拟创建工作流
-        new_workflow = {
-            'id': 999,  # 模拟生成的ID
-            'name': data['name'],
-            'description': data['description'],
-            'category': data['category'],
-            'status': data.get('status', 'disabled'),
-            'steps_count': len(data.get('steps', [])),
-            'execution_count': 0,
-            'success_rate': '0%',
-            'creator': '当前用户',  # 实际应该从认证信息获取
-            'created_at': '2024-01-25 16:00:00',
-            'updated_at': '2024-01-25 16:00:00',
-            'steps': data.get('steps', [])
-        }
-        
-        response, status = standardize_response(True, data=new_workflow, message='创建工作流成功')
-        return jsonify(response), status
-        
-    except Exception as e:
-        logger.error(f"创建工作流失败: {str(e)}")
-        response, status = standardize_response(False, error=str(e), code=500)
-        return jsonify(response), status
-
-@api_bp.route('/workflow/<int:workflow_id>', methods=['PUT'])
-def update_workflow(workflow_id):
-    """更新工作流"""
-    try:
-        data = request.get_json()
-        
-        # 模拟更新工作流
-        updated_workflow = {
-            'id': workflow_id,
-            'name': data.get('name', f'更新的工作流 {workflow_id}'),
-            'description': data.get('description', '更新的描述'),
-            'category': data.get('category', 'approval'),
-            'status': data.get('status', 'disabled'),
-            'steps_count': len(data.get('steps', [])),
-            'updated_at': '2024-01-25 16:30:00'
-        }
-        
-        response, status = standardize_response(True, data=updated_workflow, message='更新工作流成功')
-        return jsonify(response), status
-        
-    except Exception as e:
-        logger.error(f"更新工作流失败: {str(e)}")
-        response, status = standardize_response(False, error=str(e), code=500)
-        return jsonify(response), status
-
-@api_bp.route('/workflow/<int:workflow_id>', methods=['DELETE'])
-def delete_workflow(workflow_id):
-    """删除工作流"""
-    try:
-        # 模拟删除操作
-        response, status = standardize_response(True, message=f'删除工作流 {workflow_id} 成功')
-        return jsonify(response), status
-        
-    except Exception as e:
-        logger.error(f"删除工作流失败: {str(e)}")
-        response, status = standardize_response(False, error=str(e), code=500)
-        return jsonify(response), status
-
-@api_bp.route('/workflow/<int:workflow_id>/execute', methods=['POST'])
-def execute_workflow(workflow_id):
-    """执行工作流"""
-    try:
-        data = request.get_json()
-        input_data = data.get('input_data', {})
-        
-        # 模拟执行工作流
-        execution_result = {
-            'workflow_id': workflow_id,
-            'execution_id': f'exec_{workflow_id}_{int(time.time())}',
-            'status': 'running',
-            'started_at': '2024-01-25 16:45:00',
-            'current_step': 2,
-            'total_steps': 5,
-            'progress': '40%',
-            'estimated_completion': '2024-01-25 17:30:00'
-        }
-        
-        response, status = standardize_response(True, data=execution_result, message='工作流执行已启动')
-        return jsonify(response), status
-        
-    except Exception as e:
-        logger.error(f"执行工作流失败: {str(e)}")
-        response, status = standardize_response(False, error=str(e), code=500)
-        return jsonify(response), status
-
-@api_bp.route('/workflow/<int:workflow_id>/pause', methods=['POST'])
-def pause_workflow(workflow_id):
-    """暂停工作流"""
-    try:
-        # 模拟暂停操作
-        result = {
-            'workflow_id': workflow_id,
-            'status': 'paused',
-            'paused_at': '2024-01-25 16:50:00'
-        }
-        
-        response, status = standardize_response(True, data=result, message='工作流已暂停')
-        return jsonify(response), status
-        
-    except Exception as e:
-        logger.error(f"暂停工作流失败: {str(e)}")
-        response, status = standardize_response(False, error=str(e), code=500)
-        return jsonify(response), status
-
-@api_bp.route('/workflow/<int:workflow_id>/activate', methods=['POST'])
-def activate_workflow(workflow_id):
-    """激活工作流"""
-    try:
-        # 模拟激活操作
-        result = {
-            'workflow_id': workflow_id,
-            'status': 'active',
-            'activated_at': '2024-01-25 16:55:00'
-        }
-        
-        response, status = standardize_response(True, data=result, message='工作流已激活')
-        return jsonify(response), status
-        
-    except Exception as e:
-        logger.error(f"激活工作流失败: {str(e)}")
-        response, status = standardize_response(False, error=str(e), code=500)
-        return jsonify(response), status
 
 # ================== 工作流管理 API ==================
 

@@ -5,6 +5,8 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
+import { NzDescriptionsModule } from 'ng-zorro-antd/descriptions';
+import { NzDividerModule } from 'ng-zorro-antd/divider';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
 import { NzFormModule } from 'ng-zorro-antd/form';
@@ -20,8 +22,11 @@ import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
+import { NzStatisticModule } from 'ng-zorro-antd/statistic';
+import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
+import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { NzTreeModule } from 'ng-zorro-antd/tree';
 
@@ -38,14 +43,19 @@ export const SHARED_ZORRO_MODULES = [
   NzBadgeModule,
   NzCardModule,
   NzDatePickerModule,
+  NzDescriptionsModule,
+  NzDividerModule,
   NzDropDownModule,
   NzPopconfirmModule,
   NzRadioModule,
+  NzStatisticModule,
+  NzSwitchModule,
   NzTableModule,
   NzPopoverModule,
   NzDrawerModule,
   NzModalModule,
   NzTabsModule,
+  NzTagModule,
   NzToolTipModule,
   NzTreeModule,
   NzIconModule,

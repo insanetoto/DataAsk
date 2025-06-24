@@ -1,0 +1,148 @@
+<page-header [title]="'消息订阅管理'" />
+<nz-card [nzBordered]="false">
+  <!-- 订阅设置说明 -->
+  <nz-alert
+    nzType="info"
+    nzShowIcon
+    nzMessage="消息订阅设置"
+    nzDescription="您可以选择接收哪些类型的消息以及通过什么方式接收。"
+    class="mb-md"
+  />
+
+  <!-- 订阅设置表格 -->
+  <nz-table #subscriptionTable [nzData]="subscriptions" [nzLoading]="loading" nzSize="middle">
+    <thead>
+      <tr>
+        <th>消息类型</th>
+        <th>描述</th>
+        <th>推送渠道</th>
+        <th>状态</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (subscription of subscriptions; track subscription.id) {
+        <tr>
+          <td>
+            <nz-tag [nzColor]="getTypeColor(subscription.message_type)">
+              <i nz-icon [nzType]="getTypeIcon(subscription.message_type)"></i>
+              {{ getTypeText(subscription.message_type) }}
+            </nz-tag>
+          </td>
+          <td>{{ getTypeDescription(subscription.message_type) }}</td>
+          <td>
+            <nz-select 
+              [(ngModel)]="subscription.channel" 
+              (ngModelChange)="updateSubscription(subscription)"
+              [nzDisabled]="!subscription.enabled"
+              style="width: 120px;">
+              @for (channel of channels; track channel.value) {
+                <nz-option [nzLabel]="channel.label" [nzValue]="channel.value" [nzDisabled]="!channel.enabled" />
+              }
+            </nz-select>
+          </td>
+          <td>
+            <nz-switch 
+              [(ngModel)]="subscription.enabled" 
+              (ngModelChange)="updateSubscription(subscription)"
+              [nzCheckedChildren]="'启用'" 
+              [nzUnCheckedChildren]="'禁用'">
+            </nz-switch>
+          </td>
+          <td>
+            <button nz-button nzType="link" nzSize="small" (click)="testNotification(subscription)">
+              <i nz-icon nzType="experiment"></i>
+              测试
+            </button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+
+  <!-- 全局设置 -->
+  <nz-divider nzText="全局设置"></nz-divider>
+  
+  <div nz-row [nzGutter]="16">
+    <div nz-col nzSpan="12">
+      <nz-card nzTitle="批量操作" nzSize="small">
+        <div class="mb-sm">
+          <button nz-button (click)="enableAllSubscriptions()">
+            <i nz-icon nzType="check-circle"></i>
+            启用所有订阅
+          </button>
+        </div>
+        <div class="mb-sm">
+          <button nz-button (click)="disableAllSubscriptions()">
+            <i nz-icon nzType="stop"></i>
+            禁用所有订阅
+          </button>
+        </div>
+        <div>
+          <button nz-button nzType="default" (click)="resetToDefault()">
+            <i nz-icon nzType="reload"></i>
+            恢复默认设置
+          </button>
+        </div>
+      </nz-card>
+    </div>
+    
+    <div nz-col nzSpan="12">
+      <nz-card nzTitle="订阅统计" nzSize="small">
+        <nz-statistic 
+          nzTitle="已启用订阅" 
+          [nzValue]="getEnabledCount()" 
+          [nzSuffix]="'/ ' + subscriptions.length">
+        </nz-statistic>
+        <nz-divider></nz-divider>
+        <div class="text-sm text-gray-600">
+          <p>上次更新：{{ lastUpdateTime || '从未更新' }}</p>
+        </div>
+      </nz-card>
+    </div>
+  </div>
+</nz-card>
+
+<!-- 发布消息模态框 -->
+<ng-template #publishModalContent>
+  <form nz-form [nzLayout]="'vertical'">
+    <nz-form-item>
+      <nz-form-label nzFor="publishTitle" nzRequired>消息标题</nz-form-label>
+      <nz-form-control>
+        <input nz-input [(ngModel)]="publishData.title" name="publishTitle" placeholder="请输入消息标题" id="publishTitle" />
+      </nz-form-control>
+    </nz-form-item>
+    
+    <nz-form-item>
+      <nz-form-label nzFor="publishType" nzRequired>消息类型</nz-form-label>
+      <nz-form-control>
+        <nz-select [(ngModel)]="publishData.type" name="publishType" id="publishType" [nzPlaceHolder]="'请选择消息类型'">
+          @for (type of messageTypes; track type.value) {
+            <nz-option [nzLabel]="type.label" [nzValue]="type.value" />
+          }
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+    
+    <nz-form-item>
+      <nz-form-label nzFor="publishContent" nzRequired>消息内容</nz-form-label>
+      <nz-form-control>
+        <textarea nz-input [(ngModel)]="publishData.content" name="publishContent" placeholder="请输入消息内容" [nzRows]="4" id="publishContent"></textarea>
+      </nz-form-control>
+    </nz-form-item>
+    
+    <nz-form-item>
+      <nz-form-label nzFor="publishChannels" nzRequired>推送渠道</nz-form-label>
+      <nz-form-control>
+        <nz-checkbox-group [(ngModel)]="publishData.channels" name="publishChannels" id="publishChannels">
+          @for (channel of channels; track channel.value) {
+            <label nz-checkbox [nzValue]="channel.value" [nzDisabled]="!channel.enabled">
+              <i nz-icon [nzType]="channel.icon"></i>
+              {{ channel.label }}
+            </label>
+          }
+        </nz-checkbox-group>
+      </nz-form-control>
+    </nz-form-item>
+  </form>
+</ng-template> 

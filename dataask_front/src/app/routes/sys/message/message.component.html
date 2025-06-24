@@ -1,9 +1,185 @@
-<page-header [action]="phActionTpl">
-  <ng-template #phActionTpl>
-    <button (click)="add()" nz-button nzType="primary">新建</button>
-  </ng-template>
-</page-header>
-<nz-card>
-  <sf mode="search" [schema]="searchSchema" (formSubmit)="st.reset($event)" (formReset)="st.reset($event)" />
-  <st #st [data]="url" [columns]="columns" />
+<page-header [title]="'消息管理'" />
+<nz-card [nzBordered]="false">
+  <!-- 搜索表单 -->
+  <form nz-form [nzLayout]="'inline'" (ngSubmit)="getData()" class="search__form">
+    <div nz-row [nzGutter]="{ xs: 8, sm: 8, md: 8, lg: 24, xl: 48, xxl: 48 }">
+      <div nz-col nzMd="8" nzSm="24">
+        <nz-form-item>
+          <nz-form-label nzFor="title">消息标题</nz-form-label>
+          <nz-form-control>
+            <input nz-input [(ngModel)]="q.title" name="title" placeholder="请输入消息标题" id="title" />
+          </nz-form-control>
+        </nz-form-item>
+      </div>
+      <div nz-col nzMd="8" nzSm="24">
+        <nz-form-item>
+          <nz-form-label nzFor="type">消息类型</nz-form-label>
+          <nz-form-control>
+            <nz-select [(ngModel)]="q.type" name="type" id="type" [nzPlaceHolder]="'请选择消息类型'" [nzShowSearch]="true" [nzAllowClear]="true">
+              @for (option of typeOptions; track $index) {
+                <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
+              }
+            </nz-select>
+          </nz-form-control>
+        </nz-form-item>
+      </div>
+      @if (expandForm) {
+        <div nz-col nzMd="8" nzSm="24">
+          <nz-form-item>
+            <nz-form-label nzFor="status">状态</nz-form-label>
+            <nz-form-control>
+              <nz-select [(ngModel)]="q.status" name="status" id="status" [nzPlaceHolder]="'请选择状态'" [nzShowSearch]="true" [nzAllowClear]="true">
+                @for (option of statusOptions; track $index) {
+                  <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
+                }
+              </nz-select>
+            </nz-form-control>
+          </nz-form-item>
+        </div>
+        <div nz-col nzMd="8" nzSm="24">
+          <nz-form-item>
+            <nz-form-label nzFor="sender">发送人</nz-form-label>
+            <nz-form-control>
+              <input nz-input [(ngModel)]="q.sender" name="sender" placeholder="请输入发送人" id="sender" />
+            </nz-form-control>
+          </nz-form-item>
+        </div>
+      }
+      <div nz-col [nzSpan]="expandForm ? 24 : 8" [class.text-right]="expandForm">
+        <button nz-button type="submit" [nzType]="'primary'" [nzLoading]="loading">查询</button>
+        <button nz-button type="reset" (click)="reset()" class="mx-sm">重置</button>
+        <a (click)="expandForm = !expandForm">
+          {{ expandForm ? '收起' : '展开' }}
+          <i nz-icon [nzType]="expandForm ? 'up' : 'down'"></i>
+        </a>
+      </div>
+    </div>
+  </form>
+
+  <!-- 操作按钮 -->
+  <div class="mb-md">
+    <button nz-button (click)="addMessage(modalContent)" [nzType]="'primary'">
+      <i nz-icon nzType="plus"></i>
+      <span>新增消息</span>
+    </button>
+    @if (selectedRows.length > 0) {
+      <button nz-button nz-dropdown [nzDropdownMenu]="batchMenu" nzPlacement="bottomLeft" class="ml-sm">
+        批量操作
+        <i nz-icon nzType="down"></i>
+      </button>
+      <nz-dropdown-menu #batchMenu="nzDropdownMenu">
+        <ul nz-menu>
+          <li nz-menu-item (click)="batchSend()">批量发送</li>
+          <li nz-menu-item (click)="batchDelete()">批量删除</li>
+        </ul>
+      </nz-dropdown-menu>
+    }
+    <button nz-button (click)="refreshStats()" class="ml-sm">
+      <i nz-icon nzType="bar-chart"></i>
+      <span>统计信息</span>
+    </button>
+  </div>
+
+  <!-- 选择提示 -->
+  @if (selectedRows.length > 0) {
+    <div class="my-md">
+      <nz-alert [nzType]="'info'" [nzShowIcon]="true" [nzMessage]="message">
+        <ng-template #message>
+          已选择
+          <strong class="text-primary">{{ selectedRows.length }}</strong> 项
+          <a (click)="st.clearCheck()" class="ml-lg">清空</a>
+        </ng-template>
+      </nz-alert>
+    </div>
+  }
+
+  <!-- 数据表格 -->
+  <st #st [columns]="columns" [data]="data" [loading]="loading" (change)="stChange($event)" [scroll]="{ x: '1400px' }">
+    <ng-template st-row="status" let-i>
+      <nz-badge 
+        [nzStatus]="i.status === 'sent' ? 'success' : i.status === 'draft' ? 'warning' : 'processing'" 
+        [nzText]="getStatusText(i.status)" />
+    </ng-template>
+    <ng-template st-row="type" let-i>
+      <nz-tag [nzColor]="getTypeColor(i.type)">{{ getTypeText(i.type) }}</nz-tag>
+    </ng-template>
+  </st>
 </nz-card>
+
+<!-- 编辑模态框 -->
+<ng-template #modalContent>
+  <form nz-form [nzLayout]="'vertical'">
+    <nz-form-item>
+      <nz-form-label nzFor="title" nzRequired>消息标题</nz-form-label>
+      <nz-form-control>
+        <input nz-input [(ngModel)]="editingMessage.title" name="title" placeholder="请输入消息标题" id="title" />
+      </nz-form-control>
+    </nz-form-item>
+    
+    <nz-form-item>
+      <nz-form-label nzFor="type" nzRequired>消息类型</nz-form-label>
+      <nz-form-control>
+        <nz-select [(ngModel)]="editingMessage.type" name="type" id="type" [nzPlaceHolder]="'请选择消息类型'">
+          @for (option of typeOptions; track $index) {
+            <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
+          }
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+    
+    <nz-form-item>
+      <nz-form-label nzFor="content" nzRequired>消息内容</nz-form-label>
+      <nz-form-control>
+        <textarea nz-input [(ngModel)]="editingMessage.content" name="content" placeholder="请输入消息内容" rows="4" id="content"></textarea>
+      </nz-form-control>
+    </nz-form-item>
+    
+    <nz-form-item>
+      <nz-form-label nzFor="recipient" nzRequired>接收人</nz-form-label>
+      <nz-form-control>
+        <nz-select [(ngModel)]="editingMessage.recipient" name="recipient" id="recipient" [nzPlaceHolder]="'请选择接收人'" [nzShowSearch]="true">
+          <nz-option label="全体用户" value="全体用户"></nz-option>
+          @for (user of userOptions; track user.id) {
+            <nz-option [nzLabel]="user.username" [nzValue]="user.username" />
+          }
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+    
+    <nz-form-item>
+      <nz-form-label nzFor="status">状态</nz-form-label>
+      <nz-form-control>
+        <nz-radio-group [(ngModel)]="editingMessage.status" name="status" id="status">
+          <label nz-radio value="draft">草稿</label>
+          <label nz-radio value="sent">已发送</label>
+        </nz-radio-group>
+      </nz-form-control>
+    </nz-form-item>
+  </form>
+</ng-template>
+
+<!-- 查看详情模态框 -->
+<ng-template #viewModalContent>
+  <nz-descriptions nzBordered [nzColumn]="2">
+    <nz-descriptions-item nzTitle="消息ID">{{ viewingMessage.id }}</nz-descriptions-item>
+    <nz-descriptions-item nzTitle="标题">{{ viewingMessage.title }}</nz-descriptions-item>
+    <nz-descriptions-item nzTitle="类型">
+      <nz-tag [nzColor]="getTypeColor(viewingMessage.type)">{{ getTypeText(viewingMessage.type) }}</nz-tag>
+    </nz-descriptions-item>
+    <nz-descriptions-item nzTitle="状态">
+      <nz-badge 
+        [nzStatus]="viewingMessage.status === 'sent' ? 'success' : viewingMessage.status === 'draft' ? 'warning' : 'processing'" 
+        [nzText]="getStatusText(viewingMessage.status)" />
+    </nz-descriptions-item>
+    <nz-descriptions-item nzTitle="发送人">{{ viewingMessage.sender }}</nz-descriptions-item>
+    <nz-descriptions-item nzTitle="接收人">{{ viewingMessage.recipient }}</nz-descriptions-item>
+    <nz-descriptions-item nzTitle="创建时间">{{ viewingMessage.created_at }}</nz-descriptions-item>
+    <nz-descriptions-item nzTitle="发送时间">{{ viewingMessage.sent_at || '未发送' }}</nz-descriptions-item>
+    @if (viewingMessage.read_count !== undefined) {
+      <nz-descriptions-item nzTitle="已读数量">{{ viewingMessage.read_count }} / {{ viewingMessage.total_recipients }}</nz-descriptions-item>
+    }
+    <nz-descriptions-item nzTitle="消息内容" [nzSpan]="2">
+      <div style="white-space: pre-wrap;">{{ viewingMessage.content }}</div>
+    </nz-descriptions-item>
+  </nz-descriptions>
+</ng-template>
