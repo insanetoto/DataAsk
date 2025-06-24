@@ -1,1 +1,138 @@
-<page-header />
+<page-header [breadcrumb]="breadcrumb" [content]="content" [extra]="extra">
+  <ng-template #breadcrumb>
+    <nz-breadcrumb>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/']">首页</a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/workspace']">个人工作台</a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>工作台</nz-breadcrumb-item>
+    </nz-breadcrumb>
+  </ng-template>
+  <ng-template #content>
+    <div class="content">
+      <div class="avatar">
+        <nz-avatar [nzSrc]="userInfo?.avatar || 'assets/logo.svg'" [nzIcon]="!userInfo?.avatar ? 'user' : undefined" />
+      </div>
+      <div class="desc">
+        <div class="desc-title">{{ getGreeting() }}，{{ userInfo?.username || '用户' }}！</div>
+        <div>{{ userInfo?.role_name || '普通用户' }} | {{ userInfo?.org_name || '洞察魔方' }} | 上次登录：{{ userInfo?.last_login_at | date:'yyyy-MM-dd HH:mm' }}</div>
+      </div>
+    </div>
+  </ng-template>
+  <ng-template #extra>
+    <div class="page-extra">
+      <div>
+        <p>任务总数</p>
+        <p>{{ workStats?.totalTasks || 0 }}</p>
+      </div>
+      <div>
+        <p>已完成</p>
+        <p>
+          {{ workStats?.completedTasks || 0 }}
+          <span> / {{ workStats?.totalTasks || 0 }}</span>
+        </p>
+      </div>
+      <div>
+        <p>本月查询</p>
+        <p>{{ workStats?.monthlyQueries || 0 }}</p>
+      </div>
+    </div>
+  </ng-template>
+</page-header>
+
+<div nz-row [nzGutter]="24">
+  <div nz-col nzXs="24" nzSm="24" nzMd="16">
+    <!-- 进行中的任务 -->
+    <nz-card
+      nzTitle="进行中的任务"
+      [nzExtra]="tasksExtra"
+      [nzBordered]="false"
+      [nzLoading]="loading"
+      class="ant-card__body-nopadding mb-lg project-list"
+    >
+      <ng-template #tasksExtra>
+        <a (click)="viewAllTasks()">全部任务</a>
+      </ng-template>
+      @if (activeTasks && activeTasks.length > 0) {
+        @for (task of activeTasks; track $index) {
+          <div nz-card-grid class="project-grid">
+            <nz-card [nzBordered]="false" class="ant-card__body-nopadding mb0">
+              <nz-card-meta [nzTitle]="taskTitle" [nzDescription]="task.description">
+                <ng-template #taskTitle>
+                  <div class="card-title">
+                    <nz-avatar [nzIcon]="getTaskIcon(task.type)" [nzSize]="'small'" />
+                    <a (click)="viewTask(task)">{{ task.title }}</a>
+                  </div>
+                </ng-template>
+              </nz-card-meta>
+              <div class="project-item">
+                <nz-tag [nzColor]="getTaskColor(task.priority)">{{ task.priority }}</nz-tag>
+                @if (task.updated_at) {
+                  <span class="datetime" [title]="task.updated_at">
+                    {{ task.updated_at | date:'MM-dd HH:mm' }}
+                  </span>
+                }
+              </div>
+            </nz-card>
+          </div>
+        }
+      } @else {
+        <nz-empty nzNotFoundContent="暂无进行中的任务" />
+      }
+    </nz-card>
+
+    <!-- 待办任务 -->
+    <nz-card nzTitle="待办任务" [nzBordered]="false" [nzBodyStyle]="{ 'padding-top.px': 12, 'padding-bottom.px': 12 }" class="mb-lg">
+      <div class="todo-list">
+        @if (todoTasks && todoTasks.length > 0) {
+          @for (todo of todoTasks; track $index) {
+            <div class="todo-item">
+              <nz-checkbox [(ngModel)]="todo.completed" name="todoCompleted" (ngModelChange)="toggleTodo(todo)">
+                <span [class.completed]="todo.completed">{{ todo.title }}</span>
+              </nz-checkbox>
+              <span class="todo-time">{{ todo.due_date | date:'MM-dd' }}</span>
+            </div>
+          }
+        } @else {
+          <nz-empty nzNotFoundContent="暂无待办任务" nzNotFoundImage="simple" />
+        }
+        <button nz-button nzType="dashed" nzSize="small" (click)="addTodo()" style="width: 100%; margin-top: 8px;">
+          <i nz-icon nzType="plus"></i>
+          添加待办
+        </button>
+      </div>
+    </nz-card>
+  </div>
+
+  <div nz-col nzXs="24" nzSm="24" nzMd="8">
+    <!-- 快速开始/便捷导航 -->
+    <nz-card nzTitle="快速开始 / 便捷导航" [nzBordered]="false" class="ant-card__body-nopadding mb-lg">
+      <div class="links">
+        @for (item of quickLinks; track $index) {
+          <a (click)="navigateTo(item.route)" [title]="item.description">
+            <i nz-icon [nzType]="item.icon"></i>
+            {{ item.title }}
+          </a>
+        }
+        <button nz-button (click)="addCustomLink()" [nzType]="'dashed'" [nzSize]="'small'">
+          <i nz-icon nzType="plus"></i>
+          <span>添加</span>
+        </button>
+      </div>
+    </nz-card>
+
+    <!-- 工作指数 -->
+    <nz-card nzTitle="工作指数" [nzBordered]="false" [nzLoading]="loading" class="mb-lg">
+      @if (radarData && radarData.length > 0) {
+        <g2-radar [data]="radarData" [height]="343" [hasLegend]="true" />
+      } @else {
+        <div style="height: 343px; display: flex; align-items: center; justify-content: center;">
+          <nz-empty nzNotFoundContent="暂无数据" />
+        </div>
+      }
+    </nz-card>
+
+  </div>
+</div>

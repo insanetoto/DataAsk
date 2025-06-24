@@ -1,0 +1,271 @@
+@import '@delon/theme/index';
+
+:host ::ng-deep {
+  .content {
+    display: flex;
+
+    .avatar {
+      flex: 0 1 72px;
+      margin-bottom: 8px;
+
+      .ant-avatar {
+        display: block;
+        width: 72px;
+        height: 72px;
+        border-radius: 72px;
+      }
+    }
+
+    .desc {
+      position: relative;
+      top: 4px;
+      flex: 1 1 auto;
+      margin-left: 24px;
+      line-height: 22px;
+      color: @text-color-secondary;
+
+      .desc-title {
+        margin-bottom: 12px;
+        font-size: 20px;
+        font-weight: 500;
+        line-height: 28px;
+        color: @heading-color;
+      }
+    }
+  }
+
+  .page-extra {
+    float: right;
+    white-space: nowrap;
+    .clearfix();
+
+    & > div {
+      position: relative;
+      display: inline-block;
+      padding: 0 32px;
+
+      &::after {
+        content: '';
+        position: absolute;
+        top: 8px;
+        right: 0;
+        width: 1px;
+        height: 40px;
+        background-color: @border-color-split;
+      }
+
+      & > p:first-child {
+        margin-bottom: 4px;
+        font-size: @font-size-base;
+        line-height: 22px;
+        color: @text-color-secondary;
+      }
+
+      & > p {
+        margin: 0;
+        font-size: 30px;
+        line-height: 38px;
+        color: @heading-color;
+
+        & > span {
+          font-size: 20px;
+          color: @text-color-secondary;
+        }
+      }
+    }
+
+    & > div:last-child {
+      padding-right: 0;
+
+      &::after {
+        display: none;
+      }
+    }
+  }
+
+  .project-list {
+    .ant-card-meta-description {
+      overflow: hidden;
+      height: 44px;
+      line-height: 22px;
+      color: @text-color-secondary;
+    }
+
+    .card-title {
+      font-size: 0;
+
+      a {
+        display: inline-block;
+        height: 24px;
+        margin-left: 12px;
+        font-size: @font-size-base;
+        line-height: 24px;
+        color: @heading-color;
+        vertical-align: top;
+
+        &:hover {
+          color: @primary-color;
+        }
+      }
+    }
+
+    .project-grid {
+      width: 33.33%;
+    }
+
+    .project-item {
+      overflow: hidden;
+      display: flex;
+      height: 20px;
+      margin-top: 8px;
+      font-size: 12px;
+      line-height: 20px;
+      .textOverflow();
+
+      .ant-tag {
+        flex: 0 0 auto;
+        margin-right: 8px;
+      }
+
+      .datetime {
+        float: right;
+        flex: 0 0 auto;
+        color: @disabled-color;
+      }
+    }
+  }
+
+  .activities {
+    padding: 0 24px 8px;
+
+    .username {
+      color: @text-color;
+    }
+
+    .event {
+      font-weight: normal;
+    }
+  }
+
+  .links {
+    padding: 20px 0 8px 24px;
+    font-size: 0;
+
+    > a {
+      display: inline-block;
+      width: 50%;
+      margin-bottom: 13px;
+      font-size: @font-size-base;
+      color: @text-color;
+      cursor: pointer;
+
+      i {
+        margin-right: 8px;
+        color: @primary-color;
+      }
+
+      &:hover {
+        color: @primary-color;
+      }
+    }
+
+    > button {
+      width: 100%;
+      margin-top: 8px;
+    }
+  }
+
+  .todo-list {
+    padding: 0 24px;
+
+    .todo-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid @border-color-split;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .ant-checkbox-wrapper {
+        flex: 1;
+
+        .completed {
+          text-decoration: line-through;
+          color: @disabled-color;
+        }
+      }
+
+      .todo-time {
+        font-size: 12px;
+        color: @text-color-secondary;
+      }
+    }
+  }
+
+  .datetime {
+    color: @disabled-color;
+  }
+
+  // 响应式设计
+  @media (max-width: 768px) {
+    .content {
+      flex-direction: column;
+      text-align: center;
+
+      .avatar {
+        margin: 0 auto 16px;
+      }
+
+      .desc {
+        margin-left: 0;
+      }
+    }
+
+    .page-extra {
+      float: none;
+      margin-top: 16px;
+
+      & > div {
+        padding: 0 16px;
+      }
+    }
+
+    .project-grid {
+      width: 100% !important;
+    }
+
+    .links > a {
+      width: 100%;
+    }
+  }
+}
+
+// 卡片样式增强
+.ant-card {
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  .ant-card-head {
+    border-bottom: 1px solid @border-color-split;
+    
+    .ant-card-head-title {
+      font-weight: 600;
+    }
+  }
+
+  .ant-card-body {
+    padding: 24px;
+  }
+
+  &.ant-card__body-nopadding .ant-card-body {
+    padding: 0;
+  }
+}
+
+// 空状态样式
+.ant-empty {
+  padding: 40px 20px;
+} 

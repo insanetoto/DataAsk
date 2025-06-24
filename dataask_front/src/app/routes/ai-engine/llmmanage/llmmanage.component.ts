@@ -86,15 +86,17 @@ export class AiEngineLlmmanageComponent implements OnInit {
   @ViewChild('st') private readonly st!: STComponent;
   
   columns: STColumn[] = [
-    { title: 'ID', index: 'id', width: 80 },
-    { 
-      title: '模型名称', 
+    { title: 'ID', index: 'id', width: 60 },
+    {
+      title: '模型名称',
       index: 'name',
+      width: 150,
       render: 'nameRender'
     },
-    { 
-      title: '提供商', 
+    {
+      title: '提供商',
       index: 'provider',
+      width: 120,
       type: 'tag',
       tag: {
         openai: { text: 'OpenAI', color: 'green' },
@@ -106,9 +108,10 @@ export class AiEngineLlmmanageComponent implements OnInit {
         local: { text: '本地部署', color: 'default' }
       }
     },
-    { 
-      title: '模型类型', 
+    {
+      title: '模型类型',
       index: 'modelType',
+      width: 120,
       type: 'tag',
       tag: {
         'text-generation': { text: '文本生成', color: 'blue' },
@@ -118,55 +121,63 @@ export class AiEngineLlmmanageComponent implements OnInit {
         'vision': { text: '图像理解', color: 'red' }
       }
     },
-    { 
-      title: 'API地址', 
+    {
+      title: 'API地址',
       index: 'apiUrl',
       width: 200,
       render: 'apiUrlRender'
     },
-    { 
-      title: '状态', 
+    {
+      title: '状态',
       index: 'status',
+      width: 80,
       type: 'badge',
       badge: {
-        active: { text: '可用', color: 'success' },
-        inactive: { text: '不可用', color: 'error' },
-        testing: { text: '测试中', color: 'processing' }
+        active: { text: '正常', color: 'success' },
+        inactive: { text: '停用', color: 'default' },
+        testing: { text: '测试中', color: 'processing' },
+        error: { text: '异常', color: 'error' }
       }
     },
-    { 
-      title: '参数配置', 
-      index: 'config',
-      format: (item: LLMModel) => `Tokens: ${item.maxTokens} | Temp: ${item.temperature}`
+    {
+      title: '描述',
+      index: 'description',
+      width: 200,
+      render: 'descriptionRender'
     },
-    { 
-      title: '使用次数', 
-      index: 'usageCount',
-      type: 'number'
+    {
+      title: '创建时间',
+      index: 'createdAt',
+      width: 150,
+      type: 'date',
+      dateFormat: 'yyyy-MM-dd HH:mm'
     },
-    { 
-      title: '最后使用', 
-      index: 'lastUsed',
+    {
+      title: '最后更新',
+      index: 'updatedAt',
+      width: 150,
       type: 'date',
       dateFormat: 'yyyy-MM-dd HH:mm'
     },
     {
       title: '操作',
+      width: 200,
+      fixed: 'right',
       buttons: [
-        { 
-          text: '测试', 
+        {
+          text: '测试',
           icon: 'experiment',
           type: 'link',
-          click: (item: LLMModel) => this.testModel(item) 
+          click: (item: LLMModel) => this.testModel(item)
         },
-        { 
-          text: '编辑', 
+        {
+          text: '编辑',
           icon: 'edit',
           type: 'link',
-          click: (item: LLMModel) => this.edit(item) 
+          click: (item: LLMModel) => this.edit(item)
         },
-        { 
-          text: '删除', 
+        {
+          text: '删除',
           icon: 'delete',
           type: 'del',
           pop: {
@@ -174,10 +185,9 @@ export class AiEngineLlmmanageComponent implements OnInit {
             okText: '确定',
             cancelText: '取消'
           },
-          click: (item: LLMModel) => this.delete(item) 
+          click: (item: LLMModel) => this.delete(item)
         }
-      ],
-      width: 160
+      ]
     }
   ];
 

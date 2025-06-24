@@ -70,15 +70,17 @@ export class AiEngineDatasourceComponent implements OnInit {
   @ViewChild('st') private readonly st!: STComponent;
   
   columns: STColumn[] = [
-    { title: 'ID', index: 'id', width: 80 },
-    { 
-      title: '数据源名称', 
+    { title: 'ID', index: 'id', width: 60 },
+    {
+      title: '数据源名称',
       index: 'name',
+      width: 150,
       render: 'nameRender'
     },
-    { 
-      title: '类型', 
+    {
+      title: '类型',
       index: 'type',
+      width: 120,
       type: 'tag',
       tag: {
         mysql: { text: 'MySQL', color: 'blue' },
@@ -90,18 +92,21 @@ export class AiEngineDatasourceComponent implements OnInit {
         elasticsearch: { text: 'Elasticsearch', color: 'gold' }
       }
     },
-    { 
-      title: '连接地址', 
+    {
+      title: '连接地址',
       index: 'connection',
+      width: 250,
       format: (item: DataSource) => `${item.host}:${item.port}/${item.database || ''}`
     },
-    { 
-      title: '用户名', 
-      index: 'username'
+    {
+      title: '用户名',
+      index: 'username',
+      width: 120
     },
-    { 
-      title: '连接状态', 
+    {
+      title: '连接状态',
       index: 'status',
+      width: 100,
       type: 'badge',
       badge: {
         connected: { text: '已连接', color: 'success' },
@@ -109,35 +114,38 @@ export class AiEngineDatasourceComponent implements OnInit {
         untested: { text: '未测试', color: 'default' }
       }
     },
-    { 
-      title: '描述', 
+    {
+      title: '描述',
       index: 'description',
       width: 200,
       render: 'descriptionRender'
     },
-    { 
-      title: '创建时间', 
+    {
+      title: '创建时间',
       index: 'createdAt',
+      width: 150,
       type: 'date',
       dateFormat: 'yyyy-MM-dd HH:mm'
     },
     {
       title: '操作',
+      width: 200,
+      fixed: 'right',
       buttons: [
-        { 
-          text: '测试连接', 
+        {
+          text: '测试连接',
           icon: 'api',
           type: 'link',
-          click: (item: DataSource) => this.testConnection(item) 
+          click: (item: DataSource) => this.testConnection(item)
         },
-        { 
-          text: '编辑', 
+        {
+          text: '编辑',
           icon: 'edit',
           type: 'link',
-          click: (item: DataSource) => this.edit(item) 
+          click: (item: DataSource) => this.edit(item)
         },
-        { 
-          text: '删除', 
+        {
+          text: '删除',
           icon: 'delete',
           type: 'del',
           pop: {
@@ -145,10 +153,9 @@ export class AiEngineDatasourceComponent implements OnInit {
             okText: '确定',
             cancelText: '取消'
           },
-          click: (item: DataSource) => this.delete(item) 
+          click: (item: DataSource) => this.delete(item)
         }
-      ],
-      width: 180
+      ]
     }
   ];
 

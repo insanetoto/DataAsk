@@ -102,6 +102,7 @@
           #messageInput
           class="input-field"
           [(ngModel)]="currentMessage"
+          name="messageInput"
           (keydown)="handleKeyDown($event)"
           [disabled]="sending"
           placeholder="输入您的问题..."

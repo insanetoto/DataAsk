@@ -4,6 +4,7 @@ API路由模块
 提供智能问答相关的API接口
 """
 import logging
+import time
 from typing import Dict, Any
 from flask import Blueprint, request, jsonify, g, current_app
 from AIEngine.vanna_service import get_vanna_service
@@ -24,10 +25,15 @@ from tools.auth_middleware import (
     org_filter_required, get_current_user, get_org_filter, auth_required
 )
 
+from service.workflow_service import WorkflowService
+
 logger = logging.getLogger(__name__)
 
 # 创建蓝图
 api_bp = Blueprint('api', __name__, url_prefix='/api')
+
+# 初始化工作流服务
+workflow_service = WorkflowService()
 
 def standardize_response(success: bool, data: Any = None, message: str = None, error: str = None, code: int = None) -> tuple:
     """
@@ -1425,7 +1431,7 @@ def get_default_menus():
     """获取默认菜单（当菜单服务失败时使用）"""
     return [
         {
-            'text': '百惟数问',
+            'text': '洞察魔方',
             'icon': {'type': 'icon', 'value': 'home'},
             'children': [
                 {
@@ -1444,59 +1450,1106 @@ def get_default_menus():
                     'icon': {'type': 'icon', 'value': 'appstore'},
                     'children': [
                         {
-                            'text': '工作区',
+                            'text': '个人工作台',
                             'icon': {'type': 'icon', 'value': 'laptop'},
-                            'link': '/workspace/workplace'
+                            'link': '/workspace/workbench'
                         },
                         {
                             'text': '工作报表',
                             'icon': {'type': 'icon', 'value': 'bar-chart'},
                             'link': '/workspace/report'
+                        },
+                        {
+                            'text': '系统监控',
+                            'icon': {'type': 'icon', 'value': 'monitor'},
+                            'link': '/workspace/monitor'
+                        }
+                    ]
+                },
+                {
+                    'text': 'AI引擎',
+                    'icon': {'type': 'icon', 'value': 'robot'},
+                    'children': [
+                        {
+                            'text': 'AI问答',
+                            'icon': {'type': 'icon', 'value': 'message'},
+                            'link': '/ai-engine/ask-data'
+                        },
+                        {
+                            'text': '知识库',
+                            'icon': {'type': 'icon', 'value': 'database'},
+                            'link': '/ai-engine/knowledge-base'
+                        },
+                        {
+                            'text': '数据源管理',
+                            'icon': {'type': 'icon', 'value': 'api'},
+                            'link': '/ai-engine/datasource'
+                        },
+                        {
+                            'text': '大模型管理',
+                            'icon': {'type': 'icon', 'value': 'deployment-unit'},
+                            'link': '/ai-engine/llmmanage'
+                        },
+                        {
+                            'text': '多模态管理',
+                            'icon': {'type': 'icon', 'value': 'experiment'},
+                            'link': '/ai-engine/multimodal'
+                        }
+                    ]
+                },
+                {
+                    'text': '系统管理',
+                    'icon': {'type': 'icon', 'value': 'setting'},
+                    'children': [
+                        {
+                            'text': '用户管理',
+                            'icon': {'type': 'icon', 'value': 'user'},
+                            'link': '/sys/user'
+                        },
+                        {
+                            'text': '角色管理',
+                            'icon': {'type': 'icon', 'value': 'team'},
+                            'link': '/sys/role'
+                        },
+                        {
+                            'text': '权限管理',
+                            'icon': {'type': 'icon', 'value': 'safety'},
+                            'link': '/sys/permission'
+                        },
+                        {
+                            'text': '机构管理',
+                            'icon': {'type': 'icon', 'value': 'cluster'},
+                            'link': '/sys/org'
+                        },
+                        {
+                            'text': '工作流管理',
+                            'icon': {'type': 'icon', 'value': 'apartment'},
+                            'link': '/sys/workflow'
+                        },
+                        {
+                            'text': '消息管理',
+                            'icon': {'type': 'icon', 'value': 'message'},
+                            'link': '/sys/message'
                         }
                     ]
                 }
             ]
-        },
-        {
-            'text': 'AI引擎',
-            'icon': {'type': 'icon', 'value': 'robot'},
-            'children': [
-                {
-                    'text': 'AI问答',
-                    'icon': {'type': 'icon', 'value': 'message'},
-                    'link': '/ai-engine/ask-data'
+        }
+    ]
+
+# ============ 多模态管理接口 ============
+
+@api_bp.route('/multimodal', methods=['GET'])
+def get_multimodal_configs():
+    """获取多模态配置列表"""
+    try:
+        # 获取分页参数
+        page = int(request.args.get('pi', 1))
+        page_size = int(request.args.get('ps', 10))
+        search = request.args.get('search', '').strip()
+        
+        # 模拟多模态配置数据
+        all_configs = [
+            {
+                'id': 1,
+                'name': 'GPT-4V 视觉模型',
+                'type': 'vision',
+                'provider': 'OpenAI',
+                'model': 'gpt-4-vision-preview',
+                'description': '支持图像理解和分析的多模态模型',
+                'status': 'active',
+                'config': {
+                    'max_tokens': 4096,
+                    'temperature': 0.7,
+                    'supports_images': True,
+                    'image_formats': ['png', 'jpg', 'jpeg', 'gif', 'webp']
                 },
-                {
-                    'text': '知识库',
-                    'icon': {'type': 'icon', 'value': 'database'},
-                    'link': '/ai-engine/knowledge-base'
-                }
+                'created_at': '2024-01-15 10:30:00',
+                'updated_at': '2024-01-20 14:45:00'
+            },
+            {
+                'id': 2,
+                'name': 'Claude-3 Sonnet',
+                'type': 'vision',
+                'provider': 'Anthropic',
+                'model': 'claude-3-sonnet-20240229',
+                'description': '强大的视觉理解和文档分析能力',
+                'status': 'active',
+                'config': {
+                    'max_tokens': 4096,
+                    'temperature': 0.5,
+                    'supports_images': True,
+                    'image_formats': ['png', 'jpg', 'jpeg', 'pdf']
+                },
+                'created_at': '2024-02-01 09:15:00',
+                'updated_at': '2024-02-15 16:20:00'
+            },
+            {
+                'id': 3,
+                'name': '通义千问VL',
+                'type': 'vision',
+                'provider': 'Alibaba',
+                'model': 'qwen-vl-plus',
+                'description': '阿里云通义千问视觉语言模型',
+                'status': 'inactive',
+                'config': {
+                    'max_tokens': 2048,
+                    'temperature': 0.8,
+                    'supports_images': True,
+                    'image_formats': ['png', 'jpg', 'jpeg']
+                },
+                'created_at': '2024-01-10 11:20:00',
+                'updated_at': '2024-01-25 13:30:00'
+            },
+            {
+                'id': 4,
+                'name': 'DALL-E 3',
+                'type': 'generation',
+                'provider': 'OpenAI',
+                'model': 'dall-e-3',
+                'description': '先进的AI图像生成模型',
+                'status': 'active',
+                'config': {
+                    'sizes': ['1024x1024', '1792x1024', '1024x1792'],
+                    'quality': 'hd',
+                    'style': 'natural'
+                },
+                'created_at': '2024-01-05 08:45:00',
+                'updated_at': '2024-01-18 10:15:00'
+            }
+        ]
+        
+        # 根据搜索条件过滤
+        if search:
+            all_configs = [
+                config for config in all_configs 
+                if search.lower() in config['name'].lower() or 
+                   search.lower() in config['description'].lower() or
+                   search.lower() in config['provider'].lower()
             ]
-        },
-        {
-            'text': '系统管理',
-            'icon': {'type': 'icon', 'value': 'setting'},
-            'children': [
+        
+        # 计算分页
+        total = len(all_configs)
+        start = (page - 1) * page_size
+        end = start + page_size
+        configs = all_configs[start:end]
+        
+        response_data = {
+            'list': configs,
+            'total': total,
+            'pi': page,
+            'ps': page_size
+        }
+        
+        response, status = standardize_response(True, data=response_data, message='获取多模态配置成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"获取多模态配置失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/multimodal/<int:config_id>', methods=['GET'])
+def get_multimodal_config(config_id):
+    """获取单个多模态配置详情"""
+    try:
+        # 模拟获取配置详情
+        config = {
+            'id': config_id,
+            'name': f'多模态配置 {config_id}',
+            'type': 'vision',
+            'provider': 'OpenAI',
+            'model': 'gpt-4-vision-preview',
+            'description': '示例多模态配置',
+            'status': 'active',
+            'config': {
+                'max_tokens': 4096,
+                'temperature': 0.7,
+                'supports_images': True
+            },
+            'created_at': '2024-01-15 10:30:00',
+            'updated_at': '2024-01-20 14:45:00'
+        }
+        
+        response, status = standardize_response(True, data=config, message='获取配置详情成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"获取配置详情失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/multimodal', methods=['POST'])
+def create_multimodal_config():
+    """创建多模态配置"""
+    try:
+        data = request.get_json()
+        
+        # 验证必要字段
+        required_fields = ['name', 'type', 'provider', 'model']
+        for field in required_fields:
+            if not data.get(field):
+                response, status = standardize_response(False, error=f'缺少必要字段: {field}', code=400)
+                return jsonify(response), status
+        
+        # 模拟创建配置
+        new_config = {
+            'id': 999,  # 模拟生成的ID
+            'name': data['name'],
+            'type': data['type'],
+            'provider': data['provider'],
+            'model': data['model'],
+            'description': data.get('description', ''),
+            'status': data.get('status', 'inactive'),
+            'config': data.get('config', {}),
+            'created_at': '2024-01-25 16:00:00',
+            'updated_at': '2024-01-25 16:00:00'
+        }
+        
+        response, status = standardize_response(True, data=new_config, message='创建配置成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"创建配置失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/multimodal/<int:config_id>', methods=['PUT'])
+def update_multimodal_config(config_id):
+    """更新多模态配置"""
+    try:
+        data = request.get_json()
+        
+        # 模拟更新配置
+        updated_config = {
+            'id': config_id,
+            'name': data.get('name', f'更新的配置 {config_id}'),
+            'type': data.get('type', 'vision'),
+            'provider': data.get('provider', 'OpenAI'),
+            'model': data.get('model', 'gpt-4-vision-preview'),
+            'description': data.get('description', ''),
+            'status': data.get('status', 'active'),
+            'config': data.get('config', {}),
+            'updated_at': '2024-01-25 16:30:00'
+        }
+        
+        response, status = standardize_response(True, data=updated_config, message='更新配置成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"更新配置失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/multimodal/<int:config_id>', methods=['DELETE'])
+def delete_multimodal_config(config_id):
+    """删除多模态配置"""
+    try:
+        # 模拟删除操作
+        response, status = standardize_response(True, message=f'删除配置 {config_id} 成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"删除配置失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/multimodal/<int:config_id>/test', methods=['POST'])
+def test_multimodal_config(config_id):
+    """测试多模态配置"""
+    try:
+        data = request.get_json()
+        test_data = data.get('test_data', {})
+        
+        # 模拟测试结果
+        test_result = {
+            'config_id': config_id,
+            'test_status': 'success',
+            'response_time': '1.2s',
+            'test_message': '模型连接正常，功能测试通过',
+            'test_output': {
+                'model_response': '测试成功，模型运行正常',
+                'latency': 1200,  # ms
+                'tokens_used': 150
+            }
+        }
+        
+        response, status = standardize_response(True, data=test_result, message='测试完成')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"测试配置失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+# ============ 消息管理接口 ============
+
+@api_bp.route('/message', methods=['GET'])
+def get_messages():
+    """获取消息列表"""
+    try:
+        # 获取分页参数
+        page = int(request.args.get('pi', 1))
+        page_size = int(request.args.get('ps', 10))
+        title = request.args.get('title', '').strip()
+        msg_type = request.args.get('type', '').strip()
+        status = request.args.get('status', '').strip()
+        
+        # 模拟消息数据
+        all_messages = [
+            {
+                'id': 1,
+                'title': '系统维护通知',
+                'content': '系统将于今晚23:00-02:00进行维护，期间服务可能暂时不可用。',
+                'type': 'system',
+                'status': 'sent',
+                'recipient': '全体用户',
+                'sender': '系统管理员',
+                'sent_at': '2024-01-20 10:30:00',
+                'created_at': '2024-01-20 10:25:00',
+                'read_count': 128,
+                'total_recipients': 150
+            },
+            {
+                'id': 2,
+                'title': '数据分析报告已生成',
+                'content': '您请求的月度数据分析报告已经生成完成，请及时查看。',
+                'type': 'business',
+                'status': 'sent',
+                'recipient': '张三',
+                'sender': 'AI引擎',
+                'sent_at': '2024-01-20 14:15:00',
+                'created_at': '2024-01-20 14:10:00',
+                'read_count': 1,
+                'total_recipients': 1
+            },
+            {
+                'id': 3,
+                'title': '存储空间不足告警',
+                'content': '数据库存储空间使用率已达到85%，请及时清理或扩容。',
+                'type': 'alert',
+                'status': 'sent',
+                'recipient': '运维团队',
+                'sender': '监控系统',
+                'sent_at': '2024-01-20 16:45:00',
+                'created_at': '2024-01-20 16:40:00',
+                'read_count': 3,
+                'total_recipients': 5
+            },
+            {
+                'id': 4,
+                'title': '新功能发布通知',
+                'content': '多模态AI功能已正式发布，欢迎体验图像分析和生成功能。',
+                'type': 'system',
+                'status': 'draft',
+                'recipient': '全体用户',
+                'sender': '产品团队',
+                'sent_at': None,
+                'created_at': '2024-01-21 09:30:00',
+                'read_count': 0,
+                'total_recipients': 150
+            },
+            {
+                'id': 5,
+                'title': '用户权限变更通知',
+                'content': '您的账户权限已更新，新增了报表导出功能的访问权限。',
+                'type': 'business',
+                'status': 'read',
+                'recipient': '李四',
+                'sender': '系统管理员',
+                'sent_at': '2024-01-19 11:20:00',
+                'created_at': '2024-01-19 11:15:00',
+                'read_count': 1,
+                'total_recipients': 1
+            }
+        ]
+        
+        # 根据条件过滤
+        filtered_messages = all_messages
+        if title:
+            filtered_messages = [msg for msg in filtered_messages if title.lower() in msg['title'].lower()]
+        if msg_type:
+            filtered_messages = [msg for msg in filtered_messages if msg['type'] == msg_type]
+        if status:
+            filtered_messages = [msg for msg in filtered_messages if msg['status'] == status]
+        
+        # 计算分页
+        total = len(filtered_messages)
+        start = (page - 1) * page_size
+        end = start + page_size
+        messages = filtered_messages[start:end]
+        
+        response_data = {
+            'list': messages,
+            'total': total,
+            'pi': page,
+            'ps': page_size
+        }
+        
+        response, status = standardize_response(True, data=response_data, message='获取消息列表成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"获取消息列表失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/message/<int:message_id>', methods=['GET'])
+def get_message(message_id):
+    """获取单个消息详情"""
+    try:
+        # 模拟获取消息详情
+        message = {
+            'id': message_id,
+            'title': f'消息标题 {message_id}',
+            'content': f'这是消息 {message_id} 的详细内容...',
+            'type': 'system',
+            'status': 'sent',
+            'recipient': '全体用户',
+            'sender': '系统管理员',
+            'sent_at': '2024-01-20 10:30:00',
+            'created_at': '2024-01-20 10:25:00',
+            'read_count': 50,
+            'total_recipients': 100
+        }
+        
+        response, status = standardize_response(True, data=message, message='获取消息详情成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"获取消息详情失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/message', methods=['POST'])
+def create_message():
+    """创建新消息"""
+    try:
+        data = request.get_json()
+        
+        # 验证必要字段
+        required_fields = ['title', 'content', 'type', 'recipient']
+        for field in required_fields:
+            if not data.get(field):
+                response, status = standardize_response(False, error=f'缺少必要字段: {field}', code=400)
+                return jsonify(response), status
+        
+        # 模拟创建消息
+        new_message = {
+            'id': 999,  # 模拟生成的ID
+            'title': data['title'],
+            'content': data['content'],
+            'type': data['type'],
+            'status': data.get('status', 'draft'),
+            'recipient': data['recipient'],
+            'sender': '当前用户',  # 实际应该从认证信息获取
+            'sent_at': None if data.get('status', 'draft') == 'draft' else '2024-01-25 16:00:00',
+            'created_at': '2024-01-25 16:00:00',
+            'read_count': 0,
+            'total_recipients': 1
+        }
+        
+        response, status = standardize_response(True, data=new_message, message='创建消息成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"创建消息失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/message/<int:message_id>', methods=['PUT'])
+def update_message(message_id):
+    """更新消息"""
+    try:
+        data = request.get_json()
+        
+        # 模拟更新消息
+        updated_message = {
+            'id': message_id,
+            'title': data.get('title', f'更新的消息 {message_id}'),
+            'content': data.get('content', '更新的内容'),
+            'type': data.get('type', 'system'),
+            'status': data.get('status', 'draft'),
+            'recipient': data.get('recipient', '全体用户'),
+            'sender': '当前用户',
+            'updated_at': '2024-01-25 16:30:00'
+        }
+        
+        response, status = standardize_response(True, data=updated_message, message='更新消息成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"更新消息失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/message/<int:message_id>', methods=['DELETE'])
+def delete_message(message_id):
+    """删除消息"""
+    try:
+        # 模拟删除操作
+        response, status = standardize_response(True, message=f'删除消息 {message_id} 成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"删除消息失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/message/<int:message_id>/send', methods=['POST'])
+def send_message(message_id):
+    """发送消息"""
+    try:
+        # 模拟发送操作
+        result = {
+            'message_id': message_id,
+            'send_status': 'success',
+            'sent_at': '2024-01-25 16:45:00',
+            'recipients_count': 150,
+            'success_count': 148,
+            'failed_count': 2
+        }
+        
+        response, status = standardize_response(True, data=result, message='消息发送成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"发送消息失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status 
+
+# ============ 工作流管理接口 ============
+
+@api_bp.route('/workflow', methods=['GET'])
+def get_workflows():
+    """获取工作流列表"""
+    try:
+        # 获取分页参数
+        page = int(request.args.get('pi', 1))
+        page_size = int(request.args.get('ps', 10))
+        name = request.args.get('name', '').strip()
+        status = request.args.get('status', '').strip()
+        category = request.args.get('category', '').strip()
+        
+        # 模拟工作流数据
+        all_workflows = [
+            {
+                'id': 1,
+                'name': '用户注册审批流程',
+                'description': '新用户注册后的审批和权限分配流程',
+                'category': 'approval',
+                'status': 'active',
+                'steps_count': 5,
+                'execution_count': 245,
+                'success_rate': '98.8%',
+                'creator': '系统管理员',
+                'created_at': '2024-01-10 09:30:00',
+                'updated_at': '2024-01-20 14:15:00',
+                'last_execution': '2024-01-25 16:20:00',
+                'average_duration': '1.5小时'
+            },
+            {
+                'id': 2,
+                'name': '数据处理自动化',
+                'description': '每日数据清洗、转换和导入流程',
+                'category': 'data_processing',
+                'status': 'active',
+                'steps_count': 8,
+                'execution_count': 87,
+                'success_rate': '95.4%',
+                'creator': '数据工程师',
+                'created_at': '2024-01-15 11:45:00',
+                'updated_at': '2024-01-23 10:30:00',
+                'last_execution': '2024-01-25 02:00:00',
+                'average_duration': '45分钟'
+            },
+            {
+                'id': 3,
+                'name': '系统监控告警通知',
+                'description': '系统异常检测和告警通知流程',
+                'category': 'notification',
+                'status': 'active',
+                'steps_count': 3,
+                'execution_count': 1523,
+                'success_rate': '99.9%',
+                'creator': '运维工程师',
+                'created_at': '2024-01-08 14:20:00',
+                'updated_at': '2024-01-24 09:45:00',
+                'last_execution': '2024-01-25 16:30:00',
+                'average_duration': '2分钟'
+            },
+            {
+                'id': 4,
+                'name': '报表生成任务',
+                'description': '定时生成各类业务报表的任务调度流程',
+                'category': 'task_scheduling',
+                'status': 'paused',
+                'steps_count': 6,
+                'execution_count': 156,
+                'success_rate': '92.3%',
+                'creator': '业务分析师',
+                'created_at': '2024-01-12 16:00:00',
+                'updated_at': '2024-01-22 11:30:00',
+                'last_execution': '2024-01-22 23:00:00',
+                'average_duration': '20分钟'
+            },
+            {
+                'id': 5,
+                'name': '文档审核流程',
+                'description': '技术文档和用户手册的审核发布流程',
+                'category': 'approval',
+                'status': 'disabled',
+                'steps_count': 4,
+                'execution_count': 34,
+                'success_rate': '100%',
+                'creator': '技术写作员',
+                'created_at': '2024-01-05 13:15:00',
+                'updated_at': '2024-01-18 15:45:00',
+                'last_execution': '2024-01-18 14:30:00',
+                'average_duration': '2.5小时'
+            }
+        ]
+        
+        # 根据条件过滤
+        filtered_workflows = all_workflows
+        if name:
+            filtered_workflows = [wf for wf in filtered_workflows if name.lower() in wf['name'].lower()]
+        if status:
+            filtered_workflows = [wf for wf in filtered_workflows if wf['status'] == status]
+        if category:
+            filtered_workflows = [wf for wf in filtered_workflows if wf['category'] == category]
+        
+        # 计算分页
+        total = len(filtered_workflows)
+        start = (page - 1) * page_size
+        end = start + page_size
+        workflows = filtered_workflows[start:end]
+        
+        response_data = {
+            'list': workflows,
+            'total': total,
+            'pi': page,
+            'ps': page_size
+        }
+        
+        response, status = standardize_response(True, data=response_data, message='获取工作流列表成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"获取工作流列表失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/workflow/<int:workflow_id>', methods=['GET'])
+def get_workflow(workflow_id):
+    """获取单个工作流详情"""
+    try:
+        # 模拟获取工作流详情
+        workflow = {
+            'id': workflow_id,
+            'name': f'工作流 {workflow_id}',
+            'description': f'这是工作流 {workflow_id} 的详细描述...',
+            'category': 'approval',
+            'status': 'active',
+            'steps_count': 5,
+            'execution_count': 123,
+            'success_rate': '95.1%',
+            'creator': '系统管理员',
+            'created_at': '2024-01-15 10:30:00',
+            'updated_at': '2024-01-20 14:45:00',
+            'steps': [
                 {
-                    'text': '用户管理',
-                    'icon': {'type': 'icon', 'value': 'user'},
-                    'link': '/sys/user'
+                    'id': 1,
+                    'name': '初始化',
+                    'type': 'start',
+                    'description': '工作流开始'
                 },
                 {
-                    'text': '角色管理',
-                    'icon': {'type': 'icon', 'value': 'team'},
-                    'link': '/sys/role'
+                    'id': 2,
+                    'name': '数据验证',
+                    'type': 'validation',
+                    'description': '验证输入数据的有效性'
                 },
                 {
-                    'text': '权限管理',
-                    'icon': {'type': 'icon', 'value': 'safety'},
-                    'link': '/sys/permission'
+                    'id': 3,
+                    'name': '业务处理',
+                    'type': 'process',
+                    'description': '执行核心业务逻辑'
                 },
                 {
-                    'text': '机构管理',
-                    'icon': {'type': 'icon', 'value': 'cluster'},
-                    'link': '/sys/org'
+                    'id': 4,
+                    'name': '结果确认',
+                    'type': 'approval',
+                    'description': '等待用户确认处理结果'
+                },
+                {
+                    'id': 5,
+                    'name': '完成',
+                    'type': 'end',
+                    'description': '工作流结束'
                 }
             ]
         }
-    ] 
+        
+        response, status = standardize_response(True, data=workflow, message='获取工作流详情成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"获取工作流详情失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/workflow', methods=['POST'])
+def create_workflow():
+    """创建新工作流"""
+    try:
+        data = request.get_json()
+        
+        # 验证必要字段
+        required_fields = ['name', 'description', 'category']
+        for field in required_fields:
+            if not data.get(field):
+                response, status = standardize_response(False, error=f'缺少必要字段: {field}', code=400)
+                return jsonify(response), status
+        
+        # 模拟创建工作流
+        new_workflow = {
+            'id': 999,  # 模拟生成的ID
+            'name': data['name'],
+            'description': data['description'],
+            'category': data['category'],
+            'status': data.get('status', 'disabled'),
+            'steps_count': len(data.get('steps', [])),
+            'execution_count': 0,
+            'success_rate': '0%',
+            'creator': '当前用户',  # 实际应该从认证信息获取
+            'created_at': '2024-01-25 16:00:00',
+            'updated_at': '2024-01-25 16:00:00',
+            'steps': data.get('steps', [])
+        }
+        
+        response, status = standardize_response(True, data=new_workflow, message='创建工作流成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"创建工作流失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/workflow/<int:workflow_id>', methods=['PUT'])
+def update_workflow(workflow_id):
+    """更新工作流"""
+    try:
+        data = request.get_json()
+        
+        # 模拟更新工作流
+        updated_workflow = {
+            'id': workflow_id,
+            'name': data.get('name', f'更新的工作流 {workflow_id}'),
+            'description': data.get('description', '更新的描述'),
+            'category': data.get('category', 'approval'),
+            'status': data.get('status', 'disabled'),
+            'steps_count': len(data.get('steps', [])),
+            'updated_at': '2024-01-25 16:30:00'
+        }
+        
+        response, status = standardize_response(True, data=updated_workflow, message='更新工作流成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"更新工作流失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/workflow/<int:workflow_id>', methods=['DELETE'])
+def delete_workflow(workflow_id):
+    """删除工作流"""
+    try:
+        # 模拟删除操作
+        response, status = standardize_response(True, message=f'删除工作流 {workflow_id} 成功')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"删除工作流失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/workflow/<int:workflow_id>/execute', methods=['POST'])
+def execute_workflow(workflow_id):
+    """执行工作流"""
+    try:
+        data = request.get_json()
+        input_data = data.get('input_data', {})
+        
+        # 模拟执行工作流
+        execution_result = {
+            'workflow_id': workflow_id,
+            'execution_id': f'exec_{workflow_id}_{int(time.time())}',
+            'status': 'running',
+            'started_at': '2024-01-25 16:45:00',
+            'current_step': 2,
+            'total_steps': 5,
+            'progress': '40%',
+            'estimated_completion': '2024-01-25 17:30:00'
+        }
+        
+        response, status = standardize_response(True, data=execution_result, message='工作流执行已启动')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"执行工作流失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/workflow/<int:workflow_id>/pause', methods=['POST'])
+def pause_workflow(workflow_id):
+    """暂停工作流"""
+    try:
+        # 模拟暂停操作
+        result = {
+            'workflow_id': workflow_id,
+            'status': 'paused',
+            'paused_at': '2024-01-25 16:50:00'
+        }
+        
+        response, status = standardize_response(True, data=result, message='工作流已暂停')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"暂停工作流失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/workflow/<int:workflow_id>/activate', methods=['POST'])
+def activate_workflow(workflow_id):
+    """激活工作流"""
+    try:
+        # 模拟激活操作
+        result = {
+            'workflow_id': workflow_id,
+            'status': 'active',
+            'activated_at': '2024-01-25 16:55:00'
+        }
+        
+        response, status = standardize_response(True, data=result, message='工作流已激活')
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"激活工作流失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+# ================== 工作流管理 API ==================
+
+@api_bp.route('/workflow/list', methods=['GET'])
+@token_required
+def get_workflow_list():
+    """获取工作流列表"""
+    try:
+        # 获取查询参数
+        user_id = request.args.get('user_id', type=int)
+        category = request.args.get('category')
+        status = request.args.get('status')
+        page = request.args.get('page', 1, type=int)
+        page_size = request.args.get('page_size', 20, type=int)
+        
+        # 获取工作流列表
+        result = workflow_service.get_workflow_list(
+            user_id=user_id,
+            category=category,
+            status=status,
+            page=page,
+            page_size=page_size
+        )
+        
+        if result['success']:
+            return response_success(result['data'], "获取工作流列表成功")
+        else:
+            return response_error(result['message'], result.get('error'))
+            
+    except Exception as e:
+        return response_error(f"获取工作流列表失败: {str(e)}")
+
+@api_bp.route('/workflow/create', methods=['POST'])
+@token_required
+def create_workflow():
+    """创建工作流"""
+    try:
+        data = request.get_json()
+        
+        # 验证必需字段
+        required_fields = ['name', 'creator_id']
+        for field in required_fields:
+            if field not in data:
+                return response_error(f"缺少必需字段: {field}")
+        
+        # 创建工作流
+        result = workflow_service.create_workflow(data)
+        
+        if result['success']:
+            return response_success({
+                'workflow_id': result['workflow_id'],
+                'dag_id': result['dag_id']
+            }, "工作流创建成功")
+        else:
+            return response_error(result['message'], result.get('error'))
+            
+    except Exception as e:
+        return response_error(f"创建工作流失败: {str(e)}")
+
+@api_bp.route('/workflow/<int:workflow_id>', methods=['GET'])
+@token_required
+def get_workflow_detail(workflow_id):
+    """获取工作流详情"""
+    try:
+        result = workflow_service.get_workflow_detail(workflow_id)
+        
+        if result['success']:
+            return response_success(result['data'], "获取工作流详情成功")
+        else:
+            return response_error(result['message'], result.get('error'))
+            
+    except Exception as e:
+        return response_error(f"获取工作流详情失败: {str(e)}")
+
+@api_bp.route('/workflow/<int:workflow_id>/execute', methods=['POST'])
+@token_required
+def execute_workflow(workflow_id):
+    """执行工作流"""
+    try:
+        data = request.get_json()
+        input_data = data.get('input_data', {})
+        user_id = data.get('user_id')
+        
+        # 执行工作流
+        result = workflow_service.execute_workflow(
+            workflow_id=workflow_id,
+            input_data=input_data,
+            user_id=user_id
+        )
+        
+        if result['success']:
+            return response_success({
+                'execution_id': result['execution_id'],
+                'dag_run_id': result.get('dag_run_id')
+            }, "工作流执行已启动")
+        else:
+            return response_error(result['message'], result.get('error'))
+            
+    except Exception as e:
+        return response_error(f"执行工作流失败: {str(e)}")
+
+@api_bp.route('/workflow/executions', methods=['GET'])
+@token_required
+def get_execution_history():
+    """获取工作流执行历史"""
+    try:
+        # 获取查询参数
+        workflow_id = request.args.get('workflow_id', type=int)
+        page = request.args.get('page', 1, type=int)
+        page_size = request.args.get('page_size', 20, type=int)
+        
+        # 获取执行历史
+        result = workflow_service.get_execution_history(
+            workflow_id=workflow_id,
+            page=page,
+            page_size=page_size
+        )
+        
+        if result['success']:
+            return response_success(result['data'], "获取执行历史成功")
+        else:
+            return response_error(result['message'], result.get('error'))
+            
+    except Exception as e:
+        return response_error(f"获取执行历史失败: {str(e)}")
+
+@api_bp.route('/workflow/templates', methods=['GET'])
+@token_required
+def get_workflow_templates():
+    """获取工作流模板列表"""
+    try:
+        category = request.args.get('category')
+        
+        # 获取模板列表
+        result = workflow_service.get_workflow_templates(category=category)
+        
+        if result['success']:
+            return response_success(result['data'], "获取工作流模板成功")
+        else:
+            return response_error(result['message'], result.get('error'))
+            
+    except Exception as e:
+        return response_error(f"获取工作流模板失败: {str(e)}")
+
+@api_bp.route('/workflow/<int:workflow_id>/dag/status', methods=['GET'])
+@token_required
+def get_dag_status(workflow_id):
+    """获取DAG状态"""
+    try:
+        # 获取工作流详情以获取dag_id
+        workflow_result = workflow_service.get_workflow_detail(workflow_id)
+        if not workflow_result['success']:
+            return response_error(workflow_result['message'], workflow_result.get('error'))
+        
+        dag_id = workflow_result['data']['dag_id']
+        
+        # 获取DAG状态
+        result = workflow_service.get_dag_status(dag_id)
+        
+        if result['success']:
+            return response_success(result['data'], "获取DAG状态成功")
+        else:
+            return response_error(result['message'], result.get('error'))
+            
+    except Exception as e:
+        return response_error(f"获取DAG状态失败: {str(e)}")
+
+# ================== 工作流模板 API ==================
+
+@api_bp.route('/workflow/template/<int:template_id>/create', methods=['POST'])
+@token_required
+def create_workflow_from_template(template_id):
+    """从模板创建工作流"""
+    try:
+        data = request.get_json()
+        
+        # 获取模板详情
+        templates_result = workflow_service.get_workflow_templates()
+        if not templates_result['success']:
+            return response_error("获取模板失败")
+        
+        # 查找指定模板
+        template = None
+        for t in templates_result['data']:
+            if t['id'] == template_id:
+                template = t
+                break
+        
+        if not template:
+            return response_error("模板不存在")
+        
+        # 构建工作流数据
+        workflow_data = {
+            'name': data.get('name', template['name']),
+            'description': data.get('description', template['description']),
+            'category': template['category'],
+            'creator_id': data['creator_id'],
+            'config': template['template_config'].get('config', {}),
+            'schedule': data.get('schedule', ''),
+            'steps': template['template_config'].get('steps', [])
+        }
+        
+        # 创建工作流
+        result = workflow_service.create_workflow(workflow_data)
+        
+        if result['success']:
+            return response_success({
+                'workflow_id': result['workflow_id'],
+                'dag_id': result['dag_id']
+            }, "从模板创建工作流成功")
+        else:
+            return response_error(result['message'], result.get('error'))
+            
+    except Exception as e:
+        return response_error(f"从模板创建工作流失败: {str(e)}")

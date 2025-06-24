@@ -1,0 +1,21 @@
+<page-header [action]="phActionTpl">
+  <ng-template #phActionTpl>
+    <button (click)="add()" nz-button nzType="primary">新建多模态配置</button>
+  </ng-template>
+</page-header>
+<nz-card>
+  <sf 
+    mode="search" 
+    [schema]="searchSchema" 
+    [formData]="{}" 
+    button="none"
+    (formSubmit)="st.reset($event)" 
+    (formReset)="st.reset($event)" />
+  <st #st [data]="url" [columns]="columns">
+    <ng-template st-row="status" let-item>
+      <nz-badge 
+        [nzStatus]="item.status === 1 ? 'success' : 'default'"
+        [nzText]="item.status === 1 ? '启用' : '禁用'" />
+    </ng-template>
+  </st>
+</nz-card>

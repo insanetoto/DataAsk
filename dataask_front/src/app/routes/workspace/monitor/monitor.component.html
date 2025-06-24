@@ -1,1 +1,19 @@
-<page-header />
+<page-header>
+  <ng-template #breadcrumb>
+    <span>洞察魔方 > 监控台 > 系统监控</span>
+  </ng-template>
+</page-header>
+
+<div style="padding: 24px;">
+  <h2>系统监控</h2>
+  <p>页面加载成功！</p>
+  <p>当前CPU使用率：{{ systemStats.cpuUsage }}%</p>
+  <p>当前内存使用率：{{ systemStats.memoryUsage }}%</p>
+  
+  <h3>服务状态</h3>
+  <ul>
+    <li *ngFor="let service of services">
+      {{ service.name }} - {{ service.status }}
+    </li>
+  </ul>
+</div>

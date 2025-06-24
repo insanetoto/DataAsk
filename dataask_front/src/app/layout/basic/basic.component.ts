@@ -9,6 +9,7 @@ import { NzMenuModule } from 'ng-zorro-antd/menu';
 
 import { HeaderClearStorageComponent } from './widgets/clear-storage.component';
 import { HeaderFullScreenComponent } from './widgets/fullscreen.component';
+import { HeaderNotifyComponent } from './widgets/notify.component';
 import { HeaderSearchComponent } from './widgets/search.component';
 import { HeaderUserComponent } from './widgets/user.component';
 
@@ -23,6 +24,9 @@ import { HeaderUserComponent } from './widgets/user.component';
       </layout-default-header-item>
       <layout-default-header-item direction="middle">
         <header-search class="alain-default__search" [toggleChange]="searchToggleStatus" />
+      </layout-default-header-item>
+      <layout-default-header-item direction="right">
+        <header-notify />
       </layout-default-header-item>
       <layout-default-header-item direction="right" hidden="mobile">
         <div layout-default-header-item-trigger nz-dropdown [nzDropdownMenu]="settingsMenu" nzTrigger="click" nzPlacement="bottomRight">
@@ -58,6 +62,7 @@ import { HeaderUserComponent } from './widgets/user.component';
     NzMenuModule,
     NzDropDownModule,
     HeaderSearchComponent,
+    HeaderNotifyComponent,
     HeaderClearStorageComponent,
     HeaderFullScreenComponent,
     HeaderUserComponent
