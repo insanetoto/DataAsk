@@ -1,4 +1,5 @@
 import { waitForAsync, ComponentFixture, TestBed } from '@angular/core/testing';
+
 import { SysWorkflowComponent } from './workflow.component';
 
 describe('SysWorkflowComponent', () => {
@@ -7,9 +8,8 @@ describe('SysWorkflowComponent', () => {
 
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
-      declarations: [ SysWorkflowComponent ]
-    })
-    .compileComponents();
+      declarations: [SysWorkflowComponent]
+    }).compileComponents();
   }));
 
   beforeEach(() => {

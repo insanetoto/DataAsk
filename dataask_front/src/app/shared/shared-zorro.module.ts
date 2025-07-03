@@ -1,6 +1,7 @@
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzAvatarModule } from 'ng-zorro-antd/avatar';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
+import { NzBreadCrumbModule } from 'ng-zorro-antd/breadcrumb';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
@@ -20,6 +21,7 @@ import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzPopoverModule } from 'ng-zorro-antd/popover';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
+import { NzResultModule } from 'ng-zorro-antd/result';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzStatisticModule } from 'ng-zorro-antd/statistic';
@@ -41,6 +43,7 @@ export const SHARED_ZORRO_MODULES = [
   NzSelectModule,
   NzAvatarModule,
   NzBadgeModule,
+  NzBreadCrumbModule,
   NzCardModule,
   NzDatePickerModule,
   NzDescriptionsModule,
@@ -48,6 +51,7 @@ export const SHARED_ZORRO_MODULES = [
   NzDropDownModule,
   NzPopconfirmModule,
   NzRadioModule,
+  NzResultModule,
   NzStatisticModule,
   NzSwitchModule,
   NzTableModule,

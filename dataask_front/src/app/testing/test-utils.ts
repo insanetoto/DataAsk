@@ -1,5 +1,5 @@
-import { ComponentFixture } from '@angular/core/testing';
 import { DebugElement } from '@angular/core';
+import { ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 
 /**
@@ -18,10 +18,7 @@ export class TestUtils {
   /**
    * 根据选择器查找元素
    */
-  static querySelector<T = HTMLElement>(
-    fixture: ComponentFixture<any>,
-    selector: string
-  ): T | null {
+  static querySelector<T = HTMLElement>(fixture: ComponentFixture<any>, selector: string): T | null {
     const element = fixture.debugElement.query(By.css(selector));
     return element ? element.nativeElement : null;
   }
@@ -29,10 +26,7 @@ export class TestUtils {
   /**
    * 根据选择器查找所有元素
    */
-  static querySelectorAll<T = HTMLElement>(
-    fixture: ComponentFixture<any>,
-    selector: string
-  ): T[] {
+  static querySelectorAll<T = HTMLElement>(fixture: ComponentFixture<any>, selector: string): T[] {
     const elements = fixture.debugElement.queryAll(By.css(selector));
     return elements.map(el => el.nativeElement);
   }
@@ -59,11 +53,7 @@ export class TestUtils {
   /**
    * 设置输入框值
    */
-  static setInputValue(
-    fixture: ComponentFixture<any>,
-    selector: string,
-    value: string
-  ): void {
+  static setInputValue(fixture: ComponentFixture<any>, selector: string, value: string): void {
     const input = this.querySelector<HTMLInputElement>(fixture, selector);
     if (input) {
       input.value = value;
@@ -93,11 +83,7 @@ export class TestUtils {
   /**
    * 检查元素是否包含指定CSS类
    */
-  static hasClass(
-    fixture: ComponentFixture<any>,
-    selector: string,
-    className: string
-  ): boolean {
+  static hasClass(fixture: ComponentFixture<any>, selector: string, className: string): boolean {
     const element = this.querySelector(fixture, selector);
     return element ? element.classList.contains(className) : false;
   }
@@ -120,4 +106,4 @@ export class TestUtils {
       success: success
     };
   }
-} 
+}

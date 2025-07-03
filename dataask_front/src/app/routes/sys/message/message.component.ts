@@ -2,15 +2,16 @@ import { Component, OnInit, ViewChild, inject, TemplateRef } from '@angular/core
 import { STColumn, STComponent, STData, STChange } from '@delon/abc/st';
 import { SFSchema } from '@delon/form';
 import { ModalHelper, _HttpClient } from '@delon/theme';
+import { SHARED_IMPORTS } from '@shared';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalService } from 'ng-zorro-antd/modal';
-import { SHARED_IMPORTS } from '@shared';
+
 import { SysMessageService, Message } from './message.service';
 
 @Component({
   selector: 'app-sys-message',
   imports: [...SHARED_IMPORTS],
-  templateUrl: './message.component.html',
+  templateUrl: './message.component.html'
 })
 export class SysMessageComponent implements OnInit {
   private readonly http = inject(_HttpClient);
@@ -23,7 +24,7 @@ export class SysMessageComponent implements OnInit {
   expandForm = false;
   selectedRows: STData[] = [];
   data: any[] = [];
-  
+
   // 查询参数
   q: any = {
     pi: 1,
@@ -80,22 +81,22 @@ export class SysMessageComponent implements OnInit {
   };
 
   @ViewChild('st') private readonly st!: STComponent;
-  
+
   columns: STColumn[] = [
     { title: '', index: 'id', type: 'checkbox' },
     { title: '消息ID', index: 'id', width: '80px' },
     { title: '标题', index: 'title', width: '200px' },
-    { 
-      title: '类型', 
-      index: 'type', 
+    {
+      title: '类型',
+      index: 'type',
       width: '100px',
       render: 'type'
     },
     { title: '内容', index: 'content', width: '300px', className: 'text-truncate' },
     { title: '接收人', index: 'recipient', width: '120px' },
-    { 
-      title: '状态', 
-      index: 'status', 
+    {
+      title: '状态',
+      index: 'status',
       width: '80px',
       render: 'status'
     },
@@ -106,27 +107,27 @@ export class SysMessageComponent implements OnInit {
       title: '操作',
       width: '200px',
       buttons: [
-        { 
-          text: '查看', 
-          icon: 'eye', 
+        {
+          text: '查看',
+          icon: 'eye',
           click: (item: any) => this.viewMessage(item)
         },
-        { 
-          text: '编辑', 
-          icon: 'edit', 
-          iif: (item: any) => item.status === 'draft', 
+        {
+          text: '编辑',
+          icon: 'edit',
+          iif: (item: any) => item.status === 'draft',
           click: (item: any) => this.editMessage(item)
         },
-        { 
-          text: '发送', 
-          icon: 'send', 
+        {
+          text: '发送',
+          icon: 'send',
           iif: (item: any) => item.status === 'draft',
           click: (item: any) => this.sendMessage(item)
         },
-        { 
-          text: '删除', 
-          icon: 'delete', 
-          type: 'del', 
+        {
+          text: '删除',
+          icon: 'delete',
+          type: 'del',
           click: (item: any) => this.deleteMessage(item)
         }
       ]
@@ -144,7 +145,7 @@ export class SysMessageComponent implements OnInit {
   getData(): void {
     this.loading = true;
     this.messageService.getMessages(this.q).subscribe({
-      next: (res) => {
+      next: res => {
         this.loading = false;
         if (res.code === 200) {
           this.data = res.data.list || res.data || [];
@@ -152,7 +153,7 @@ export class SysMessageComponent implements OnInit {
           this.msg.error(res.message || '获取消息列表失败');
         }
       },
-      error: (err) => {
+      error: err => {
         this.loading = false;
         this.msg.error('获取消息列表失败');
         console.error(err);
@@ -199,12 +200,12 @@ export class SysMessageComponent implements OnInit {
    */
   loadUserOptions(): void {
     this.messageService.getUsers().subscribe({
-      next: (res) => {
+      next: res => {
         if (res.code === 200) {
           this.userOptions = res.data || [];
         }
       },
-      error: (err) => {
+      error: err => {
         console.error('加载用户列表失败:', err);
       }
     });
@@ -222,7 +223,7 @@ export class SysMessageComponent implements OnInit {
       status: 'draft',
       recipient: ''
     };
-    
+
     this.modalSrv.create({
       nzTitle: '新增消息',
       nzContent: modalContent,
@@ -237,12 +238,14 @@ export class SysMessageComponent implements OnInit {
   editMessage(item: any): void {
     this.isEditMode = true;
     this.editingMessage = { ...item };
-    
-    this.modal.create(SysMessageComponent, '这里应该是编辑消息的表单', {
-      size: 'md'
-    }).subscribe(() => {
-      this.getData();
-    });
+
+    this.modal
+      .create(SysMessageComponent, '这里应该是编辑消息的表单', {
+        size: 'md'
+      })
+      .subscribe(() => {
+        this.getData();
+      });
   }
 
   /**
@@ -251,7 +254,7 @@ export class SysMessageComponent implements OnInit {
   viewMessage(item: any): void {
     this.viewingMessage = item;
     this.messageService.getMessage(item.id).subscribe({
-      next: (res) => {
+      next: res => {
         if (res.code === 200) {
           this.viewingMessage = res.data;
           // 这里应该打开查看详情的模态框
@@ -263,7 +266,7 @@ export class SysMessageComponent implements OnInit {
           });
         }
       },
-      error: (err) => {
+      error: err => {
         this.msg.error('获取消息详情失败');
       }
     });
@@ -278,7 +281,7 @@ export class SysMessageComponent implements OnInit {
       nzContent: `确定要发送消息"${item.title}"吗？`,
       nzOnOk: () => {
         this.messageService.sendMessage(item.id).subscribe({
-          next: (res) => {
+          next: res => {
             if (res.code === 200) {
               this.msg.success('消息发送成功');
               this.getData();
@@ -286,7 +289,7 @@ export class SysMessageComponent implements OnInit {
               this.msg.error(res.message || '消息发送失败');
             }
           },
-          error: (err) => {
+          error: err => {
             this.msg.error('消息发送失败');
           }
         });
@@ -303,7 +306,7 @@ export class SysMessageComponent implements OnInit {
       nzContent: `确定要删除消息"${item.title}"吗？`,
       nzOnOk: () => {
         this.messageService.deleteMessage(item.id).subscribe({
-          next: (res) => {
+          next: res => {
             if (res.code === 200) {
               this.msg.success('删除成功');
               this.getData();
@@ -311,7 +314,7 @@ export class SysMessageComponent implements OnInit {
               this.msg.error(res.message || '删除失败');
             }
           },
-          error: (err) => {
+          error: err => {
             this.msg.error('删除失败');
           }
         });
@@ -328,12 +331,12 @@ export class SysMessageComponent implements OnInit {
       return;
     }
 
-    const request = this.isEditMode 
+    const request = this.isEditMode
       ? this.messageService.updateMessage(this.editingMessage.id!, this.editingMessage)
       : this.messageService.createMessage(this.editingMessage);
 
     request.subscribe({
-      next: (res) => {
+      next: res => {
         if (res.code === 200) {
           this.msg.success(this.isEditMode ? '更新成功' : '创建成功');
           this.getData();
@@ -341,7 +344,7 @@ export class SysMessageComponent implements OnInit {
           this.msg.error(res.message || '操作失败');
         }
       },
-      error: (err) => {
+      error: err => {
         this.msg.error('操作失败');
       }
     });
@@ -362,7 +365,7 @@ export class SysMessageComponent implements OnInit {
       nzContent: `确定要发送选中的 ${ids.length} 条消息吗？`,
       nzOnOk: () => {
         this.messageService.batchSendMessages(ids).subscribe({
-          next: (res) => {
+          next: res => {
             if (res.code === 200) {
               this.msg.success('批量发送成功');
               this.getData();
@@ -371,7 +374,7 @@ export class SysMessageComponent implements OnInit {
               this.msg.error(res.message || '批量发送失败');
             }
           },
-          error: (err) => {
+          error: err => {
             this.msg.error('批量发送失败');
           }
         });
@@ -394,7 +397,7 @@ export class SysMessageComponent implements OnInit {
       nzContent: `确定要删除选中的 ${ids.length} 条消息吗？`,
       nzOnOk: () => {
         this.messageService.batchDeleteMessages(ids).subscribe({
-          next: (res) => {
+          next: res => {
             if (res.code === 200) {
               this.msg.success('批量删除成功');
               this.getData();
@@ -403,7 +406,7 @@ export class SysMessageComponent implements OnInit {
               this.msg.error(res.message || '批量删除失败');
             }
           },
-          error: (err) => {
+          error: err => {
             this.msg.error('批量删除失败');
           }
         });
@@ -416,7 +419,7 @@ export class SysMessageComponent implements OnInit {
    */
   refreshStats(): void {
     this.messageService.getMessageStats().subscribe({
-      next: (res) => {
+      next: res => {
         if (res.code === 200) {
           this.modalSrv.info({
             nzTitle: '消息统计',
@@ -424,7 +427,7 @@ export class SysMessageComponent implements OnInit {
           });
         }
       },
-      error: (err) => {
+      error: err => {
         this.msg.error('获取统计信息失败');
       }
     });
@@ -434,10 +437,10 @@ export class SysMessageComponent implements OnInit {
    * 获取状态文本
    */
   getStatusText(status: string): string {
-    const statusMap: { [key: string]: string } = {
-      'sent': '已发送',
-      'draft': '草稿',
-      'read': '已读'
+    const statusMap: Record<string, string> = {
+      sent: '已发送',
+      draft: '草稿',
+      read: '已读'
     };
     return statusMap[status] || status;
   }
@@ -446,10 +449,10 @@ export class SysMessageComponent implements OnInit {
    * 获取类型文本
    */
   getTypeText(type: string): string {
-    const typeMap: { [key: string]: string } = {
-      'system': '系统通知',
-      'business': '业务消息',
-      'alert': '告警消息'
+    const typeMap: Record<string, string> = {
+      system: '系统通知',
+      business: '业务消息',
+      alert: '告警消息'
     };
     return typeMap[type] || type;
   }
@@ -458,10 +461,10 @@ export class SysMessageComponent implements OnInit {
    * 获取类型颜色
    */
   getTypeColor(type: string): string {
-    const colorMap: { [key: string]: string } = {
-      'system': 'blue',
-      'business': 'green',
-      'alert': 'red'
+    const colorMap: Record<string, string> = {
+      system: 'blue',
+      business: 'green',
+      alert: 'red'
     };
     return colorMap[type] || 'default';
   }

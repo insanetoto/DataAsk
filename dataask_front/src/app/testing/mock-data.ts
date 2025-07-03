@@ -74,4 +74,4 @@ export function createMockResponse<T>(data: T, success = true) {
     data: data,
     success: success
   };
-} 
+}

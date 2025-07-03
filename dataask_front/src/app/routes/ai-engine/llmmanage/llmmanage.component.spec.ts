@@ -1,4 +1,5 @@
 import { waitForAsync, ComponentFixture, TestBed } from '@angular/core/testing';
+
 import { AiEngineLlmmanageComponent } from './llmmanage.component';
 
 describe('AiEngineLlmmanageComponent', () => {
@@ -7,9 +8,8 @@ describe('AiEngineLlmmanageComponent', () => {
 
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
-      declarations: [ AiEngineLlmmanageComponent ]
-    })
-    .compileComponents();
+      declarations: [AiEngineLlmmanageComponent]
+    }).compileComponents();
   }));
 
   beforeEach(() => {

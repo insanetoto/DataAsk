@@ -25,7 +25,7 @@ export class HeaderNotifyComponent {
   private readonly msg = inject(NzMessageService);
   private readonly nzI18n = inject(NzI18nService);
   private readonly cdr = inject(ChangeDetectorRef);
-  
+
   data: NoticeItem[] = [
     {
       title: '通知',
@@ -163,4 +163,4 @@ export class HeaderNotifyComponent {
   select(res: NoticeIconSelect): void {
     this.msg.success(`点击了 ${res.title} 的 ${res.item.title}`);
   }
-} 
+}

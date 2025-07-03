@@ -56,13 +56,13 @@ interface ChatSession {
 })
 export class AiEngineAskDataComponent {
   private cdr = inject(ChangeDetectorRef);
-  
+
   @ViewChild('messageInput') messageInput!: ElementRef<HTMLTextAreaElement>;
   @ViewChild('messagesContainer') messagesContainer!: ElementRef<HTMLDivElement>;
 
   // 当前输入内容
   currentMessage = '';
-  
+
   // 是否正在发送消息
   sending = false;
 
@@ -79,7 +79,7 @@ export class AiEngineAskDataComponent {
       messageCount: 8
     },
     {
-      id: '2', 
+      id: '2',
       title: '免费SVG图片资源网站推荐',
       lastMessage: '推荐几个免费的SVG图片网站',
       timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
@@ -109,7 +109,7 @@ export class AiEngineAskDataComponent {
    */
   selectSession(session: ChatSession): void {
     this.currentSessionId = session.id;
-    
+
     // 模拟加载该会话的消息历史
     this.loadSessionMessages(session.id);
     this.cdr.markForCheck();
@@ -130,7 +130,8 @@ export class AiEngineAskDataComponent {
         },
         {
           id: '2',
-          content: '我来帮您分析这个会议议程。昆明小微企业季度免税政策解析会议是一个非常重要的政策宣讲会，主要内容可能包括：\n\n1. **最新免税政策解读**\n   - 小微企业所得税优惠政策\n   - 增值税减免措施\n   - 相关申报流程\n\n2. **政策适用范围**\n   - 小微企业认定标准\n   - 享受优惠的具体条件\n\n3. **实务操作指导**\n   - 如何正确申报\n   - 需要准备的材料\n   - 常见问题解答\n\n建议您准备以下问题：\n- 公司是否符合小微企业认定标准\n- 具体的税收优惠幅度\n- 申报的时间节点和流程\n\n需要我帮您准备更具体的问题清单吗？',
+          content:
+            '我来帮您分析这个会议议程。昆明小微企业季度免税政策解析会议是一个非常重要的政策宣讲会，主要内容可能包括：\n\n1. **最新免税政策解读**\n   - 小微企业所得税优惠政策\n   - 增值税减免措施\n   - 相关申报流程\n\n2. **政策适用范围**\n   - 小微企业认定标准\n   - 享受优惠的具体条件\n\n3. **实务操作指导**\n   - 如何正确申报\n   - 需要准备的材料\n   - 常见问题解答\n\n建议您准备以下问题：\n- 公司是否符合小微企业认定标准\n- 具体的税收优惠幅度\n- 申报的时间节点和流程\n\n需要我帮您准备更具体的问题清单吗？',
           type: 'assistant',
           timestamp: new Date(Date.now() - 59 * 60 * 1000)
         }
@@ -145,7 +146,8 @@ export class AiEngineAskDataComponent {
         },
         {
           id: '2',
-          content: '为您推荐几个优质的免费SVG图片资源网站：\n\n**1. Heroicons**\n- 网址：heroicons.com\n- 特色：现代、简洁的图标库\n- 适用：Web界面设计\n\n**2. Feather Icons**\n- 网址：feathericons.com\n- 特色：轻量级、美观的图标\n- 适用：移动应用和网页\n\n**3. Lucide**\n- 网址：lucide.dev\n- 特色：开源、可定制\n- 适用：各类项目\n\n这些网站都提供高质量的SVG图标，您可以根据项目需求选择合适的风格。',
+          content:
+            '为您推荐几个优质的免费SVG图片资源网站：\n\n**1. Heroicons**\n- 网址：heroicons.com\n- 特色：现代、简洁的图标库\n- 适用：Web界面设计\n\n**2. Feather Icons**\n- 网址：feathericons.com\n- 特色：轻量级、美观的图标\n- 适用：移动应用和网页\n\n**3. Lucide**\n- 网址：lucide.dev\n- 特色：开源、可定制\n- 适用：各类项目\n\n这些网站都提供高质量的SVG图标，您可以根据项目需求选择合适的风格。',
           type: 'assistant',
           timestamp: new Date(Date.now() - 119 * 60 * 1000)
         }
@@ -170,7 +172,7 @@ export class AiEngineAskDataComponent {
 
     // 添加用户消息
     this.currentMessages.push(userMessage);
-    
+
     // 清空输入框
     const messageText = this.currentMessage.trim();
     this.currentMessage = '';
@@ -187,7 +189,7 @@ export class AiEngineAskDataComponent {
     this.currentMessages.push(loadingMessage);
 
     this.cdr.markForCheck();
-    
+
     // 滚动到底部
     setTimeout(() => this.scrollToBottom(), 100);
 
@@ -209,7 +211,7 @@ export class AiEngineAskDataComponent {
 
     // 生成模拟回复
     const response = this.generateMockResponse(userMessage);
-    
+
     const assistantMessage: ChatMessage = {
       id: Date.now().toString(),
       content: response,
@@ -234,7 +236,7 @@ export class AiEngineAskDataComponent {
       '这是一个很好的问题！让我为您详细分析：\n\n**关键要点：**\n- 数据分析需要明确目标\n- 选择合适的分析方法\n- 确保数据质量和准确性\n\n**建议步骤：**\n1. 数据收集和清理\n2. 探索性数据分析\n3. 建立分析模型\n4. 结果验证和解释\n\n需要我深入解释某个具体步骤吗？',
       '根据您提供的信息，我建议采用以下方法：\n\n**方案A：快速解决**\n- 优点：实施简单，见效快\n- 缺点：可能不够全面\n\n**方案B：系统性解决**\n- 优点：解决根本问题\n- 缺点：需要更多时间和资源\n\n您倾向于选择哪种方案？我可以为您提供更详细的实施指导。'
     ];
-    
+
     return responses[Math.floor(Math.random() * responses.length)];
   }
 
@@ -281,7 +283,7 @@ export class AiEngineAskDataComponent {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) {
       return '今天';
     } else if (diffDays < 7) {
@@ -295,9 +297,9 @@ export class AiEngineAskDataComponent {
    * 格式化消息时间
    */
   formatMessageTime(date: Date): string {
-    return date.toLocaleTimeString('zh-CN', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return date.toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit'
     });
   }
 

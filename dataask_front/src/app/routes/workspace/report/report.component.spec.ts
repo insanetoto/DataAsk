@@ -27,4 +27,4 @@ describe('WorkspaceReportComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
-}); 
+});

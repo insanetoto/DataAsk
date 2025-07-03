@@ -1,0 +1,81 @@
+<page-header [title]="'用户详情'" [breadcrumb]="breadcrumb">
+  <ng-template #breadcrumb>
+    <nz-breadcrumb>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/']">
+          <nz-icon nzType="home" nzTheme="outline"></nz-icon>
+          首页
+        </a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/sys']">系统管理</a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/sys/user']">用户管理</a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>用户详情</nz-breadcrumb-item>
+    </nz-breadcrumb>
+  </ng-template>
+  <ng-template #action>
+    <button nz-button nzType="default" (click)="goBack()">
+      <i nz-icon nzType="arrow-left"></i>
+      <span>返回用户列表</span>
+    </button>
+  </ng-template>
+</page-header>
+
+<nz-card [nzHoverable]="true" [nzBordered]="false">
+  @if (i) {
+    <sv-container size="large" title="基本信息">
+      <sv label="用户编码">{{ i.user_code || '-' }}</sv>
+      <sv label="用户名称">{{ i.username || '-' }}</sv>
+      <sv label="所属机构">{{ getOrgName(i) }}</sv>
+      <sv label="用户角色">{{ getRoleName(i) }}</sv>
+      <sv label="用户状态">
+        <nz-badge [nzStatus]="i.status === 1 ? 'success' : 'default'" [nzText]="i.status === 1 ? '启用' : '禁用'" />
+      </sv>
+    </sv-container>
+    
+    <nz-divider />
+    
+    <sv-container size="large" title="联系信息">
+      <sv label="联系电话">{{ i.phone || '-' }}</sv>
+      <sv label="联系地址">{{ i.address || '-' }}</sv>
+    </sv-container>
+    
+    <nz-divider />
+    
+    <sv-container size="large" title="登录信息">
+      <sv label="登录次数">{{ i.login_count || 0 }}次</sv>
+      <sv label="最后登录时间">
+        @if (i.last_login_at) {
+          {{ i.last_login_at | date:'yyyy-MM-dd HH:mm:ss' }}
+        } @else {
+          <span class="text-grey">从未登录</span>
+        }
+      </sv>
+    </sv-container>
+    
+    <nz-divider />
+    
+    <sv-container size="large" title="系统信息">
+      <sv label="创建时间">{{ i.created_at | date:'yyyy-MM-dd HH:mm:ss' }}</sv>
+      <sv label="更新时间">{{ i.updated_at | date:'yyyy-MM-dd HH:mm:ss' }}</sv>
+    </sv-container>
+  } @else if (loading) {
+    <div class="text-center py-lg">
+      <nz-spin nzSize="large" />
+      <div class="mt-sm text-grey">正在加载用户信息...</div>
+    </div>
+  } @else {
+    <nz-result 
+      nzStatus="error" 
+      nzTitle="加载失败" 
+      nzSubTitle="无法获取用户信息，请稍后重试">
+      <div nz-result-extra>
+        <button nz-button nzType="primary" (click)="goBack()">返回用户列表</button>
+        <button nz-button nzType="default" (click)="loadUserDetail()" class="ml-sm">重新加载</button>
+      </div>
+    </nz-result>
+  }
+</nz-card>

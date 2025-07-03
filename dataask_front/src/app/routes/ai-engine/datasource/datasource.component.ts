@@ -21,14 +21,14 @@ interface DataSource {
 @Component({
   selector: 'app-ai-engine-datasource',
   imports: [...SHARED_IMPORTS],
-  templateUrl: './datasource.component.html',
+  templateUrl: './datasource.component.html'
 })
 export class AiEngineDatasourceComponent implements OnInit {
   private readonly http = inject(_HttpClient);
   private readonly modal = inject(ModalHelper);
 
   url = `/api/datasources`;
-  
+
   searchSchema: SFSchema = {
     properties: {
       name: {
@@ -68,7 +68,7 @@ export class AiEngineDatasourceComponent implements OnInit {
   };
 
   @ViewChild('st') private readonly st!: STComponent;
-  
+
   columns: STColumn[] = [
     { title: 'ID', index: 'id', width: 60 },
     {
@@ -256,7 +256,7 @@ export class AiEngineDatasourceComponent implements OnInit {
     const updatedItem = { ...item };
     const success = Math.random() > 0.3; // 70%成功率
     updatedItem.status = success ? 'connected' : 'failed';
-    
+
     // 更新数据
     const index = this.mockData.findIndex(d => d.id === item.id);
     if (index > -1) {

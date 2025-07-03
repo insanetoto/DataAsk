@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { PageHeaderModule } from '@delon/abc/page-header';
@@ -45,8 +45,6 @@ interface TodoTask {
   completed: boolean;
   due_date: string;
 }
-
-
 
 interface QuickLink {
   title: string;
@@ -155,12 +153,12 @@ export class WorkspaceWorkbenchComponent implements OnInit {
    */
   getTaskIcon(type: string): string {
     const iconMap: Record<string, string> = {
-      'query': 'search',
-      'analysis': 'bar-chart',
-      'report': 'file-text',
-      'data': 'database',
-      'ai': 'robot',
-      'default': 'project'
+      query: 'search',
+      analysis: 'bar-chart',
+      report: 'file-text',
+      data: 'database',
+      ai: 'robot',
+      default: 'project'
     };
     return iconMap[type] || iconMap['default'];
   }
@@ -170,10 +168,10 @@ export class WorkspaceWorkbenchComponent implements OnInit {
    */
   getTaskColor(priority: string): string {
     const colorMap: Record<string, string> = {
-      '高': 'red',
-      '中': 'orange',
-      '低': 'green',
-      '紧急': 'volcano'
+      高: 'red',
+      中: 'orange',
+      低: 'green',
+      紧急: 'volcano'
     };
     return colorMap[priority] || 'default';
   }
@@ -263,8 +261,6 @@ export class WorkspaceWorkbenchComponent implements OnInit {
     ];
   }
 
-
-
   /**
    * 加载工作指数雷达图数据
    */
@@ -277,7 +273,7 @@ export class WorkspaceWorkbenchComponent implements OnInit {
       { item: '知识积累', user: '本月', score: 85 },
       { item: '创新应用', user: '本月', score: 65 }
     ];
-    
+
     this.loading = false;
     this.cdr.detectChanges();
   }

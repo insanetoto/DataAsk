@@ -41,16 +41,16 @@ export class AiEngineMultimodalComponent implements OnInit {
   };
 
   @ViewChild('st') private readonly st!: STComponent;
-  
+
   columns: STColumn[] = [
-    { 
-      title: '配置名称', 
+    {
+      title: '配置名称',
       index: 'name',
       width: 150,
       sort: true
     },
-    { 
-      title: '类型', 
+    {
+      title: '类型',
       index: 'type',
       width: 120,
       format: (item: any) => {
@@ -62,8 +62,8 @@ export class AiEngineMultimodalComponent implements OnInit {
         return typeMap[item.type] || item.type;
       }
     },
-    { 
-      title: '状态', 
+    {
+      title: '状态',
       index: 'status',
       render: 'status',
       width: 80,
@@ -75,14 +75,14 @@ export class AiEngineMultimodalComponent implements OnInit {
         fn: (filter: any, record: any) => record.status === filter.value
       }
     },
-    { 
-      title: '描述', 
+    {
+      title: '描述',
       index: 'description',
       width: 200
     },
-    { 
-      title: '创建时间', 
-      type: 'date', 
+    {
+      title: '创建时间',
+      type: 'date',
       index: 'createdAt',
       width: 150,
       sort: true

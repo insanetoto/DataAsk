@@ -70,4 +70,4 @@ export class WorkspaceReportService {
   deleteReport(id: number): Observable<any> {
     return this.http.delete(`/reports/${id}`);
   }
-} 
+}

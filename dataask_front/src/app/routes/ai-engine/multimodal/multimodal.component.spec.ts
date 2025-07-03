@@ -1,4 +1,5 @@
 import { waitForAsync, ComponentFixture, TestBed } from '@angular/core/testing';
+
 import { AiEngineMultimodalComponent } from './multimodal.component';
 
 describe('AiEngineMultimodalComponent', () => {
@@ -7,9 +8,8 @@ describe('AiEngineMultimodalComponent', () => {
 
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
-      declarations: [ AiEngineMultimodalComponent ]
-    })
-    .compileComponents();
+      declarations: [AiEngineMultimodalComponent]
+    }).compileComponents();
   }));
 
   beforeEach(() => {

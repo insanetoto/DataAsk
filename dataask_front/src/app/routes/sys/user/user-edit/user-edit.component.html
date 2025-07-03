@@ -1,0 +1,88 @@
+<page-header [title]="isNew ? '新增用户' : '编辑用户'" [breadcrumb]="breadcrumb">
+  <ng-template #breadcrumb>
+    <nz-breadcrumb>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/']">
+          <nz-icon nzType="home" nzTheme="outline"></nz-icon>
+          首页
+        </a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/sys']">系统管理</a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/sys/user']">用户管理</a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>{{ isNew ? '新增用户' : '编辑用户' }}</nz-breadcrumb-item>
+    </nz-breadcrumb>
+  </ng-template>
+  <ng-template #action>
+    <button nz-button nzType="default" (click)="goBack()">
+      <i nz-icon nzType="arrow-left"></i>
+      <span>返回用户列表</span>
+    </button>
+  </ng-template>
+</page-header>
+
+<nz-card [nzBordered]="false">
+  @if (loading) {
+    <div class="text-center py-lg">
+      <nz-spin nzSize="large" />
+      <div class="mt-sm text-grey">正在加载用户信息...</div>
+    </div>
+  } @else {
+    <form nz-form [formGroup]="form" (ngSubmit)="submit()" se-container="1" labelWidth="120">
+      <se label="用户编码" error="请输入用户编码" required>
+        <input nz-input formControlName="user_code" placeholder="请输入用户编码" [disabled]="!isNew" />
+      </se>
+      
+      <se label="用户名称" error="请输入用户名称" required>
+        <input nz-input formControlName="username" placeholder="请输入用户名称" />
+      </se>
+      
+      <se label="所属机构" error="请选择所属机构" required>
+        <nz-select formControlName="org_code" [nzPlaceHolder]="'请选择所属机构'" [nzShowSearch]="true">
+          @for (org of organizationOptions; track org.id) {
+            <nz-option [nzLabel]="org.org_name + ' (' + org.org_code + ')'" [nzValue]="org.org_code" />
+          }
+        </nz-select>
+      </se>
+      
+      <se label="用户角色" error="请选择用户角色" required>
+        <nz-select formControlName="role_id" [nzPlaceHolder]="'请选择用户角色'" [nzShowSearch]="true">
+          @for (role of roleOptions; track role.id) {
+            <nz-option [nzLabel]="role.role_name" [nzValue]="role.id" />
+          }
+        </nz-select>
+      </se>
+      
+      @if (isNew) {
+        <se label="初始密码" error="请输入初始密码" required>
+          <input nz-input type="password" formControlName="password" placeholder="请输入初始密码" />
+        </se>
+      }
+      
+      <se label="联系电话" error="请输入正确的手机号码">
+        <input nz-input formControlName="phone" placeholder="请输入联系电话" />
+      </se>
+      
+      <se label="联系地址">
+        <input nz-input formControlName="address" placeholder="请输入联系地址" />
+      </se>
+      
+      <se label="用户状态">
+        <nz-radio-group formControlName="status">
+          <label nz-radio [nzValue]="1">启用</label>
+          <label nz-radio [nzValue]="0">禁用</label>
+        </nz-radio-group>
+      </se>
+      
+      <se>
+        <button nz-button nzType="primary" [disabled]="form.invalid" type="submit" [nzLoading]="submitting">
+          {{ isNew ? '创建' : '保存' }}
+        </button>
+        <button nz-button type="button" (click)="goBack()" class="ml-sm">取消</button>
+      </se>
+    </form>
+  }
+</nz-card>

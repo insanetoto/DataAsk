@@ -1,4 +1,5 @@
 import { waitForAsync, ComponentFixture, TestBed } from '@angular/core/testing';
+
 import { SysMessageComponent } from './message.component';
 
 describe('SysMessageComponent', () => {
@@ -7,9 +8,8 @@ describe('SysMessageComponent', () => {
 
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
-      declarations: [ SysMessageComponent ]
-    })
-    .compileComponents();
+      declarations: [SysMessageComponent]
+    }).compileComponents();
   }));
 
   beforeEach(() => {

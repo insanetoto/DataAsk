@@ -7,7 +7,7 @@ import { SHARED_IMPORTS } from '@shared';
 @Component({
   selector: 'app-sys-workflow',
   imports: [...SHARED_IMPORTS],
-  templateUrl: './workflow.component.html',
+  templateUrl: './workflow.component.html'
 })
 export class SysWorkflowComponent implements OnInit {
   private readonly http = inject(_HttpClient);
@@ -52,9 +52,9 @@ export class SysWorkflowComponent implements OnInit {
     { title: '工作流ID', index: 'id', width: '80px' },
     { title: '名称', index: 'name', width: '200px' },
     { title: '描述', index: 'description', width: '250px' },
-    { 
-      title: '分类', 
-      index: 'category', 
+    {
+      title: '分类',
+      index: 'category',
       width: '120px',
       type: 'tag',
       tag: {
@@ -64,9 +64,9 @@ export class SysWorkflowComponent implements OnInit {
         notification: { text: '通知流程', color: 'purple' }
       }
     },
-    { 
-      title: '状态', 
-      index: 'status', 
+    {
+      title: '状态',
+      index: 'status',
       width: '80px',
       type: 'tag',
       tag: {
@@ -86,15 +86,30 @@ export class SysWorkflowComponent implements OnInit {
       buttons: [
         { text: '查看', icon: 'eye', click: (item: any) => this.viewWorkflow(item) },
         { text: '编辑', icon: 'edit', click: (item: any) => this.editWorkflow(item) },
-        { text: '执行', icon: 'play-circle', iif: (item: any) => item.status === 'active', click: (item: any) => this.executeWorkflow(item) },
-        { text: '暂停', icon: 'pause-circle', iif: (item: any) => item.status === 'active', click: (item: any) => this.pauseWorkflow(item) },
-        { text: '激活', icon: 'play-circle', iif: (item: any) => item.status !== 'active', click: (item: any) => this.activateWorkflow(item) },
+        {
+          text: '执行',
+          icon: 'play-circle',
+          iif: (item: any) => item.status === 'active',
+          click: (item: any) => this.executeWorkflow(item)
+        },
+        {
+          text: '暂停',
+          icon: 'pause-circle',
+          iif: (item: any) => item.status === 'active',
+          click: (item: any) => this.pauseWorkflow(item)
+        },
+        {
+          text: '激活',
+          icon: 'play-circle',
+          iif: (item: any) => item.status !== 'active',
+          click: (item: any) => this.activateWorkflow(item)
+        },
         { text: '删除', icon: 'delete', type: 'del', click: (item: any) => this.deleteWorkflow(item) }
       ]
     }
   ];
 
-  ngOnInit(): void { }
+  ngOnInit(): void {}
 
   add(): void {
     console.log('添加新工作流');

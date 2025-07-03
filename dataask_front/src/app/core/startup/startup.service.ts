@@ -49,14 +49,62 @@ export class StartupService {
         this.settingService.setApp(res.app);
         // User information: including name, avatar, email address
         this.settingService.setUser(res.user);
-        // ACL: Set the permissions to full, https://ng-alain.com/acl/getting-started
-        this.aclService.setFull(true);
-        this.aclService.setAbility(res.permissions);
+        
+        // ACL: 根据用户角色和权限配置访问控制
+        this.configureACL(res.user, res.permissions);
+        
         // Menu data, https://ng-alain.com/theme/menu
         this.menuService.add(res.menus);
         // Can be set page suffix title, https://ng-alain.com/theme/title
         this.titleService.suffix = res.app.name;
       })
     );
+  }
+
+  /**
+   * 配置ACL权限控制
+   */
+  private configureACL(user: any, permissions: any[]): void {
+    if (!user) {
+      // 未登录用户，清除所有权限
+      this.aclService.set({});
+      return;
+    }
+
+    // 获取用户角色信息
+    const roleCode = user.role_code || user.role?.role_code;
+    const roles: string[] = roleCode ? [roleCode] : [];
+
+    // 获取用户权限点
+    const abilities: string[] = [];
+    
+    // 基于角色添加基础权限
+    if (roleCode === 'SUPER_ADMIN') {
+      // 超级管理员拥有所有权限
+      this.aclService.setFull(true);
+      return;
+    } else if (roleCode === 'ORG_ADMIN') {
+      // 机构管理员权限
+      abilities.push('user.reset.password', 'user.manage.org');
+    } else if (roleCode === 'NORMAL_USER') {
+      // 普通用户权限
+      abilities.push('user.view');
+    }
+
+    // 添加从后端获取的权限点
+    if (permissions && permissions.length > 0) {
+      permissions.forEach(permission => {
+        if (permission.permission_code) {
+          abilities.push(permission.permission_code);
+        }
+      });
+    }
+
+    // 设置ACL权限
+    this.aclService.set({
+      role: roles,
+      ability: abilities,
+      mode: 'oneOf'
+    });
   }
 }

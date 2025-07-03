@@ -864,7 +864,7 @@ def update_user(user_id):
     
     # 转换服务层响应为标准格式
     if result['success']:
-        response, status = standardize_response(True, data=result['data'], message='更新用户成功')
+        response, status = standardize_response(True, message=result.get('message', '更新用户成功'))
     else:
         response, status = standardize_response(False, error=result.get('error', '更新用户失败'), code=400)
     return jsonify(response), status
@@ -902,6 +902,40 @@ def get_user_permissions(user_id):
     user_service = get_user_service_instance()
     permissions = user_service.get_user_permissions(user_id)
     return jsonify({'success': True, 'data': permissions}), 200
+
+@api_bp.route('/users/<int:user_id>/password', methods=['PUT'], endpoint='reset_user_password_by_id')
+@auth_required
+def reset_user_password(user_id):
+    """重置用户密码"""
+    try:
+        data = request.get_json()
+        new_password = data.get('password')
+        
+        if not new_password:
+            return jsonify({
+                'success': False,
+                'error': '新密码不能为空'
+            }), 400
+            
+        # 获取当前操作用户信息
+        operator_user = request.user
+        
+        user_service = get_user_service_instance()
+        result = user_service.reset_user_password(user_id, new_password, operator_user)
+        
+        if result['success']:
+            response, status = standardize_response(True, message=result['message'])
+        else:
+            response, status = standardize_response(False, error=result['error'], code=403 if '权限不足' in result['error'] else 400)
+        
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"重置用户密码API失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'重置密码失败: {str(e)}'
+        }), 500
 
 # ==================== 角色管理接口 ====================
 

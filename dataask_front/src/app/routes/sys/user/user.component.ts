@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, TemplateRef, ViewChild, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { STChange, STColumn, STComponent, STData } from '@delon/abc/st';
-import { _HttpClient } from '@delon/theme';
+import { _HttpClient, SettingsService } from '@delon/theme';
 import { SHARED_IMPORTS } from '@shared';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalService } from 'ng-zorro-antd/modal';
@@ -19,7 +20,9 @@ export class SysUserComponent implements OnInit {
   private readonly msg = inject(NzMessageService);
   private readonly modalSrv = inject(NzModalService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly router = inject(Router);
   private readonly userService = inject(SysUserService);
+  private readonly settings = inject(SettingsService);
 
   // 查询参数
   q: UserQuery = {
@@ -151,6 +154,7 @@ export class SysUserComponent implements OnInit {
         {
           text: '重置密码',
           icon: 'lock',
+          acl: 'user.reset.password',
           click: (item: User) => this.resetPassword(item)
         },
         {
@@ -213,8 +217,6 @@ export class SysUserComponent implements OnInit {
           }
         },
         error: error => {
-          console.error('获取用户数据失败:', error);
-
           // 检查是否是被HTTP拦截器误判的成功响应
           if (error.status === 200 && error.ok && error.body) {
             if (error.body.success === true || error.body.code === 200) {
@@ -240,8 +242,6 @@ export class SysUserComponent implements OnInit {
         }
       },
       error: error => {
-        console.error('加载机构选项失败:', error);
-
         if (error.status === 200 && error.ok && error.body) {
           if (error.body.success === true || error.body.code === 200) {
             this.organizationOptions = error.body.data?.list || error.body.data?.items || error.body.data || [];
@@ -262,8 +262,6 @@ export class SysUserComponent implements OnInit {
         }
       },
       error: error => {
-        console.error('加载角色选项失败:', error);
-
         if (error.status === 200 && error.ok && error.body) {
           if (error.body.success === true || error.body.code === 200) {
             this.roleOptions = error.body.data?.list || error.body.data?.items || error.body.data || [];
@@ -315,22 +313,16 @@ export class SysUserComponent implements OnInit {
    * 查看用户
    */
   viewUser(item: User): void {
-    this.editingUser = { ...item };
-    this.isEditMode = false;
-    this.modalTitle = '查看用户';
-    this.msg.info(`查看用户: ${item.username}`);
+    // 跳转到用户详情页面
+    this.router.navigate(['/sys/user/view', item.id]);
   }
 
   /**
    * 编辑用户
    */
-  editUser(item: User, tpl?: TemplateRef<unknown>): void {
-    this.editingUser = { ...item };
-    this.isEditMode = true;
-    this.modalTitle = '编辑用户';
-    if (tpl) {
-      this.showModal(tpl);
-    }
+  editUser(item: User): void {
+    // 跳转到用户编辑页面
+    this.router.navigate(['/sys/user/edit', item.id]);
   }
 
   /**
@@ -362,24 +354,8 @@ export class SysUserComponent implements OnInit {
    * 重置密码
    */
   resetPassword(item: User): void {
-    this.modalSrv.confirm({
-      nzTitle: '重置密码',
-      nzContent: `确定要重置用户 "${item.username}" 的密码吗？密码将重置为默认密码。`,
-      nzOnOk: () => {
-        return this.userService.resetPassword(item.id!, '123456').subscribe({
-          next: res => {
-            if (res.code === 200 || res.success === true) {
-              this.msg.success('密码重置成功，默认密码为：123456');
-            } else {
-              this.msg.error(res.message || res.error || '密码重置失败');
-            }
-          },
-          error: () => {
-            this.msg.error('密码重置失败');
-          }
-        });
-      }
-    });
+    // 直接跳转到重置密码页面，ACL已经在按钮级别进行了权限控制
+    this.router.navigate(['/sys/user/reset-password', item.id]);
   }
 
   /**

@@ -131,7 +131,9 @@ class UserService:
             with self.db_service.get_session() as session:
                 result = session.execute(
                     text("""
-                        SELECT u.*, r.role_code, o.org_name 
+                        SELECT u.id, u.org_code, u.user_code, u.username, u.phone, u.address, 
+                               u.role_id, u.status, u.created_at, u.updated_at,
+                               r.role_code, o.org_name 
                         FROM users u 
                         JOIN roles r ON u.role_id = r.id 
                         JOIN organizations o ON u.org_code = o.org_code 
@@ -151,6 +153,8 @@ class UserService:
                     'org_code': result.org_code,
                     'user_code': result.user_code,
                     'username': result.username,
+                    'phone': result.phone,
+                    'address': result.address,
                     'role_id': result.role_id,
                     'role_code': result.role_code,
                     'org_name': result.org_name,
@@ -615,7 +619,7 @@ class UserService:
             params = {"user_id": user_id}
             
             for field, value in data.items():
-                if field in ['username', 'phone', 'address', 'status']:
+                if field in ['username', 'phone', 'address', 'status', 'org_code', 'role_id']:
                     update_fields.append(f"{field} = :{field}")
                     params[field] = value
             
@@ -769,6 +773,119 @@ class UserService:
         except Exception as e:
             logger.error(f"密码加密失败: {str(e)}")
             raise
+
+    def reset_user_password(self, user_id: int, new_password: str, operator_user: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        重置用户密码
+        包含权限控制：超级管理员可重置所有用户，机构管理员只能重置本机构用户
+        
+        Args:
+            user_id: 目标用户ID
+            new_password: 新密码
+            operator_user: 操作者用户信息
+            
+        Returns:
+            操作结果
+        """
+        try:
+            # 获取目标用户信息
+            target_user_result = self.get_user_by_id(user_id)
+            if not target_user_result['success']:
+                return {
+                    'success': False,
+                    'error': '目标用户不存在或已禁用'
+                }
+            
+            target_user = target_user_result['data']
+            operator_role_code = operator_user.get('role_code', '')
+            operator_org_code = operator_user.get('org_code', '')
+            
+            # 权限控制检查
+            if operator_role_code == 'SUPER_ADMIN':
+                # 超级管理员可以重置所有用户密码
+                pass
+            elif operator_role_code == 'ORG_ADMIN':
+                # 机构管理员只能重置本机构用户密码
+                if target_user['org_code'] != operator_org_code:
+                    return {
+                        'success': False,
+                        'error': '权限不足：只能重置本机构用户的密码'
+                    }
+            else:
+                # 其他角色无权限重置密码
+                return {
+                    'success': False,
+                    'error': '权限不足：无重置密码权限'
+                }
+            
+            # 更新密码
+            with self.db_service.get_session() as session:
+                session.execute(
+                    text("""
+                        UPDATE users 
+                        SET password_hash = :password_hash, updated_at = NOW()
+                        WHERE id = :user_id
+                    """),
+                    {
+                        'password_hash': new_password,  # 直接存储明文密码
+                        'user_id': user_id
+                    }
+                )
+                session.commit()
+            
+            # 清除目标用户的所有缓存和token
+            self._clear_user_all_cache_and_tokens(user_id, target_user['user_code'])
+            
+            logger.info(f"管理员 {operator_user.get('username')} 重置了用户 {target_user['username']} 的密码")
+            
+            return {
+                'success': True,
+                'message': f'用户 {target_user["username"]} 的密码重置成功'
+            }
+            
+        except Exception as e:
+            logger.error(f"重置用户密码失败: {str(e)}")
+            return {
+                'success': False,
+                'error': f'重置密码失败: {str(e)}'
+            }
+    
+    def _clear_user_all_cache_and_tokens(self, user_id: int, user_code: str):
+        """
+        清除用户的所有缓存和token，强制重新登录
+        
+        Args:
+            user_id: 用户ID
+            user_code: 用户编码
+        """
+        try:
+            # 清除用户基本信息缓存
+            cache_keys = [
+                f"{self.cache_prefix}id:{user_id}",
+                f"{self.cache_prefix}code:{user_code}",
+                f"{self.session_prefix}{user_id}"
+            ]
+            
+            for cache_key in cache_keys:
+                self.redis.delete_cache(cache_key)
+            
+            # 清除用户的所有token
+            token_keys = [
+                f"access_token:{user_id}",
+                f"refresh_token:{user_id}",
+                f"session:{user_id}"
+            ]
+            
+            for token_key in token_keys:
+                self.redis.delete_token(token_key)
+            
+            # 清除列表缓存
+            self._clear_list_cache()
+            
+            logger.info(f"已清除用户 {user_code} 的所有缓存和token")
+            
+        except Exception as e:
+            logger.error(f"清除用户缓存和token失败: {str(e)}")
 
 def get_user_service_instance() -> UserService:
     """

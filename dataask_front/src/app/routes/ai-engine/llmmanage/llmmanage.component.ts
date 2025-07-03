@@ -24,14 +24,14 @@ interface LLMModel {
 @Component({
   selector: 'app-ai-engine-llmmanage',
   imports: [...SHARED_IMPORTS],
-  templateUrl: './llmmanage.component.html',
+  templateUrl: './llmmanage.component.html'
 })
 export class AiEngineLlmmanageComponent implements OnInit {
   private readonly http = inject(_HttpClient);
   private readonly modal = inject(ModalHelper);
 
   url = `/api/llm-models`;
-  
+
   searchSchema: SFSchema = {
     properties: {
       name: {
@@ -84,7 +84,7 @@ export class AiEngineLlmmanageComponent implements OnInit {
   };
 
   @ViewChild('st') private readonly st!: STComponent;
-  
+
   columns: STColumn[] = [
     { title: 'ID', index: 'id', width: 60 },
     {
@@ -115,10 +115,10 @@ export class AiEngineLlmmanageComponent implements OnInit {
       type: 'tag',
       tag: {
         'text-generation': { text: '文本生成', color: 'blue' },
-        'chat': { text: '对话模型', color: 'green' },
+        chat: { text: '对话模型', color: 'green' },
         'code-generation': { text: '代码生成', color: 'purple' },
-        'embedding': { text: '嵌入模型', color: 'orange' },
-        'vision': { text: '图像理解', color: 'red' }
+        embedding: { text: '嵌入模型', color: 'orange' },
+        vision: { text: '图像理解', color: 'red' }
       }
     },
     {
@@ -316,7 +316,7 @@ export class AiEngineLlmmanageComponent implements OnInit {
     const updatedItem = { ...item };
     const success = Math.random() > 0.2; // 80%成功率
     updatedItem.status = success ? 'active' : 'inactive';
-    
+
     // 更新数据
     const index = this.mockData.findIndex(d => d.id === item.id);
     if (index > -1) {

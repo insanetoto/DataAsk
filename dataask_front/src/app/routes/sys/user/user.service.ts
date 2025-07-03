@@ -17,7 +17,9 @@ export interface User {
   status: number;
   created_at?: string;
   updated_at?: string;
-  // 关联数据
+  // 关联数据字段
+  org_name?: string;
+  role_code?: string;
   organization?: any;
   role?: any;
 }
@@ -35,6 +37,11 @@ export interface UserQuery {
 @Injectable({ providedIn: 'root' })
 export class SysUserService {
   private readonly http = inject(_HttpClient);
+
+  // 暴露http客户端供子组件使用
+  get httpClient() {
+    return this.http;
+  }
 
   /**
    * 获取用户列表

@@ -1,19 +1,19 @@
 import { waitForAsync, ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { AiEngineDatasourceComponent } from './datasource.component';
+import { SysUserViewComponent } from './user-view.component';
 
-describe('AiEngineDatasourceComponent', () => {
-  let component: AiEngineDatasourceComponent;
-  let fixture: ComponentFixture<AiEngineDatasourceComponent>;
+describe('SysUserViewComponent', () => {
+  let component: SysUserViewComponent;
+  let fixture: ComponentFixture<SysUserViewComponent>;
 
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
-      declarations: [AiEngineDatasourceComponent]
+      declarations: [SysUserViewComponent]
     }).compileComponents();
   }));
 
   beforeEach(() => {
-    fixture = TestBed.createComponent(AiEngineDatasourceComponent);
+    fixture = TestBed.createComponent(SysUserViewComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

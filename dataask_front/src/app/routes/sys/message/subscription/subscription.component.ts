@@ -1,13 +1,14 @@
 import { Component, OnInit, inject } from '@angular/core';
+import { SHARED_IMPORTS } from '@shared';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalService } from 'ng-zorro-antd/modal';
-import { SHARED_IMPORTS } from '@shared';
+
 import { SysMessageService, MessageSubscription, MessagePublish } from '../message.service';
 
 @Component({
   selector: 'app-sys-message-subscription',
   imports: [...SHARED_IMPORTS],
-  templateUrl: './subscription.component.html',
+  templateUrl: './subscription.component.html'
 })
 export class SysMessageSubscriptionComponent implements OnInit {
   private readonly messageService = inject(SysMessageService);
@@ -41,9 +42,9 @@ export class SysMessageSubscriptionComponent implements OnInit {
     this.loading = true;
     // 假设当前用户ID为1
     const currentUserId = 1;
-    
+
     this.messageService.getUserSubscriptions(currentUserId).subscribe({
-      next: (res) => {
+      next: res => {
         this.loading = false;
         if (res.success) {
           this.subscriptions = res.data || [];
@@ -51,7 +52,7 @@ export class SysMessageSubscriptionComponent implements OnInit {
           this.msg.error(res.message || '获取订阅列表失败');
         }
       },
-      error: (err) => {
+      error: err => {
         this.loading = false;
         this.msg.error('获取订阅列表失败');
         console.error(err);
@@ -64,12 +65,12 @@ export class SysMessageSubscriptionComponent implements OnInit {
    */
   loadChannels(): void {
     this.messageService.getMessageChannels().subscribe({
-      next: (res) => {
+      next: res => {
         if (res.success) {
           this.channels = res.data || [];
         }
       },
-      error: (err) => {
+      error: err => {
         console.error('加载推送渠道失败:', err);
       }
     });
@@ -80,12 +81,12 @@ export class SysMessageSubscriptionComponent implements OnInit {
    */
   loadMessageTypes(): void {
     this.messageService.getMessageTypes().subscribe({
-      next: (res) => {
+      next: res => {
         if (res.success) {
           this.messageTypes = res.data || [];
         }
       },
-      error: (err) => {
+      error: err => {
         console.error('加载消息类型失败:', err);
       }
     });
@@ -96,7 +97,7 @@ export class SysMessageSubscriptionComponent implements OnInit {
    */
   updateSubscription(subscription: MessageSubscription): void {
     this.messageService.updateUserSubscription(subscription.user_id, subscription).subscribe({
-      next: (res) => {
+      next: res => {
         if (res.success) {
           this.msg.success('订阅设置已更新');
           this.lastUpdateTime = new Date().toLocaleString();
@@ -104,7 +105,7 @@ export class SysMessageSubscriptionComponent implements OnInit {
           this.msg.error(res.message || '更新订阅设置失败');
         }
       },
-      error: (err) => {
+      error: err => {
         this.msg.error('更新订阅设置失败');
         console.error(err);
       }
@@ -121,7 +122,7 @@ export class SysMessageSubscriptionComponent implements OnInit {
     }
 
     this.msg.info('正在发送测试消息...');
-    
+
     // 模拟测试消息发送
     setTimeout(() => {
       this.msg.success(`测试消息已通过${this.getChannelText(subscription.channel)}发送`);
@@ -194,10 +195,10 @@ export class SysMessageSubscriptionComponent implements OnInit {
    * 获取类型文本
    */
   getTypeText(type: string): string {
-    const typeMap: { [key: string]: string } = {
-      'system': '系统通知',
-      'business': '业务消息',
-      'alert': '告警消息'
+    const typeMap: Record<string, string> = {
+      system: '系统通知',
+      business: '业务消息',
+      alert: '告警消息'
     };
     return typeMap[type] || type;
   }
@@ -206,10 +207,10 @@ export class SysMessageSubscriptionComponent implements OnInit {
    * 获取类型描述
    */
   getTypeDescription(type: string): string {
-    const descMap: { [key: string]: string } = {
-      'system': '系统维护、更新等通知',
-      'business': '业务流程、数据处理相关消息',
-      'alert': '系统异常、错误告警'
+    const descMap: Record<string, string> = {
+      system: '系统维护、更新等通知',
+      business: '业务流程、数据处理相关消息',
+      alert: '系统异常、错误告警'
     };
     return descMap[type] || type;
   }
@@ -218,10 +219,10 @@ export class SysMessageSubscriptionComponent implements OnInit {
    * 获取类型颜色
    */
   getTypeColor(type: string): string {
-    const colorMap: { [key: string]: string } = {
-      'system': 'blue',
-      'business': 'green',
-      'alert': 'red'
+    const colorMap: Record<string, string> = {
+      system: 'blue',
+      business: 'green',
+      alert: 'red'
     };
     return colorMap[type] || 'default';
   }
@@ -230,10 +231,10 @@ export class SysMessageSubscriptionComponent implements OnInit {
    * 获取类型图标
    */
   getTypeIcon(type: string): string {
-    const iconMap: { [key: string]: string } = {
-      'system': 'setting',
-      'business': 'dollar',
-      'alert': 'warning'
+    const iconMap: Record<string, string> = {
+      system: 'setting',
+      business: 'dollar',
+      alert: 'warning'
     };
     return iconMap[type] || 'message';
   }
@@ -242,11 +243,11 @@ export class SysMessageSubscriptionComponent implements OnInit {
    * 获取渠道文本
    */
   getChannelText(channel: string): string {
-    const channelMap: { [key: string]: string } = {
-      'email': '邮件',
-      'sms': '短信',
-      'system': '系统通知'
+    const channelMap: Record<string, string> = {
+      email: '邮件',
+      sms: '短信',
+      system: '系统通知'
     };
     return channelMap[channel] || channel;
   }
-} 
+}
