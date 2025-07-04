@@ -85,42 +85,49 @@ export const MENU_DATA: Menu[] = [
         text: '系统管理',
         i18n: 'menu.sys',
         icon: { type: 'icon', value: 'setting' },
+        acl: { role: ['SUPER_ADMIN', 'ORG_ADMIN'], mode: 'oneOf' },
         children: [
           {
             text: '用户管理',
             i18n: 'menu.sys.user',
             icon: { type: 'icon', value: 'user' },
-            link: '/sys/user'
+            link: '/sys/user',
+            acl: { role: ['SUPER_ADMIN', 'ORG_ADMIN'], mode: 'oneOf' }
           },
           {
             text: '角色管理',
             i18n: 'menu.sys.role',
             icon: { type: 'icon', value: 'team' },
-            link: '/sys/role'
+            link: '/sys/role',
+            acl: { role: ['SUPER_ADMIN', 'ORG_ADMIN'], mode: 'oneOf' }
           },
           {
             text: '权限管理',
             i18n: 'menu.sys.permission',
             icon: { type: 'icon', value: 'safety' },
-            link: '/sys/permission'
+            link: '/sys/permission',
+            acl: { role: ['SUPER_ADMIN', 'ORG_ADMIN'], mode: 'oneOf' }
           },
           {
             text: '机构管理',
             i18n: 'menu.sys.org',
             icon: { type: 'icon', value: 'cluster' },
-            link: '/sys/org'
+            link: '/sys/org',
+            acl: { role: ['SUPER_ADMIN', 'ORG_ADMIN'], mode: 'oneOf' }
           },
           {
             text: '工作流管理',
             i18n: 'menu.sys.workflow',
             icon: { type: 'icon', value: 'apartment' },
-            link: '/sys/workflow'
+            link: '/sys/workflow',
+            acl: { role: ['SUPER_ADMIN', 'ORG_ADMIN'], mode: 'oneOf' }
           },
           {
             text: '消息管理',
             i18n: 'menu.sys.message',
             icon: { type: 'icon', value: 'message' },
-            link: '/sys/message'
+            link: '/sys/message',
+            acl: { role: ['SUPER_ADMIN', 'ORG_ADMIN'], mode: 'oneOf' }
           }
         ]
       }

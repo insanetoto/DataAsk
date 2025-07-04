@@ -48,14 +48,14 @@ export function defaultInterceptor(req: HttpRequest<any>, next: HttpHandlerFn): 
       }
     });
   }
-
   return next(newReq).pipe(
     mergeMap(event => {
       // 统一处理HTTP响应
       if (event instanceof HttpResponse) {
         const body = event.body as ApiResponse;
-        // 对于app/init接口，即使返回401也不处理
-        if (req.url.includes('app/init')) {
+
+        // 对于静态资源文件，不进行API业务逻辑检查
+        if (req.url.includes('/assets/') || req.url.includes('app/init')) {
           return of(event);
         }
 

@@ -152,7 +152,7 @@ class RedisService:
         """缓存查询结果"""
         cache_key = f"query_result:{query_hash}"
         self.set(cache_key, result, ex=ttl)
-        logger.info(f"查询结果已缓存: {cache_key}")
+        
     
     def get_cached_query_result(self, query_hash: str) -> Optional[List[Dict[str, Any]]]:
         """获取缓存的查询结果"""
@@ -163,7 +163,7 @@ class RedisService:
         """缓存Vanna生成的SQL"""
         cache_key = f"vanna_sql:{question_hash}"
         self.set(cache_key, sql, ex=ttl)
-        logger.info(f"Vanna SQL已缓存: {cache_key}")
+        
     
     def get_cached_vanna_sql(self, question_hash: str) -> Optional[str]:
         """获取缓存的Vanna SQL"""

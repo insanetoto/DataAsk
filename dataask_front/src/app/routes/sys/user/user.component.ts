@@ -59,6 +59,9 @@ export class SysUserComponent implements OnInit {
   @ViewChild('st', { static: true })
   st!: STComponent;
 
+  @ViewChild('deleteConfirmTemplate', { static: true })
+  deleteConfirmTemplate!: TemplateRef<any>;
+
   // 表格列配置
   columns: STColumn[] = [
     { title: '', index: 'key', type: 'checkbox' },
@@ -144,33 +147,54 @@ export class SysUserComponent implements OnInit {
         {
           text: '查看',
           icon: 'eye',
-          click: (item: User) => this.viewUser(item)
+          click: (item: User) => this.viewUser(item),
+          iif: (item: User) => this.canManageUser(item)
         },
         {
           text: '编辑',
           icon: 'edit',
-          click: (item: User) => this.editUser(item)
+          click: (item: User) => this.editUser(item),
+          iif: (item: User) => this.canManageUser(item)
         },
         {
           text: '重置密码',
           icon: 'lock',
-          acl: 'user.reset.password',
-          click: (item: User) => this.resetPassword(item)
+          click: (item: User) => this.resetPassword(item),
+          iif: (item: User) => this.canManageUser(item)
         },
         {
           text: '删除',
           icon: 'delete',
-          type: 'del',
-          click: (item: User) => this.deleteUser(item)
+          click: (item: User) => this.deleteUser(item),
+          iif: (item: User) => this.canDeleteUser(item)
         }
       ]
     }
   ];
 
   ngOnInit(): void {
+    this.initializePermissions();
     this.getData();
     this.loadOrganizationOptions();
     this.loadRoleOptions();
+  }
+
+  /**
+   * 初始化权限控制
+   */
+  private initializePermissions(): void {
+    const currentUser = this.settings.user;
+    if (!currentUser) return;
+
+    const roleCode = currentUser.roleCode || currentUser.role_code || currentUser.role?.role_code;
+
+    // 如果是机构管理员，自动设置机构过滤条件
+    if (roleCode === 'ORG_ADMIN') {
+      const orgCode = currentUser.orgCode || currentUser.org_code || currentUser.organization?.org_code;
+      if (orgCode) {
+        this.q.org_code = orgCode;
+      }
+    }
   }
 
   /**
@@ -186,18 +210,103 @@ export class SysUserComponent implements OnInit {
   }
 
   /**
+   * 检查是否可以管理指定用户
+   */
+  canManageUser(user: User): boolean {
+    const currentUser = this.settings.user;
+    if (!currentUser) return false;
+
+    const roleCode = currentUser.roleCode || currentUser.role_code || currentUser.role?.role_code;
+
+    // 超级管理员可以管理所有用户
+    if (roleCode === 'SUPER_ADMIN') {
+      return true;
+    }
+
+    // 机构管理员只能管理同机构用户
+    if (roleCode === 'ORG_ADMIN') {
+      const currentOrgCode = currentUser.orgCode || currentUser.org_code || currentUser.organization?.org_code;
+      const targetOrgCode = user.org_code || (user as any).organization?.org_code;
+      return currentOrgCode === targetOrgCode;
+    }
+
+    return false;
+  }
+
+  /**
+   * 检查是否可以删除指定用户
+   */
+  canDeleteUser(user: User): boolean {
+    const currentUser = this.settings.user;
+    if (!currentUser) return false;
+
+    // 不能删除自己
+    if (currentUser.id === user.id) {
+      return false;
+    }
+
+    return this.canManageUser(user);
+  }
+
+  /**
+   * 检查是否可以新增用户
+   */
+  canAddUser(): boolean {
+    const currentUser = this.settings.user;
+    if (!currentUser) return false;
+
+    const roleCode = currentUser.roleCode || currentUser.role_code || currentUser.role?.role_code;
+
+    // 超级管理员和机构管理员都可以新增用户
+    return roleCode === 'SUPER_ADMIN' || roleCode === 'ORG_ADMIN';
+  }
+
+  /**
+   * 检查是否是机构管理员且机构固定
+   */
+  isOrgAdminWithFixedOrg(): boolean {
+    const currentUser = this.settings.user;
+    if (!currentUser) return false;
+
+    const roleCode = currentUser.roleCode || currentUser.role_code || currentUser.role?.role_code;
+
+    // 机构管理员的机构选择应该被禁用，因为他们只能管理自己的机构
+    return roleCode === 'ORG_ADMIN';
+  }
+
+  /**
    * 获取用户列表数据
    */
-  getData(): void {
+  getData(forceRefresh = false): void {
     this.loading = true;
-    const params = {
+
+    // 权限控制：机构管理员只能查看本机构用户
+    let orgCode = this.q.org_code || '';
+    const currentUser = this.settings.user;
+    if (currentUser) {
+      const roleCode = currentUser.roleCode || currentUser.role_code || currentUser.role?.role_code;
+      if (roleCode === 'ORG_ADMIN') {
+        // 机构管理员强制使用自己的机构代码
+        const currentOrgCode = currentUser.orgCode || currentUser.org_code || currentUser.organization?.org_code;
+        if (currentOrgCode) {
+          orgCode = currentOrgCode;
+        }
+      }
+    }
+
+    const params: any = {
       pi: this.q.pi,
       ps: this.q.ps,
       keyword: this.q.keyword || '',
       status: this.q.status,
-      org_code: this.q.org_code || '',
+      org_code: orgCode,
       role_id: this.q.role_id
     };
+
+    // 添加强制刷新参数，跳过缓存
+    if (forceRefresh) {
+      params._t = Date.now();
+    }
 
     this.userService
       .getUsers(params)
@@ -329,24 +438,135 @@ export class SysUserComponent implements OnInit {
    * 删除用户
    */
   deleteUser(item: User): void {
+    // 创建自定义确认对话框，提供停用和删除两个选项
     this.modalSrv.confirm({
-      nzTitle: '确认删除',
-      nzContent: `确定要删除用户 "${item.username}" 吗？`,
+      nzTitle: '用户操作选择',
+      nzContent: `
+        <div>
+          <p>请选择对用户 "<strong>${item.username}</strong>" 的操作：</p>
+          <div style="margin-top: 16px;">
+            <p><strong>停用：</strong>将用户状态设置为停用，用户无法登录但数据保留</p>
+            <p><strong>删除：</strong>永久删除用户数据，此操作无法撤销</p>
+          </div>
+        </div>
+      `,
+      nzOkText: '停用用户',
+      nzOkType: 'primary',
+      nzCancelText: '删除用户',
       nzOnOk: () => {
-        return this.userService.deleteUser(item.id!).subscribe({
-          next: res => {
-            if (res.code === 200 || res.success === true) {
-              this.msg.success('删除成功');
-              this.getData();
-            } else {
-              this.msg.error(res.message || res.error || '删除失败');
+        // 停用用户
+        return this.disableUser(item);
+      },
+      nzOnCancel: () => {
+        // 删除用户 - 需要二次确认
+        this.confirmDeleteUser(item);
+      },
+      nzWidth: 500
+    });
+  }
+
+  /**
+   * 停用用户
+   */
+  private disableUser(item: User): Promise<boolean> {
+    return new Promise(resolve => {
+      // 只传递需要更新的字段
+      const updateData = {
+        status: 0 // 0表示停用
+      };
+
+      this.userService.updateUser(item.id!, updateData).subscribe({
+        next: res => {
+          if (res.code === 200 || res.success === true) {
+            this.msg.success('用户已停用');
+            // 立即更新本地数据状态
+            const userIndex = this.data.findIndex(u => u.id === item.id);
+            if (userIndex !== -1) {
+              this.data[userIndex] = { ...this.data[userIndex], status: 0 };
             }
-          },
-          error: () => {
-            this.msg.error('删除失败');
+            // 强制刷新数据，确保与服务器同步
+            this.getData(true);
+            resolve(true);
+          } else {
+            this.msg.error(res.message || res.error || '停用失败');
+            resolve(false);
           }
-        });
+        },
+        error: () => {
+          this.msg.error('停用失败');
+          resolve(false);
+        }
+      });
+    });
+  }
+
+  // 用于删除确认的用户名输入值
+  deleteConfirmUsername = '';
+  // 当前要删除的用户
+  currentDeletingUser: User | null = null;
+
+  /**
+   * 确认删除用户（二次确认）
+   */
+  private confirmDeleteUser(item: User): void {
+    // 重置输入值
+    this.deleteConfirmUsername = '';
+    this.currentDeletingUser = item;
+
+    // 使用模板引用创建模态框
+    const modal = this.modalSrv.create({
+      nzTitle: '确认永久删除',
+      nzContent: this.deleteConfirmTemplate,
+      nzOkText: '永久删除',
+      nzCancelText: '取消',
+      nzOkType: 'primary',
+      nzOkDanger: true,
+      nzWidth: 600,
+      nzOnOk: () => {
+        if (this.deleteConfirmUsername.trim() === item.username) {
+          return this.permanentDeleteUser(item);
+        } else {
+          this.msg.error('用户名输入不正确，删除操作已取消');
+          return false;
+        }
       }
+    });
+
+    // 模态框打开后聚焦到输入框
+    modal.afterOpen.subscribe(() => {
+      setTimeout(() => {
+        const confirmInput = document.querySelector('#deleteConfirmInput') as HTMLInputElement;
+        if (confirmInput) {
+          confirmInput.focus();
+        }
+      }, 100);
+    });
+  }
+
+  /**
+   * 永久删除用户
+   */
+  private permanentDeleteUser(item: User): Promise<boolean> {
+    return new Promise(resolve => {
+      this.userService.deleteUser(item.id!).subscribe({
+        next: res => {
+          if (res.code === 200 || res.success === true) {
+            this.msg.success('用户已永久删除');
+            // 立即从本地数据中移除
+            this.data = this.data.filter(u => u.id !== item.id);
+            // 强制刷新数据，确保与服务器同步
+            this.getData(true);
+            resolve(true);
+          } else {
+            this.msg.error(res.message || res.error || '删除失败');
+            resolve(false);
+          }
+        },
+        error: () => {
+          this.msg.error('删除失败');
+          resolve(false);
+        }
+      });
     });
   }
 

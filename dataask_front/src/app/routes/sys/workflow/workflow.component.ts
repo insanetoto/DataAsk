@@ -112,34 +112,34 @@ export class SysWorkflowComponent implements OnInit {
   ngOnInit(): void {}
 
   add(): void {
-    console.log('添加新工作流');
+    // 添加新工作流
   }
 
-  viewWorkflow(item: any): void {
-    console.log('查看工作流:', item);
+  viewWorkflow(_item: any): void {
+    // 查看工作流详情
   }
 
-  editWorkflow(item: any): void {
-    console.log('编辑工作流:', item);
+  editWorkflow(_item: any): void {
+    // 编辑工作流
   }
 
-  executeWorkflow(item: any): void {
-    console.log('执行工作流:', item);
+  executeWorkflow(_item: any): void {
+    // 执行工作流
     this.st.reload();
   }
 
-  pauseWorkflow(item: any): void {
-    console.log('暂停工作流:', item);
+  pauseWorkflow(_item: any): void {
+    // 暂停工作流
     this.st.reload();
   }
 
-  activateWorkflow(item: any): void {
-    console.log('激活工作流:', item);
+  activateWorkflow(_item: any): void {
+    // 激活工作流
     this.st.reload();
   }
 
-  deleteWorkflow(item: any): void {
-    console.log('删除工作流:', item);
+  deleteWorkflow(_item: any): void {
+    // 删除工作流
     this.st.reload();
   }
 }

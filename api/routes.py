@@ -70,6 +70,47 @@ def get_user_service_instance():
 def get_menu_service_instance():
     return get_menu_service()
 
+def can_manage_user(current_user: Dict[str, Any], target_user_id: int) -> bool:
+    """
+    检查当前用户是否可以管理目标用户
+    
+    Args:
+        current_user: 当前用户信息
+        target_user_id: 目标用户ID
+    
+    Returns:
+        bool: 是否有权限管理
+    """
+    if not current_user:
+        return False
+    
+    role_code = current_user.get('role_code', '')
+    
+    # 超级管理员可以管理所有用户
+    if role_code == 'SUPER_ADMIN':
+        return True
+    
+    # 机构管理员只能管理同机构用户
+    if role_code == 'ORG_ADMIN':
+        try:
+            user_service = get_user_service_instance()
+            # 使用不检查状态的方法获取用户信息，因为权限检查不应该被用户状态阻止
+            target_user_result = user_service._get_user_by_id_without_status_check(target_user_id)
+            
+            if not target_user_result['success']:
+                return False
+            
+            target_user = target_user_result['data']
+            current_org_code = current_user.get('org_code', '')
+            target_org_code = target_user.get('org_code', '')
+            
+            return current_org_code == target_org_code
+        except Exception as e:
+            logger.error(f"检查用户管理权限失败: {str(e)}")
+            return False
+    
+    return False
+
 @api_bp.route('/health', methods=['GET'])
 def health_check():
     """健康检查接口"""
@@ -365,40 +406,53 @@ def clear_cache():
 
 @api_bp.route('/organizations', methods=['POST'])
 def create_organization():
-    """创建机构接口"""
+    """创建组织机构"""
     try:
+        current_user = g.current_user
+        if not current_user:
+            return jsonify({
+                'code': 401,
+                'message': '未认证用户'
+            }), 401
+        
         data = request.get_json()
         if not data:
-            return jsonify({
-                'code': 400,
-                'message': '缺少请求数据',
-                'data': None
-            }), 400
+            response, status = standardize_response(False, error='缺少请求数据', code=400)
+            return jsonify(response), status
+        
+        # 验证必要字段
+        required_fields = ['org_code', 'org_name', 'parent_code']
+        for field in required_fields:
+            if field not in data or not str(data[field]).strip():
+                response, status = standardize_response(False, error=f'缺少必要字段: {field}', code=400)
+                return jsonify(response), status
         
         org_service = get_organization_service()
         result = org_service.create_organization(data)
         
-        # 转换为标准格式
         if result['success']:
-            return jsonify({
-                'code': 201,
-                'message': '创建机构成功',
-                'data': result['data']
-            }), 201
+            # 记录审计日志
+            from service.audit_service import audit_operation
+            audit_operation(
+                module='org',
+                operation='create',
+                target_type='organization',
+                target_id=data['org_code'],
+                target_name=data['org_name'],
+                old_data=None,
+                new_data=result.get('data'),
+                operation_desc=f"创建机构: {data['org_name']}"
+            )
+            
+            response, status = standardize_response(True, data=result['data'], message='机构创建成功')
         else:
-            return jsonify({
-                'code': 400,
-                'message': result.get('error', '创建机构失败'),
-                'data': None
-            }), 400
+            response, status = standardize_response(False, error=result['error'], code=400)
+        return jsonify(response), status
         
     except Exception as e:
         logger.error(f"创建机构失败: {str(e)}")
-        return jsonify({
-            'code': 500,
-            'message': f'创建机构失败: {str(e)}',
-            'data': None
-        }), 500
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
 
 @api_bp.route('/organizations/<int:org_id>', methods=['GET'])
 def get_organization(org_id):
@@ -476,69 +530,98 @@ def get_organizations_list():
 
 @api_bp.route('/organizations/<int:org_id>', methods=['PUT'])
 def update_organization(org_id):
-    """更新机构信息接口"""
+    """更新机构信息"""
     try:
+        current_user = g.current_user
+        if not current_user:
+            return jsonify({
+                'code': 401,
+                'message': '未认证用户'
+            }), 401
+        
         data = request.get_json()
         if not data:
-            return jsonify({
-                'code': 400,
-                'message': '缺少请求数据',
-                'data': None
-            }), 400
+            response, status = standardize_response(False, error='缺少请求数据', code=400)
+            return jsonify(response), status
         
         org_service = get_organization_service()
+        
+        # 获取原始数据用于审计
+        old_org_result = org_service.get_organization_by_id(org_id)
+        old_org_data = old_org_result.get('data') if old_org_result.get('success') else None
+        
         result = org_service.update_organization(org_id, data)
         
-        # 转换为标准格式
         if result['success']:
-            return jsonify({
-                'code': 200,
-                'message': '更新机构成功',
-                'data': result['data']
-            }), 200
+            # 获取更新后的数据
+            new_org_result = org_service.get_organization_by_id(org_id)
+            new_org_data = new_org_result.get('data') if new_org_result.get('success') else None
+            
+            # 记录审计日志
+            from service.audit_service import audit_operation
+            audit_operation(
+                module='org',
+                operation='update',
+                target_type='organization',
+                target_id=str(org_id),
+                target_name=old_org_data.get('org_name', '') if old_org_data else '',
+                old_data=old_org_data,
+                new_data=new_org_data,
+                operation_desc=f"更新机构: {old_org_data.get('org_name', '') if old_org_data else ''}"
+            )
+            
+            response, status = standardize_response(True, data=result['data'], message='机构更新成功')
         else:
-            return jsonify({
-                'code': 400,
-                'message': result.get('error', '更新机构失败'),
-                'data': None
-            }), 400
+            response, status = standardize_response(False, error=result['error'], code=400)
+        return jsonify(response), status
         
     except Exception as e:
-        logger.error(f"更新机构信息失败: {str(e)}")
-        return jsonify({
-            'code': 500,
-            'message': f'更新机构信息失败: {str(e)}',
-            'data': None
-        }), 500
+        logger.error(f"更新机构失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
 
 @api_bp.route('/organizations/<int:org_id>', methods=['DELETE'])
 def delete_organization(org_id):
-    """删除机构接口"""
+    """删除机构"""
     try:
+        current_user = g.current_user
+        if not current_user:
+            return jsonify({
+                'code': 401,
+                'message': '未认证用户'
+            }), 401
+        
         org_service = get_organization_service()
+        
+        # 获取原始数据用于审计
+        old_org_result = org_service.get_organization_by_id(org_id)
+        old_org_data = old_org_result.get('data') if old_org_result.get('success') else None
+        
         result = org_service.delete_organization(org_id)
         
-        # 转换为标准格式
         if result['success']:
-            return jsonify({
-                'code': 200,
-                'message': '删除机构成功',
-                'data': result.get('data')
-            }), 200
+            # 记录审计日志
+            from service.audit_service import audit_operation
+            audit_operation(
+                module='org',
+                operation='delete',
+                target_type='organization',
+                target_id=str(org_id),
+                target_name=old_org_data.get('org_name', '') if old_org_data else '',
+                old_data=old_org_data,
+                new_data=None,
+                operation_desc=f"删除机构: {old_org_data.get('org_name', '') if old_org_data else ''}"
+            )
+            
+            response, status = standardize_response(True, message='机构删除成功')
         else:
-            return jsonify({
-                'code': 400,
-                'message': result.get('error', '删除机构失败'),
-                'data': None
-            }), 400
+            response, status = standardize_response(False, error=result['error'], code=400)
+        return jsonify(response), status
         
     except Exception as e:
         logger.error(f"删除机构失败: {str(e)}")
-        return jsonify({
-            'code': 500,
-            'message': f'删除机构失败: {str(e)}',
-            'data': None
-        }), 500
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
 
 @api_bp.route('/organizations/cache/clear', methods=['POST'])
 def clear_organization_cache():
@@ -802,6 +885,7 @@ def get_users():
         page = request.args.get('pi', request.args.get('page', 1), type=int)
         page_size = request.args.get('ps', request.args.get('page_size', 10), type=int)
         keyword = request.args.get('keyword', '')
+        org_code = request.args.get('org_code', '')
         
         # 处理undefined字符串值
         status_str = request.args.get('status')
@@ -810,8 +894,30 @@ def get_users():
         else:
             status = None
         
+        # 权限控制：根据当前用户角色决定可见的用户范围
+        current_user = get_current_user()
+        current_user_org = None
+        
+        if current_user:
+            role_code = current_user.get('role_code', '')
+            
+            # 如果是机构管理员，只能查看本机构用户
+            if role_code == 'ORG_ADMIN':
+                current_user_org = current_user.get('org_code', '')
+                # 强制设置org_code过滤条件为当前用户的机构
+                if current_user_org:
+                    org_code = current_user_org
+            # 超级管理员可以查看所有用户，不需要额外限制
+        
         user_service = get_user_service_instance()
-        result = user_service.get_users_list(page, page_size, keyword=keyword, status=status)
+        result = user_service.get_users_list(
+            page=page, 
+            page_size=page_size, 
+            keyword=keyword, 
+            status=status,
+            org_code=org_code,
+            current_user_org=current_user_org
+        )
         
         # 转换服务层响应为标准格式
         if result['success']:
@@ -829,15 +935,27 @@ def get_users():
 @auth_required
 def get_user(user_id):
     """获取用户信息"""
-    user_service = get_user_service_instance()
-    result = user_service.get_user_by_id(user_id)
-    
-    # 转换服务层响应为标准格式
-    if result['success']:
-        response, status = standardize_response(True, data=result['data'], message='获取用户信息成功')
-    else:
-        response, status = standardize_response(False, error=result.get('error', '获取用户信息失败'), code=400)
-    return jsonify(response), status
+    try:
+        # 权限控制：检查是否可以查看该用户
+        current_user = get_current_user()
+        if not can_manage_user(current_user, user_id):
+            response, status = standardize_response(False, error='权限不足：无法查看该用户信息', code=403)
+            return jsonify(response), status
+        
+        user_service = get_user_service_instance()
+        result = user_service.get_user_by_id(user_id)
+        
+        # 转换服务层响应为标准格式
+        if result['success']:
+            response, status = standardize_response(True, data=result['data'], message='获取用户信息成功')
+        else:
+            response, status = standardize_response(False, error=result.get('error', '获取用户信息失败'), code=400)
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"获取用户信息失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
 
 @api_bp.route('/users', methods=['POST'], endpoint='create_new_user')
 @auth_required
@@ -858,24 +976,60 @@ def create_user():
 @auth_required
 def update_user(user_id):
     """更新用户信息"""
-    data = request.get_json()
-    user_service = get_user_service_instance()
-    result = user_service.update_user(user_id, data)
-    
-    # 转换服务层响应为标准格式
-    if result['success']:
-        response, status = standardize_response(True, message=result.get('message', '更新用户成功'))
-    else:
-        response, status = standardize_response(False, error=result.get('error', '更新用户失败'), code=400)
-    return jsonify(response), status
+    try:
+        # 权限控制：检查是否可以编辑该用户
+        current_user = get_current_user()
+        if not can_manage_user(current_user, user_id):
+            response, status = standardize_response(False, error='权限不足：无法编辑该用户信息', code=403)
+            return jsonify(response), status
+        
+        data = request.get_json()
+        user_service = get_user_service_instance()
+        result = user_service.update_user(user_id, data)
+        
+        # 转换服务层响应为标准格式
+        if result['success']:
+            response, status = standardize_response(True, message=result.get('message', '更新用户成功'))
+        else:
+            response, status = standardize_response(False, error=result.get('error', '更新用户失败'), code=400)
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"更新用户信息失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
 
 @api_bp.route('/users/<int:user_id>', methods=['DELETE'], endpoint='delete_user_by_id')
 @auth_required
 def delete_user(user_id):
     """删除用户"""
-    user_service = get_user_service_instance()
-    result = user_service.delete_user(user_id)
-    return jsonify(result), 200 if result['success'] else 400
+    try:
+        # 权限控制：检查是否可以删除该用户
+        current_user = get_current_user()
+        
+        # 不能删除自己
+        if current_user and current_user.get('id') == user_id:
+            response, status = standardize_response(False, error='不能删除自己的账户', code=400)
+            return jsonify(response), status
+        
+        if not can_manage_user(current_user, user_id):
+            response, status = standardize_response(False, error='权限不足：无法删除该用户', code=403)
+            return jsonify(response), status
+        
+        user_service = get_user_service_instance()
+        result = user_service.delete_user(user_id)
+        
+        # 转换服务层响应为标准格式
+        if result['success']:
+            response, status = standardize_response(True, message=result.get('message', '删除用户成功'))
+        else:
+            response, status = standardize_response(False, error=result.get('error', '删除用户失败'), code=400)
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"删除用户失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
 
 @api_bp.route('/users/<int:user_id>/roles', methods=['GET'], endpoint='get_user_roles_by_id')
 @auth_required
@@ -995,27 +1149,113 @@ def get_role(role_id):
 @auth_required
 def create_role():
     """创建角色"""
-    data = request.get_json()
-    role_service = get_role_service()
-    result = role_service.create_role(data)
-    return jsonify(result), 200 if result['success'] else 400
+    try:
+        current_user = g.current_user
+        data = request.get_json()
+        
+        role_service = get_role_service()
+        result = role_service.create_role(data)
+        
+        if result['success']:
+            # 记录审计日志
+            from service.audit_service import audit_operation
+            audit_operation(
+                module='role',
+                operation='create',
+                target_type='role',
+                target_id=str(result.get('data', {}).get('id', '')),
+                target_name=data.get('role_name', ''),
+                old_data=None,
+                new_data=result.get('data'),
+                operation_desc=f"创建角色: {data.get('role_name', '')}"
+            )
+            
+        response, status = standardize_response(result['success'], data=result.get('data'), error=result.get('error'))
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"创建角色失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
 
 @api_bp.route('/roles/<int:role_id>', methods=['PUT'], endpoint='update_role_by_id')
 @auth_required
 def update_role(role_id):
-    """更新角色信息"""
-    data = request.get_json()
-    role_service = get_role_service()
-    result = role_service.update_role(role_id, data)
-    return jsonify(result), 200 if result['success'] else 400
+    """更新角色"""
+    try:
+        current_user = g.current_user
+        data = request.get_json()
+        
+        role_service = get_role_service()
+        
+        # 获取原始数据用于审计
+        old_role_result = role_service.get_role_by_id(role_id)
+        old_role_data = old_role_result.get('data') if old_role_result.get('success') else None
+        
+        result = role_service.update_role(role_id, data)
+        
+        if result['success']:
+            # 获取更新后的数据
+            new_role_result = role_service.get_role_by_id(role_id)
+            new_role_data = new_role_result.get('data') if new_role_result.get('success') else None
+            
+            # 记录审计日志
+            from service.audit_service import audit_operation
+            audit_operation(
+                module='role',
+                operation='update',
+                target_type='role',
+                target_id=str(role_id),
+                target_name=old_role_data.get('role_name', '') if old_role_data else '',
+                old_data=old_role_data,
+                new_data=new_role_data,
+                operation_desc=f"更新角色: {old_role_data.get('role_name', '') if old_role_data else ''}"
+            )
+            
+        response, status = standardize_response(result['success'], data=result.get('data'), error=result.get('error'))
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"更新角色失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
 
 @api_bp.route('/roles/<int:role_id>', methods=['DELETE'], endpoint='delete_role_by_id')
 @auth_required
 def delete_role(role_id):
     """删除角色"""
-    role_service = get_role_service()
-    result = role_service.delete_role(role_id)
-    return jsonify(result), 200 if result['success'] else 400
+    try:
+        current_user = g.current_user
+        
+        role_service = get_role_service()
+        
+        # 获取原始数据用于审计
+        old_role_result = role_service.get_role_by_id(role_id)
+        old_role_data = old_role_result.get('data') if old_role_result.get('success') else None
+        
+        result = role_service.delete_role(role_id)
+        
+        if result['success']:
+            # 记录审计日志
+            from service.audit_service import audit_operation
+            audit_operation(
+                module='role',
+                operation='delete',
+                target_type='role',
+                target_id=str(role_id),
+                target_name=old_role_data.get('role_name', '') if old_role_data else '',
+                old_data=old_role_data,
+                new_data=None,
+                operation_desc=f"删除角色: {old_role_data.get('role_name', '') if old_role_data else ''}"
+            )
+            
+        response, status = standardize_response(result['success'], data=result.get('data'), error=result.get('error'))
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"删除角色失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
 
 @api_bp.route('/roles/<int:role_id>/permissions', methods=['GET'], endpoint='get_role_permissions_by_id')
 @auth_required
@@ -2727,3 +2967,86 @@ def create_workflow_from_template(template_id):
             
     except Exception as e:
         return response_error(f"从模板创建工作流失败: {str(e)}")
+
+@api_bp.route('/audit/logs', methods=['GET'])
+@auth_required
+def get_audit_logs():
+    """获取审计日志列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('pi', 1))
+        page_size = int(request.args.get('ps', 10))
+        module = request.args.get('module')
+        operation = request.args.get('operation')
+        user_id = request.args.get('user_id')
+        start_time = request.args.get('start_time')
+        end_time = request.args.get('end_time')
+        org_code = request.args.get('org_code')
+        
+        # 权限检查：普通用户只能查看自己的审计日志
+        current_user = g.current_user
+        role_code = current_user.get('role_code', '')
+        
+        if role_code == 'NORMAL_USER':
+            user_id = current_user.get('id')  # 强制只查看自己的日志
+        elif role_code == 'ORG_ADMIN':
+            org_code = current_user.get('org_code')  # 强制只查看本机构的日志
+        # SUPER_ADMIN 可以查看所有日志
+        
+        from service.audit_service import get_audit_service
+        audit_service = get_audit_service()
+        
+        result = audit_service.get_audit_logs(
+            page=page,
+            page_size=page_size,
+            module=module,
+            operation=operation,
+            user_id=int(user_id) if user_id else None,
+            start_time=start_time,
+            end_time=end_time,
+            org_code=org_code
+        )
+        
+        if result['success']:
+            response, status = standardize_response(True, data=result['data'], message='获取审计日志成功')
+        else:
+            response, status = standardize_response(False, error=result['error'], code=400)
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"获取审计日志失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status
+
+@api_bp.route('/audit/logs/<int:audit_id>', methods=['GET'])
+@auth_required
+def get_audit_detail(audit_id):
+    """获取审计日志详情"""
+    try:
+        from service.audit_service import get_audit_service
+        audit_service = get_audit_service()
+        
+        result = audit_service.get_audit_detail(audit_id)
+        
+        if result['success']:
+            # 权限检查：普通用户只能查看自己的审计日志
+            current_user = g.current_user
+            role_code = current_user.get('role_code', '')
+            audit_data = result['data']
+            
+            if role_code == 'NORMAL_USER' and audit_data['user_id'] != current_user.get('id'):
+                response, status = standardize_response(False, error='权限不足', code=403)
+                return jsonify(response), status
+            elif role_code == 'ORG_ADMIN' and audit_data['org_code'] != current_user.get('org_code'):
+                response, status = standardize_response(False, error='权限不足', code=403)
+                return jsonify(response), status
+            
+            response, status = standardize_response(True, data=result['data'], message='获取审计日志详情成功')
+        else:
+            response, status = standardize_response(False, error=result['error'], code=400)
+        return jsonify(response), status
+        
+    except Exception as e:
+        logger.error(f"获取审计日志详情失败: {str(e)}")
+        response, status = standardize_response(False, error=str(e), code=500)
+        return jsonify(response), status

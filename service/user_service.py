@@ -40,63 +40,75 @@ class UserService:
         """创建用户"""
         try:
             # 验证必要字段
-            required_fields = ['org_code', 'user_code', 'username', 'password', 'role_id']
+            required_fields = ['user_code', 'username', 'password', 'org_code', 'role_id']
             for field in required_fields:
-                if field not in data or not str(data[field]).strip():
+                if field not in data or not data[field]:
                     return {
                         'success': False,
                         'error': f'缺少必要字段: {field}'
                     }
             
-            with self.db_service.get_session() as session:
-                # 检查用户编码是否已存在
-                existing_user = self.get_user_by_code(data['user_code'])
-                if existing_user['success'] and existing_user['data']:
-                    return {
-                        'success': False,
-                        'error': f'用户编码 {data["user_code"]} 已存在'
-                    }
-                
-                # 准备用户数据
-                user_data = {
-                    'org_code': data['org_code'],
-                    'user_code': data['user_code'],
-                    'username': data['username'],
-                    'password_hash': data['password'],  # 直接存储明文密码
-                    'role_id': data['role_id'],
-                    'phone': data.get('phone'),
-                    'address': data.get('address'),
-                    'status': data.get('status', 1)
+            # 检查用户编码是否已存在
+            existing_user = self.get_user_by_code(data['user_code'])
+            if existing_user['success'] and existing_user['data']:
+                return {
+                    'success': False,
+                    'error': '用户编码已存在'
                 }
-                
-                # 插入用户数据
+            
+            # 密码hash处理
+            password_hash = self._hash_password(data['password'])
+            
+            # 准备插入数据
+            insert_data = {
+                'user_code': data['user_code'],
+                'username': data['username'],
+                'password_hash': password_hash,
+                'org_code': data['org_code'],
+                'role_id': int(data['role_id']),
+                'phone': data.get('phone', ''),
+                'address': data.get('address', ''),
+                'status': data.get('status', 1)  # 默认启用
+            }
+            
+            # 插入数据库
+            with self.db_service.get_session() as session:
                 result = session.execute(
                     text("""
-                        INSERT INTO users (org_code, user_code, username, password_hash, role_id, phone, address, status)
-                        VALUES (:org_code, :user_code, :username, :password_hash, :role_id, :phone, :address, :status)
+                        INSERT INTO users (user_code, username, password_hash, org_code, role_id, phone, address, status, created_at, updated_at)
+                        VALUES (:user_code, :username, :password_hash, :org_code, :role_id, :phone, :address, :status, NOW(), NOW())
                     """),
-                    user_data
+                    insert_data
                 )
                 session.commit()
                 
-                # 获取新创建的用户ID
+                # 获取插入的用户ID
                 user_id = result.lastrowid
                 
-                # 清除列表缓存
-                self._clear_list_cache()
+                # 获取创建后的完整用户数据
+                new_user_result = self._get_user_by_id_without_status_check(user_id)
+                new_user_data = new_user_result['data'] if new_user_result['success'] else None
                 
-                logger.info(f"成功创建用户: {data['user_code']} - {data['username']}")
+                # 记录审计日志
+                from service.audit_service import audit_operation
+                audit_operation(
+                    module='user',
+                    operation='create',
+                    target_type='user',
+                    target_id=str(user_id),
+                    target_name=data['username'],
+                    old_data=None,
+                    new_data=new_user_data,
+                    operation_desc=f"创建用户: {data['username']}"
+                )
+                
+                # 清除缓存
+                self._clear_list_cache()
                 
                 return {
                     'success': True,
-                    'data': {
-                        'id': user_id,
-                        'user_code': data['user_code'],
-                        'username': data['username'],
-                        'org_code': data['org_code'],
-                        'role_id': data['role_id']
-                    },
-                    'message': '用户创建成功'
+                    'message': '用户创建成功',
+                    'data': {'user_id': user_id}
                 }
                 
         except Exception as e:
@@ -114,7 +126,7 @@ class UserService:
             cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
-                logger.info(f"从缓存获取用户信息: ID={user_id}")
+        
                 # cached_data 已经是字典对象，不需要再json.loads
                 cached_user = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 if cached_user.get('status') != 1:
@@ -186,7 +198,7 @@ class UserService:
             cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
-                logger.info(f"从缓存获取用户信息: code={user_code}")
+        
                 # cached_data 已经是字典对象，不需要再json.loads
                 user_data = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 return {
@@ -404,7 +416,7 @@ class UserService:
             cached_data = redis_service.get_cache(cache_key)
             
             if cached_data:
-                logger.info(f"从缓存获取用户列表: page={page}, page_size={page_size}")
+        
                 # cached_data 已经是字典对象，不需要再json.loads
                 list_data = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 return {
@@ -609,51 +621,73 @@ class UserService:
     def update_user(self, user_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
         """更新用户信息"""
         try:
-            # 检查用户是否存在
-            user_info = self._get_user_by_id_without_status_check(user_id)
-            if not user_info['success']:
-                return user_info
-            
-            # 准备更新数据
-            update_fields = []
-            params = {"user_id": user_id}
-            
-            for field, value in data.items():
-                if field in ['username', 'phone', 'address', 'status', 'org_code', 'role_id']:
-                    update_fields.append(f"{field} = :{field}")
-                    params[field] = value
-            
-            if not update_fields:
+            # 先获取原始数据用于审计
+            old_user_result = self._get_user_by_id_without_status_check(user_id)
+            if not old_user_result['success']:
                 return {
                     'success': False,
-                    'error': '没有可更新的字段'
+                    'error': '用户不存在'
                 }
+            old_user_data = old_user_result['data']
             
-            # 执行更新
+            # 清除缓存
+            user_code = old_user_data.get('user_code')
+            self._clear_user_cache(user_code, user_id)
+            # 清除用户列表缓存，确保前端获取到最新数据
+            self._clear_list_cache()
+            
+            # 如果修改了密码，需要hash处理
+            if 'password' in data and data['password']:
+                data['password_hash'] = self._hash_password(data['password'])
+                del data['password']
+            
+            # 更新数据库
             with self.db_service.get_session() as session:
-                sql = f"""
-                    UPDATE users 
-                    SET {', '.join(update_fields)}, 
-                        updated_at = CURRENT_TIMESTAMP 
-                    WHERE id = :user_id
-                """
-                result = session.execute(text(sql), params)
-                session.commit()
+                # 构建更新语句
+                update_fields = []
+                params = {'user_id': user_id}
                 
-                if result.rowcount > 0:
-                    # 清除缓存
-                    self._clear_user_cache(user_info['data']['user_code'], user_id)
-                    self._clear_list_cache()
-                    
-                    return {
-                        'success': True,
-                        'message': '用户信息更新成功'
-                    }
-                else:
+                for key, value in data.items():
+                    if key not in ['id', 'created_at']:  # 排除不可更新的字段
+                        update_fields.append(f"{key} = :{key}")
+                        params[key] = value
+                
+                if not update_fields:
                     return {
                         'success': False,
-                        'error': '用户信息更新失败'
+                        'error': '没有需要更新的字段'
                     }
+                
+                update_fields.append("updated_at = NOW()")
+                update_sql = f"UPDATE users SET {', '.join(update_fields)} WHERE id = :user_id"
+                
+                session.execute(text(update_sql), params)
+                session.commit()
+                
+                # 获取更新后的数据
+                new_user_result = self._get_user_by_id_without_status_check(user_id)
+                new_user_data = new_user_result['data'] if new_user_result['success'] else None
+                
+                # 记录审计日志
+                from service.audit_service import audit_operation
+                operation_type = 'disable' if data.get('status') == 0 else 'update'
+                operation_desc = f"{'停用' if operation_type == 'disable' else '更新'}用户: {old_user_data.get('username')}"
+                
+                audit_operation(
+                    module='user',
+                    operation=operation_type,
+                    target_type='user',
+                    target_id=str(user_id),
+                    target_name=old_user_data.get('username'),
+                    old_data=old_user_data,
+                    new_data=new_user_data,
+                    operation_desc=operation_desc
+                )
+                
+                return {
+                    'success': True,
+                    'message': '用户信息更新成功'
+                }
                 
         except Exception as e:
             logger.error(f"更新用户信息失败: {str(e)}")
@@ -663,38 +697,70 @@ class UserService:
             }
     
     def delete_user(self, user_id: int) -> Dict[str, Any]:
-        """删除用户（软删除）"""
+        """删除用户"""
         try:
-            # 检查用户是否存在
-            user_info = self._get_user_by_id_without_status_check(user_id)
-            if not user_info['success']:
-                return user_info
+            # 先获取用户数据用于审计
+            user_result = self._get_user_by_id_without_status_check(user_id)
+            if not user_result['success']:
+                return {
+                    'success': False,
+                    'error': '用户不存在'
+                }
+            user_data = user_result['data']
+            user_code = user_data.get('user_code')
+            username = user_data.get('username')
             
-            # 执行软删除
+            # 检查是否可以删除（不能删除自己）
+            from flask import g
+            current_user = getattr(g, 'current_user', None)
+            if current_user and current_user.get('id') == user_id:
+                return {
+                    'success': False,
+                    'error': '不能删除自己的账户'
+                }
+            
+            # 开始删除流程
             with self.db_service.get_session() as session:
-                sql = """
-                    UPDATE users 
-                    SET status = 0, 
-                        updated_at = CURRENT_TIMESTAMP 
-                    WHERE id = :user_id
-                """
-                result = session.execute(text(sql), {"user_id": user_id})
+                # 删除用户会话记录（如果存在）
+                try:
+                    session.execute(
+                        text("DELETE FROM user_sessions WHERE user_id = :user_id"),
+                        {"user_id": user_id}
+                    )
+                except Exception as e:
+                    # 如果user_sessions表不存在，忽略错误
+                    logger.warning(f"删除用户会话记录时出错（可能表不存在）: {str(e)}")
+                
+                # 删除用户
+                session.execute(
+                    text("DELETE FROM users WHERE id = :user_id"),
+                    {"user_id": user_id}
+                )
+                
                 session.commit()
                 
-                if result.rowcount > 0:
-                    # 清除缓存
-                    self._clear_user_cache(user_info['data']['user_code'], user_id)
-                    self._clear_list_cache()
-                    
-                    return {
-                        'success': True,
-                        'message': '用户删除成功'
-                    }
-                else:
-                    return {
-                        'success': False,
-                        'error': '用户删除失败'
-                    }
+                # 清除所有相关缓存和token
+                self._clear_user_all_cache_and_tokens(user_id, user_code)
+                # 清除用户列表缓存，确保前端获取到最新数据
+                self._clear_list_cache()
+                
+                # 记录审计日志
+                from service.audit_service import audit_operation
+                audit_operation(
+                    module='user',
+                    operation='delete',
+                    target_type='user',
+                    target_id=str(user_id),
+                    target_name=username,
+                    old_data=user_data,
+                    new_data=None,
+                    operation_desc=f"永久删除用户: {username}"
+                )
+                
+                return {
+                    'success': True,
+                    'message': '用户删除成功'
+                }
                 
         except Exception as e:
             logger.error(f"删除用户失败: {str(e)}")

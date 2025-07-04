@@ -28,7 +28,7 @@
           <nz-form-item>
             <nz-form-label nzFor="orgCode">所属机构</nz-form-label>
             <nz-form-control>
-              <nz-select [(ngModel)]="q.org_code" name="orgCode" id="orgCode" [nzPlaceHolder]="'请选择机构'" [nzShowSearch]="true" [nzAllowClear]="true">
+              <nz-select [(ngModel)]="q.org_code" name="orgCode" id="orgCode" [nzPlaceHolder]="'请选择机构'" [nzShowSearch]="true" [nzAllowClear]="true" [nzDisabled]="isOrgAdminWithFixedOrg()">
                 @for (org of organizationOptions; track org.id) {
                   <nz-option [nzLabel]="org.org_name" [nzValue]="org.org_code" />
                 }
@@ -62,7 +62,7 @@
 
   <!-- 操作按钮 -->
   <div class="mb-md">
-    <button nz-button (click)="addUser(modalContent)" [nzType]="'primary'">
+    <button nz-button (click)="addUser(modalContent)" [nzType]="'primary'" *ngIf="canAddUser()">
       <i nz-icon nzType="plus"></i>
       <span>新增用户</span>
     </button>
@@ -172,4 +172,28 @@
       </nz-form-control>
     </nz-form-item>
   </form>
+</ng-template>
+
+<!-- 删除确认模板 -->
+<ng-template #deleteConfirmTemplate>
+  <div>
+    <p style="color: #ff4d4f; font-weight: bold;">⚠️ 危险操作警告</p>
+    <p>您即将永久删除用户 "<strong>{{ currentDeletingUser?.username }}</strong>" 的所有数据！</p>
+    <p>此操作将：</p>
+    <ul>
+      <li>永久删除用户账户信息</li>
+      <li>清除用户的所有权限和角色</li>
+      <li>删除用户的操作日志</li>
+      <li><strong>此操作无法撤销！</strong></li>
+    </ul>
+    <p>请输入用户名 "<strong>{{ currentDeletingUser?.username }}</strong>" 来确认删除：</p>
+    <input 
+      id="deleteConfirmInput"
+      nz-input 
+      type="text" 
+      [(ngModel)]="deleteConfirmUsername"
+      placeholder="请输入用户名确认" 
+      style="margin-top: 8px;" 
+    />
+  </div>
 </ng-template>

@@ -97,7 +97,7 @@ class RoleService:
             cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
-                logger.info(f"从缓存获取角色信息: ID={role_id}")
+        
                 # cached_data 已经是字典对象，不需要再json.loads
                 role_data = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 return {
@@ -140,7 +140,7 @@ class RoleService:
             cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
-                logger.info(f"从缓存获取角色信息: code={role_code}")
+        
                 # cached_data 已经是字典对象，不需要再json.loads
                 role_data = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 return {
@@ -184,7 +184,7 @@ class RoleService:
             cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
-                logger.info(f"从缓存获取角色列表: page={page}, page_size={page_size}")
+        
                 # cached_data 已经是字典对象，不需要再json.loads
                 list_data = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 return {

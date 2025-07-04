@@ -118,19 +118,17 @@ export class AiEngineMultimodalComponent implements OnInit {
 
   add(): void {
     // 打开新建多模态配置的模态框
-    console.log('新建多模态配置');
   }
 
-  viewConfig(item: any): void {
-    console.log('查看配置:', item);
+  viewConfig(_item: any): void {
+    // 查看配置详情
   }
 
-  editConfig(item: any): void {
-    console.log('编辑配置:', item);
+  editConfig(_item: any): void {
+    // 编辑配置
   }
 
-  deleteConfig(item: any): void {
-    console.log('删除配置:', item);
+  deleteConfig(_item: any): void {
     // 这里可以调用删除API
   }
 }

@@ -99,9 +99,15 @@ export class UserLoginComponent {
           };
           this.tokenService.set(token);
           // 重新获取 StartupService 内容，我们始终认为应用信息一般都会受当前用户授权范围而影响
-          this.startupSrv.load().subscribe(() => {
-            // 登录成功后直接跳转到dashboard
-            this.router.navigateByUrl('/dashboard');
+          this.startupSrv.load().subscribe({
+            next: () => {
+              // 登录成功后直接跳转到dashboard
+              this.router.navigateByUrl('/dashboard');
+            },
+            error: err => {
+              this.error = 'StartupService加载失败，请稍后重试';
+              this.cdr.detectChanges();
+            }
           });
         },
         error: err => {

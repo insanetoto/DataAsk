@@ -205,7 +205,7 @@ def auth_required(f):
         user_info = user_result['data']
         
         # 将用户信息存储在请求上下文中
-        request.user = user_info
+        g.current_user = user_info
         return f(*args, **kwargs)
     
     return decorated
@@ -264,7 +264,7 @@ def refresh_token_required(f):
         user_info = user_result['data']
         
         # 将用户信息存储在请求上下文中
-        request.user = user_info
+        g.current_user = user_info
         return f(*args, **kwargs)
     
     return decorated
@@ -305,7 +305,7 @@ def token_required(f):
             }), 401
             
         # 将用户信息添加到请求上下文
-        request.user = result['data']
+        g.current_user = result['data']
         return f(*args, **kwargs)
         
     return decorated

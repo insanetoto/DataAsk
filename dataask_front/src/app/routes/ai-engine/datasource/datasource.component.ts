@@ -230,28 +230,24 @@ export class AiEngineDatasourceComponent implements OnInit {
   }
 
   add(): void {
-    console.log('添加新数据源');
     // 这里应该打开添加数据源的弹窗
     // this.modal.createStatic(DatasourceEditComponent, { i: { id: 0 } })
     //   .subscribe(() => this.st.reload());
   }
 
-  edit(item: DataSource): void {
-    console.log('编辑数据源:', item);
+  edit(_item: DataSource): void {
     // 这里应该打开编辑数据源的弹窗
     // this.modal.createStatic(DatasourceEditComponent, { i: item })
     //   .subscribe(() => this.st.reload());
   }
 
-  delete(item: DataSource): void {
-    console.log('删除数据源:', item);
+  delete(_item: DataSource): void {
     // 这里应该调用删除API
     // this.http.delete(`/api/datasources/${item.id}`)
     //   .subscribe(() => this.st.reload());
   }
 
   testConnection(item: DataSource): void {
-    console.log('测试连接:', item);
     // 模拟测试连接
     const updatedItem = { ...item };
     const success = Math.random() > 0.3; // 70%成功率
@@ -265,7 +261,6 @@ export class AiEngineDatasourceComponent implements OnInit {
     }
 
     // 显示测试结果
-    const message = success ? '连接测试成功！' : '连接测试失败，请检查配置信息。';
-    console.log(message);
+    // const message = success ? '连接测试成功！' : '连接测试失败，请检查配置信息。';
   }
 }

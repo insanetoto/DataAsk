@@ -290,28 +290,24 @@ export class AiEngineLlmmanageComponent implements OnInit {
   }
 
   add(): void {
-    console.log('添加新模型');
     // 这里应该打开添加模型的弹窗
     // this.modal.createStatic(LLMEditComponent, { i: { id: 0 } })
     //   .subscribe(() => this.st.reload());
   }
 
-  edit(item: LLMModel): void {
-    console.log('编辑模型:', item);
+  edit(_item: LLMModel): void {
     // 这里应该打开编辑模型的弹窗
     // this.modal.createStatic(LLMEditComponent, { i: item })
     //   .subscribe(() => this.st.reload());
   }
 
   delete(item: LLMModel): void {
-    console.log('删除模型:', item);
     // 这里应该调用删除API
     // this.http.delete(`/api/llm-models/${item.id}`)
     //   .subscribe(() => this.st.reload());
   }
 
   testModel(item: LLMModel): void {
-    console.log('测试模型:', item);
     // 模拟测试模型
     const updatedItem = { ...item };
     const success = Math.random() > 0.2; // 80%成功率
@@ -325,7 +321,6 @@ export class AiEngineLlmmanageComponent implements OnInit {
     }
 
     // 显示测试结果
-    const message = success ? '模型测试成功！' : '模型测试失败，请检查API配置。';
-    console.log(message);
+    // const message = success ? '模型测试成功！' : '模型测试失败，请检查API配置。';
   }
 }

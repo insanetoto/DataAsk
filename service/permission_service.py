@@ -34,7 +34,7 @@ class PermissionService:
             cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
-                logger.info(f"从缓存获取用户权限: user_id={user_id}")
+        
                 # cached_data 已经是字典对象，不需要再json.loads
                 permission_data = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 return {
@@ -217,7 +217,7 @@ class PermissionService:
             cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
-                logger.info(f"从缓存获取权限列表: page={page}, page_size={page_size}")
+        
                 # cached_data 已经是字典对象，不需要再json.loads
                 list_data = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 return {
@@ -319,7 +319,7 @@ class PermissionService:
             cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
-                logger.info(f"从缓存获取权限详情: permission_id={permission_id}")
+        
                 # cached_data 已经是字典对象，不需要再json.loads
                 permission_data = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 return {
@@ -362,7 +362,7 @@ class PermissionService:
             cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
-                logger.info("从缓存获取权限树型结构")
+        
                 tree_data = cached_data if isinstance(cached_data, list) else json.loads(cached_data)
                 return {
                     'success': True,

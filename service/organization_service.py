@@ -144,7 +144,7 @@ class OrganizationService:
             cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
-                logger.info(f"从缓存获取机构信息: ID={org_id}")
+        
                 # cached_data 已经是字典对象，不需要再json.loads
                 org_data = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 return {
@@ -201,7 +201,7 @@ class OrganizationService:
             cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
-                logger.info(f"从缓存获取机构信息: code={org_code}")
+        
                 # cached_data 已经是字典对象，不需要再json.loads
                 org_data = cached_data if isinstance(cached_data, dict) else json.loads(cached_data)
                 return {
@@ -262,7 +262,7 @@ class OrganizationService:
             cached_data = self.redis.get_cache(cache_key)
             
             if cached_data:
-                logger.info(f"从缓存获取机构列表: page={page}, page_size={page_size}")
+        
                 return {
                     'success': True,
                     'data': cached_data
