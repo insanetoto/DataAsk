@@ -799,7 +799,7 @@ def refresh_token():
         }), 401
 
     refresh_token = auth_header.split(' ')[1]
-    new_tokens = get_user_service_instance().refresh_access_token(refresh_token)
+    new_tokens = token_service.refresh_access_token(refresh_token)
     
     if not new_tokens:
         return jsonify({
@@ -961,16 +961,35 @@ def get_user(user_id):
 @auth_required
 def create_user():
     """创建用户"""
-    data = request.get_json()
-    user_service = get_user_service_instance()
-    result = user_service.create_user(data)
+    try:
+        data = request.get_json()
+        current_user = get_current_user()
+        
+        # 获取当前操作员的机构编码
+        current_user_org = None
+        if current_user:
+            current_user_org = current_user.get('org_code')
+        
+        # 权限控制：机构管理员只能在自己的机构下创建用户
+        role_code = current_user.get('role_code') if current_user else None
+        if role_code == 'ORG_ADMIN' and current_user_org:
+            # 强制设置新用户的机构编码为当前用户的机构编码
+            data['org_code'] = current_user_org
+        
+        user_service = get_user_service_instance()
+        result = user_service.create_user(data, current_user_org)
+        
+        # 转换服务层响应为标准格式
+        if result['success']:
+            response, status = standardize_response(True, data=result['data'], message='创建用户成功', code=201)
+        else:
+            response, status = standardize_response(False, error=result.get('error', '创建用户失败'), code=400)
+        return jsonify(response), status
     
-    # 转换服务层响应为标准格式
-    if result['success']:
-        response, status = standardize_response(True, data=result['data'], message='创建用户成功', code=201)
-    else:
-        response, status = standardize_response(False, error=result.get('error', '创建用户失败'), code=400)
-    return jsonify(response), status
+    except Exception as e:
+        logger.error(f"创建用户API失败: {str(e)}")
+        response, status = standardize_response(False, error=f'创建用户失败: {str(e)}', code=500)
+        return jsonify(response), status
 
 @api_bp.route('/users/<int:user_id>', methods=['PUT'], endpoint='update_user_by_id')
 @auth_required

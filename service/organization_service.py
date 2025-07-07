@@ -529,9 +529,29 @@ class OrganizationService:
             子机构列表
         """
         try:
-            # 使用存储过程获取子机构
-            sql = "CALL GetOrgChildren(:org_code)"
-            result = self.db_service.execute_query(sql, {'org_code': org_code})
+            # 首先获取当前机构信息
+            current_org = self.get_organization_by_code(org_code)
+            if not current_org['success'] or not current_org['data']:
+                return {
+                    'success': False,
+                    'error': f'机构 {org_code} 不存在'
+                }
+            
+            # 使用level_path字段获取所有子机构
+            current_path = current_org['data']['level_path']
+            
+            # 查询以当前机构路径开头的所有机构（即所有子机构）
+            sql = """
+            SELECT id, org_code, parent_org_code, org_name, contact_person, contact_phone, 
+                   contact_email, status, level_depth, level_path, created_at, updated_at
+            FROM organizations 
+            WHERE level_path LIKE :path_pattern AND status = 1
+            ORDER BY level_depth, org_code
+            """
+            
+            # 路径模式：查找以当前路径开头的所有机构
+            path_pattern = f"{current_path}%"
+            result = self.db_service.execute_query(sql, {'path_pattern': path_pattern})
             
             if not result:
                 return {
@@ -539,7 +559,7 @@ class OrganizationService:
                     'data': []
                 }
             
-            # 如果不包含自身，过滤掉根节点
+            # 如果不包含自身，过滤掉当前机构
             if not include_self:
                 result = [org for org in result if org['org_code'] != org_code]
             
@@ -567,23 +587,52 @@ class OrganizationService:
             上级机构列表
         """
         try:
-            # 使用存储过程获取上级机构
-            sql = "CALL GetOrgParents(:org_code)"
-            result = self.db_service.execute_query(sql, {'org_code': org_code})
+            # 首先获取当前机构信息
+            current_org = self.get_organization_by_code(org_code)
+            if not current_org['success'] or not current_org['data']:
+                return {
+                    'success': False,
+                    'error': f'机构 {org_code} 不存在'
+                }
             
-            if not result:
+            # 使用level_path字段获取所有上级机构
+            current_path = current_org['data']['level_path']
+            
+            # 解析路径，获取所有上级机构编码
+            # level_path 格式如: /0501/050101/050102/
+            path_parts = [part for part in current_path.split('/') if part]
+            
+            if not path_parts:
                 return {
                     'success': True,
                     'data': []
                 }
             
-            # 如果不包含自身，过滤掉当前节点
-            if not include_self:
-                result = [org for org in result if org['org_code'] != org_code]
+            # 构建查询条件：获取路径中的所有机构
+            parent_codes = path_parts[:-1] if not include_self else path_parts
+            
+            if not parent_codes:
+                return {
+                    'success': True,
+                    'data': []
+                }
+            
+            # 查询所有上级机构
+            placeholders = ','.join([f':code_{i}' for i in range(len(parent_codes))])
+            sql = f"""
+            SELECT id, org_code, parent_org_code, org_name, contact_person, contact_phone, 
+                   contact_email, status, level_depth, level_path, created_at, updated_at
+            FROM organizations 
+            WHERE org_code IN ({placeholders}) AND status = 1
+            ORDER BY level_depth
+            """
+            
+            params = {f'code_{i}': code for i, code in enumerate(parent_codes)}
+            result = self.db_service.execute_query(sql, params)
             
             return {
                 'success': True,
-                'data': result
+                'data': result or []
             }
             
         except Exception as e:
@@ -702,7 +751,7 @@ class OrganizationService:
             {where_clause}
             """
             
-            count_result = db_service.execute_query(count_sql, params)
+            count_result = self.db_service.execute_query(count_sql, params)
             total = count_result[0]['total'] if count_result else 0
             
             # 查询数据
@@ -735,7 +784,7 @@ class OrganizationService:
                 'offset': offset
             })
             
-            organizations = db_service.execute_query(sql, params)
+            organizations = self.db_service.execute_query(sql, params)
             
             return {
                 'success': True,
@@ -769,8 +818,6 @@ class OrganizationService:
             移动结果
         """
         try:
-            db_service = get_database_service()
-            
             # 验证机构是否存在
             org_result = self.get_organization_by_code(org_code)
             if not org_result['success'] or not org_result['data']:
@@ -813,7 +860,7 @@ class OrganizationService:
             WHERE org_code = :org_code
             """
             
-            db_service.execute_update(sql, {
+            self.db_service.execute_update(sql, {
                 'org_code': org_code,
                 'new_parent_code': new_parent_code
             })
@@ -847,8 +894,6 @@ class OrganizationService:
             org_code: 机构编码
         """
         try:
-            db_service = get_database_service()
-            
             # 递归更新层级信息
             def update_org_hierarchy(code):
                 # 获取当前机构信息
@@ -880,7 +925,7 @@ class OrganizationService:
                 SET level_depth = :depth, level_path = :path
                 WHERE org_code = :code
                 """
-                db_service.execute_update(update_sql, {
+                self.db_service.execute_update(update_sql, {
                     'depth': new_depth,
                     'path': new_path,
                     'code': code

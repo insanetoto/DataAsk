@@ -1,13 +1,13 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { _HttpClient } from '@delon/theme';
+import { SHARED_IMPORTS } from '@shared';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalRef } from 'ng-zorro-antd/modal';
-import { SHARED_IMPORTS } from '@shared';
 
 @Component({
   selector: 'app-sys-view',
   imports: [...SHARED_IMPORTS],
-  templateUrl: './view.component.html',
+  templateUrl: './view.component.html'
 })
 export class SysViewComponent implements OnInit {
   private readonly http = inject(_HttpClient);
@@ -18,7 +18,7 @@ export class SysViewComponent implements OnInit {
   i: any;
 
   ngOnInit(): void {
-    this.http.get(`/user/${this.record.id}`).subscribe(res => this.i = res);
+    this.http.get(`/user/${this.record.id}`).subscribe(res => (this.i = res));
   }
 
   close(): void {

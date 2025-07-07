@@ -59,8 +59,8 @@ export function defaultInterceptor(req: HttpRequest<any>, next: HttpHandlerFn): 
           return of(event);
         }
 
-        // 兼容两种响应格式：{code: 200, ...} 和 {success: true, ...}
-        const isSuccess = body?.code === 200 || body?.success === true;
+        // 兼容两种响应格式：{code: 2xx, ...} 和 {success: true, ...}
+        const isSuccess = (body?.code && body.code >= 200 && body.code < 300) || body?.success === true;
         const isUnauthorized = body?.code === 401;
 
         if (!isSuccess && body !== null) {

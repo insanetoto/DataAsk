@@ -409,13 +409,9 @@ export class SysUserComponent implements OnInit {
   /**
    * 新增用户
    */
-  addUser(tpl: TemplateRef<unknown>): void {
-    this.editingUser = {
-      status: 1
-    };
-    this.isEditMode = false;
-    this.modalTitle = '新增用户';
-    this.showModal(tpl);
+  addUser(): void {
+    // 跳转到新增用户页面
+    this.router.navigate(['/sys/user/edit/new']);
   }
 
   /**

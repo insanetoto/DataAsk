@@ -36,11 +36,40 @@ class UserService:
         self.db_service = db_service or get_database_service()
         self.permission_service = permission_service or get_permission_service()
         
-    def create_user(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _generate_user_code(self, org_code: str) -> str:
+        """
+        生成用户编码 (使用MySQL AUTO_INCREMENT序列)
+        格式：10位机构编码 + 6位序列号
+        """
+        try:
+            with self.db_service.get_session() as session:
+                # 调用数据库函数生成用户编码
+                result = session.execute(
+                    text("SELECT generate_user_code(:org_code) as user_code"),
+                    {"org_code": org_code}
+                ).fetchone()
+                
+                if result:
+                    logger.info(f"成功生成用户编码: {result.user_code}")
+                    return result.user_code
+                else:
+                    raise Exception("数据库函数返回空值")
+                    
+        except Exception as e:
+            logger.error(f"生成用户编码失败: {str(e)}")
+            # 如果数据库函数失败，使用时间戳作为备用方案
+            import time
+            timestamp = str(int(time.time()))[-6:]  # 取时间戳的后6位
+            padded_org_code = org_code.ljust(10, '0')[:10]
+            backup_code = padded_org_code + timestamp.zfill(6)
+            logger.warning(f"使用备用方案生成用户编码: {backup_code}")
+            return backup_code
+    
+    def create_user(self, data: Dict[str, Any], current_user_org: str = None) -> Dict[str, Any]:
         """创建用户"""
         try:
-            # 验证必要字段
-            required_fields = ['user_code', 'username', 'password', 'org_code', 'role_id']
+            # 验证必要字段 - 不再需要user_code，系统自动生成
+            required_fields = ['username', 'password', 'role_id']
             for field in required_fields:
                 if field not in data or not data[field]:
                     return {
@@ -48,23 +77,32 @@ class UserService:
                         'error': f'缺少必要字段: {field}'
                     }
             
-            # 检查用户编码是否已存在
-            existing_user = self.get_user_by_code(data['user_code'])
-            if existing_user['success'] and existing_user['data']:
+            # 获取机构编码
+            org_code = data.get('org_code') or current_user_org
+            if not org_code:
                 return {
                     'success': False,
-                    'error': '用户编码已存在'
+                    'error': '无法确定用户所属机构'
                 }
+            
+            # 自动生成用户编码
+            user_code = self._generate_user_code(org_code)
+            
+            # 检查生成的用户编码是否已存在（防止重复）
+            existing_user = self.get_user_by_code(user_code)
+            if existing_user['success'] and existing_user['data']:
+                # 如果存在重复，再次生成
+                user_code = self._generate_user_code(org_code)
             
             # 密码hash处理
             password_hash = self._hash_password(data['password'])
             
             # 准备插入数据
             insert_data = {
-                'user_code': data['user_code'],
+                'user_code': user_code,
                 'username': data['username'],
                 'password_hash': password_hash,
-                'org_code': data['org_code'],
+                'org_code': org_code,
                 'role_id': int(data['role_id']),
                 'phone': data.get('phone', ''),
                 'address': data.get('address', ''),
@@ -99,7 +137,7 @@ class UserService:
                     target_name=data['username'],
                     old_data=None,
                     new_data=new_user_data,
-                    operation_desc=f"创建用户: {data['username']}"
+                    operation_desc=f"创建用户: {data['username']} (编码: {user_code})"
                 )
                 
                 # 清除缓存
@@ -108,7 +146,12 @@ class UserService:
                 return {
                     'success': True,
                     'message': '用户创建成功',
-                    'data': {'user_id': user_id}
+                    'data': {
+                        'user_id': user_id,
+                        'user_code': user_code,
+                        'username': data['username'],
+                        'org_code': org_code
+                    }
                 }
                 
         except Exception as e:

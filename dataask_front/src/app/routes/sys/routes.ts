@@ -15,6 +15,7 @@ export const routes: Routes = [
   { path: 'user', component: SysUserComponent, data: { title: '用户管理' } },
   { path: 'user/view/:id', component: SysUserViewComponent, data: { title: '用户详情' } },
   { path: 'user/edit/:id', component: SysUserEditComponent, data: { title: '编辑用户' } },
+  { path: 'user/edit/new', component: SysUserEditComponent, data: { title: '新增用户' } },
   {
     path: 'user/reset-password/:id',
     component: SysRestPasswdComponent,

@@ -1,4 +1,5 @@
 import { waitForAsync, ComponentFixture, TestBed } from '@angular/core/testing';
+
 import { SysViewComponent } from './view.component';
 
 describe('SysViewComponent', () => {
@@ -7,9 +8,8 @@ describe('SysViewComponent', () => {
 
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
-      declarations: [ SysViewComponent ]
-    })
-    .compileComponents();
+      declarations: [SysViewComponent]
+    }).compileComponents();
   }));
 
   beforeEach(() => {
