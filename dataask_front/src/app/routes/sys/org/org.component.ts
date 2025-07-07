@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, TemplateRef, ViewChild, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, ViewChild, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { STChange, STColumn, STComponent, STData } from '@delon/abc/st';
-import { _HttpClient } from '@delon/theme';
+import { _HttpClient, SettingsService } from '@delon/theme';
 import { SHARED_IMPORTS } from '@shared';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalService } from 'ng-zorro-antd/modal';
@@ -21,13 +22,15 @@ export class SysOrgComponent implements OnInit {
   private readonly modalSrv = inject(NzModalService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly orgService = inject(SysOrgService);
+  private readonly router = inject(Router);
+  private readonly settings = inject(SettingsService);
 
   // 查询参数
   q: OrganizationQuery = {
     pi: 1,
     ps: 10,
     keyword: '',
-    status: undefined,
+    status: 1, // 默认只显示有效机构
     parent_org_code: ''
   };
 
@@ -43,11 +46,7 @@ export class SysOrgComponent implements OnInit {
   treeData: NzTreeNodeOptions[] = [];
   treeLoading = false;
   showTree = false;
-
-  // 表单数据
-  editingOrg: Partial<Organization> = {};
-  isEditMode = false;
-  modalTitle = '';
+  selectedTreeNode = ''; // 选中的树节点机构编码
 
   // 上级机构选择
   parentOrgOptions: Organization[] = [];
@@ -61,6 +60,19 @@ export class SysOrgComponent implements OnInit {
 
   @ViewChild('st', { static: true })
   st!: STComponent;
+
+  // 当前用户信息
+  get currentUser() {
+    return this.settings.user;
+  }
+
+  get currentUserRoleCode() {
+    return this.currentUser?.role_code || '';
+  }
+
+  get currentUserOrgCode() {
+    return this.currentUser?.org_code || '';
+  }
 
   // 表格列配置
   columns: STColumn[] = [
@@ -143,13 +155,21 @@ export class SysOrgComponent implements OnInit {
   }
 
   /**
+   * 刷新数据（供子组件调用）
+   */
+  refreshData(): void {
+    console.log('刷新机构数据');
+    this.getData();
+  }
+
+  /**
    * 获取机构列表数据
    */
   getData(): void {
     this.loading = true;
     const params = {
-      pi: 1,
-      ps: 10,
+      pi: this.q.pi || 1,
+      ps: this.q.ps || 10,
       keyword: this.q.keyword || '',
       status: this.q.status
     };
@@ -157,7 +177,19 @@ export class SysOrgComponent implements OnInit {
     this.orgService.getOrganizations(params).subscribe({
       next: res => {
         if (res.code === 200) {
-          this.data = res.data?.list || res.data?.items || [];
+          const responseData = res.data || {};
+          this.data = responseData.list || responseData.items || [];
+
+          // 更新查询参数中的分页信息
+          this.q.pi = responseData.page || params.pi;
+          this.q.ps = responseData.pageSize || params.ps;
+
+          console.log('机构数据加载成功:', {
+            total: responseData.total,
+            currentPage: this.q.pi,
+            pageSize: this.q.ps,
+            dataCount: this.data.length
+          });
         } else {
           this.msg.error(res.message || '获取机构数据失败');
           this.data = [];
@@ -167,6 +199,20 @@ export class SysOrgComponent implements OnInit {
       },
       error: error => {
         console.error('获取机构数据失败:', error);
+        // 检查是否是被HTTP拦截器误判的成功响应
+        if (error.status === 200 && error.ok && error.body) {
+          if (error.body.code === 200 && error.body.data) {
+            const responseData = error.body.data;
+            this.data = responseData.list || responseData.items || [];
+            this.q.pi = responseData.page || params.pi;
+            this.q.ps = responseData.pageSize || params.ps;
+            console.log('机构数据加载成功(拦截器处理):', this.data.length);
+            this.loading = false;
+            this.cdr.detectChanges();
+            return;
+          }
+        }
+        
         this.msg.error('获取机构数据失败');
         this.data = [];
         this.loading = false;
@@ -179,23 +225,45 @@ export class SysOrgComponent implements OnInit {
    * 加载上级机构选项
    */
   loadParentOrgOptions(): void {
-    this.orgService.getOrganizations({ pi: 1, ps: 1000, status: 1 }).subscribe({
-      next: res => {
-        if (res.code === 200 || res.success === true) {
-          this.parentOrgOptions = res.data?.list || res.data?.items || res.data || [];
-        }
-      },
-      error: error => {
-        console.error('加载上级机构选项失败:', error);
+    const currentRole = this.currentUserRoleCode;
+    const currentOrgCode = this.currentUserOrgCode;
 
-        // 检查是否是被HTTP拦截器误判的成功响应
-        if (error.status === 200 && error.ok && error.body) {
-          if (error.body.success === true || error.body.code === 200) {
-            this.parentOrgOptions = error.body.data?.list || error.body.data?.items || error.body.data || [];
+    if (currentRole === 'SUPER_ADMIN') {
+      // 超级管理员可以看到所有机构
+      this.orgService.getOrganizations({ pi: 1, ps: 1000, status: 1 }).subscribe({
+        next: res => {
+          if (res.code === 200 || res.success === true) {
+            this.parentOrgOptions = res.data?.list || res.data?.items || res.data || [];
+          }
+        },
+        error: error => {
+          console.error('加载上级机构选项失败:', error);
+          if (error.status === 200 && error.ok && error.body) {
+            if (error.body.success === true || error.body.code === 200) {
+              this.parentOrgOptions = error.body.data?.list || error.body.data?.items || error.body.data || [];
+            }
           }
         }
-      }
-    });
+      });
+    } else if (currentOrgCode && this.currentUser?.org_name) {
+      // 机构管理员和其他角色只能看到自己所属机构
+      this.parentOrgOptions = [
+        {
+          id: this.currentUser.id || 0,
+          org_code: currentOrgCode,
+          org_name: this.currentUser.org_name,
+          parent_org_code: this.currentUser.parent_org_code || '',
+          level_depth: this.currentUser.level_depth || 0,
+          contact_person: this.currentUser.contact_person || '',
+          contact_phone: this.currentUser.contact_phone || '',
+          contact_email: this.currentUser.contact_email || '',
+          status: 1
+        }
+      ];
+    } else {
+      // 如果没有完整的用户信息，设置为空数组
+      this.parentOrgOptions = [];
+    }
   }
 
   /**
@@ -246,10 +314,14 @@ export class SysOrgComponent implements OnInit {
    * 转换为树形数据格式
    */
   convertToTreeData(orgList: Organization[]): NzTreeNodeOptions[] {
-    return orgList.map(org => ({
+    // 过滤掉状态为0（已删除）的机构
+    const validOrgs = orgList.filter(org => org.status === 1);
+    
+    return validOrgs.map(org => ({
       title: `${org.org_name} (${org.org_code})`,
       key: org.org_code,
       expanded: true,
+      isLeaf: !org.children || org.children.length === 0,
       children: org.children ? this.convertToTreeData(org.children) : []
     }));
   }
@@ -273,37 +345,102 @@ export class SysOrgComponent implements OnInit {
   }
 
   /**
+   * 树节点选择事件
+   */
+  onTreeNodeSelect(keys: string[], _event?: any): void {
+    if (keys.length > 0) {
+      this.selectedTreeNode = keys[0];
+      console.log('选中机构:', this.selectedTreeNode);
+      // 根据选中的机构过滤表格数据
+      this.filterBySelectedOrg();
+    } else {
+      this.selectedTreeNode = '';
+      // 显示所有数据
+      this.getData();
+    }
+  }
+
+  /**
+   * 根据选中的机构过滤表格数据
+   */
+  filterBySelectedOrg(): void {
+    if (!this.selectedTreeNode) {
+      this.getData();
+      return;
+    }
+    
+    this.loading = true;
+    const params = {
+      pi: 1,
+      ps: 1000, // 加载更多数据以便过滤
+      keyword: this.q.keyword || '',
+      status: 1 // 只获取有效机构
+    };
+
+    this.orgService.getOrganizations(params).subscribe({
+      next: res => {
+        if (res.code === 200) {
+          const responseData = res.data || {};
+          let allData = responseData.list || responseData.items || [];
+          
+          // 只显示选中的机构（不包含子机构，根据需求调整）
+          this.data = allData.filter((org: Organization) => org.org_code === this.selectedTreeNode);
+
+          console.log('过滤后的机构数据:', {
+            selectedOrgCode: this.selectedTreeNode,
+            filteredCount: this.data.length,
+            originalDataCount: allData.length
+          });
+        } else {
+          this.msg.error(res.message || '获取机构数据失败');
+          this.data = [];
+        }
+        this.loading = false;
+        this.cdr.detectChanges();
+      },
+      error: error => {
+        console.error('获取机构数据失败:', error);
+        this.msg.error('获取机构数据失败');
+        this.loading = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /**
+   * 检查是否为子机构
+   */
+  private isChildOrganization(org: Organization, parentOrgCode: string): boolean {
+    // 简单的子机构判断：机构编码以父机构编码开头
+    return org.org_code.startsWith(parentOrgCode) && org.org_code !== parentOrgCode;
+  }
+
+  /**
    * 新增机构
    */
-  addOrg(tpl: TemplateRef<unknown>): void {
-    this.editingOrg = {
-      status: 1
-    };
-    this.isEditMode = false;
-    this.modalTitle = '新增机构';
-    this.showModal(tpl);
+  addOrg(): void {
+    this.router.navigate(['/sys/org/edit/new']);
   }
 
   /**
    * 查看机构
    */
   viewOrg(item: Organization): void {
-    this.editingOrg = { ...item };
-    this.isEditMode = false;
-    this.modalTitle = '查看机构';
-    // 这里可以显示一个只读的模态框
-    this.msg.info(`查看机构: ${item.org_name}`);
+    if (item.id) {
+      this.router.navigate(['/sys/org/view', item.id]);
+    } else {
+      this.msg.error('机构ID不存在');
+    }
   }
 
   /**
    * 编辑机构
    */
-  editOrg(item: Organization, tpl?: TemplateRef<unknown>): void {
-    this.editingOrg = { ...item };
-    this.isEditMode = true;
-    this.modalTitle = '编辑机构';
-    if (tpl) {
-      this.showModal(tpl);
+  editOrg(item: Organization): void {
+    if (item.id) {
+      this.router.navigate(['/sys/org/edit', item.id]);
+    } else {
+      this.msg.error('机构ID不存在');
     }
   }
 
@@ -317,14 +454,28 @@ export class SysOrgComponent implements OnInit {
       nzOnOk: () => {
         return this.orgService.deleteOrganization(item.id!).subscribe({
           next: res => {
-            if (res.success) {
-              this.msg.success('删除成功');
+            // 兼容两种响应格式：{success: true} 或 {code: 200}
+            const isSuccess = res.success === true || res.code === 200;
+            const errorMessage = res.error || res.message;
+            
+            if (isSuccess) {
+              this.msg.success(res.message || '删除成功');
               this.getData();
             } else {
-              this.msg.error(res.error || '删除失败');
+              this.msg.error(errorMessage || '删除失败');
             }
           },
-          error: () => {
+          error: error => {
+            console.error('删除机构失败:', error);
+            // 检查是否是被HTTP拦截器误判的成功响应
+            if (error.status === 200 && error.ok && error.body) {
+              const isSuccess = error.body.success === true || error.body.code === 200;
+              if (isSuccess) {
+                this.msg.success(error.body.message || '删除成功');
+                this.getData();
+                return;
+              }
+            }
             this.msg.error('删除失败');
           }
         });
@@ -347,72 +498,28 @@ export class SysOrgComponent implements OnInit {
       nzOnOk: () => {
         const deletePromises = this.selectedRows.map(row => this.orgService.deleteOrganization(row['id']));
 
-        // 这里简化处理，实际应该使用 forkJoin
+        // 使用 Promise.all 处理批量删除
         Promise.all(deletePromises.map(p => p.toPromise()))
-          .then(() => {
-            this.msg.success('批量删除成功');
+          .then((results) => {
+            // 检查所有删除结果
+            const successCount = results.filter(res => 
+              res.success === true || res.code === 200
+            ).length;
+            
+            if (successCount === results.length) {
+              this.msg.success('批量删除成功');
+            } else {
+              this.msg.warning(`成功删除 ${successCount}/${results.length} 个机构`);
+            }
+            
             this.getData();
             this.st.clearCheck();
           })
-          .catch(() => {
+          .catch((error) => {
+            console.error('批量删除失败:', error);
             this.msg.error('批量删除失败');
           });
       }
-    });
-  }
-
-  /**
-   * 显示模态框
-   */
-  showModal(tpl: TemplateRef<unknown>): void {
-    this.modalSrv.create({
-      nzTitle: this.modalTitle,
-      nzContent: tpl,
-      nzWidth: 600,
-      nzOnOk: () => {
-        return this.saveOrg();
-      }
-    });
-  }
-
-  /**
-   * 保存机构
-   */
-  saveOrg(): Promise<boolean> {
-    return new Promise(resolve => {
-      // 表单验证
-      if (
-        !this.editingOrg.org_code ||
-        !this.editingOrg.org_name ||
-        !this.editingOrg.contact_person ||
-        !this.editingOrg.contact_phone ||
-        !this.editingOrg.contact_email
-      ) {
-        this.msg.error('请填写完整信息');
-        resolve(false);
-        return;
-      }
-
-      const request = this.isEditMode
-        ? this.orgService.updateOrganization(this.editingOrg.id!, this.editingOrg)
-        : this.orgService.createOrganization(this.editingOrg);
-
-      request.subscribe({
-        next: res => {
-          if (res.success) {
-            this.msg.success(this.isEditMode ? '更新成功' : '创建成功');
-            this.getData();
-            resolve(true);
-          } else {
-            this.msg.error(res.error || '保存失败');
-            resolve(false);
-          }
-        },
-        error: () => {
-          this.msg.error('保存失败');
-          resolve(false);
-        }
-      });
     });
   }
 

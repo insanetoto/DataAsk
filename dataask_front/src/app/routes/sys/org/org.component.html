@@ -5,17 +5,17 @@
     <div nz-row [nzGutter]="{ xs: 8, sm: 8, md: 8, lg: 24, xl: 48, xxl: 48 }">
       <div nz-col nzMd="8" nzSm="24">
         <nz-form-item>
-          <nz-form-label nzFor="keyword">关键词</nz-form-label>
+          <nz-form-label nzFor="orgKeyword">关键词</nz-form-label>
           <nz-form-control>
-            <input nz-input [(ngModel)]="q.keyword" name="keyword" placeholder="机构编码/名称" id="keyword" />
+            <input nz-input [(ngModel)]="q.keyword" name="keyword" placeholder="机构编码/名称" id="orgKeyword" />
           </nz-form-control>
         </nz-form-item>
       </div>
       <div nz-col nzMd="8" nzSm="24">
         <nz-form-item>
-          <nz-form-label nzFor="status">状态</nz-form-label>
+          <nz-form-label nzFor="orgStatus">状态</nz-form-label>
           <nz-form-control>
-            <nz-select [(ngModel)]="q.status" name="status" id="status" [nzPlaceHolder]="'请选择状态'" [nzShowSearch]="true">
+            <nz-select [(ngModel)]="q.status" name="status" id="orgStatus" [nzPlaceHolder]="'请选择状态'" [nzShowSearch]="true">
               @for (option of statusOptions; track $index) {
                 <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
               }
@@ -26,9 +26,9 @@
       @if (expandForm) {
         <div nz-col nzMd="8" nzSm="24">
           <nz-form-item>
-            <nz-form-label nzFor="parentOrgCode">上级机构</nz-form-label>
+            <nz-form-label nzFor="orgParentOrgCode">上级机构</nz-form-label>
             <nz-form-control>
-              <nz-select [(ngModel)]="q.parent_org_code" name="parentOrgCode" id="parentOrgCode" [nzPlaceHolder]="'请选择上级机构'" [nzShowSearch]="true" [nzAllowClear]="true">
+              <nz-select [(ngModel)]="q.parent_org_code" name="parentOrgCode" id="orgParentOrgCode" [nzPlaceHolder]="'请选择上级机构'" [nzShowSearch]="true" [nzAllowClear]="true">
                 @for (org of parentOrgOptions; track org.id) {
                   <nz-option [nzLabel]="org.org_name" [nzValue]="org.org_code" />
                 }
@@ -50,7 +50,7 @@
 
   <!-- 操作按钮 -->
   <div class="mb-md">
-    <button nz-button (click)="addOrg(modalContent)" [nzType]="'primary'">
+    <button nz-button (click)="addOrg()" [nzType]="'primary'">
       <i nz-icon nzType="plus"></i>
       <span>新增机构</span>
     </button>
@@ -87,12 +87,23 @@
   <!-- 树形视图 -->
   @if (showTree) {
     <nz-card [nzTitle]="'机构层级结构'" [nzBordered]="false" class="mb-md">
+      <div class="mb-sm">
+        <nz-alert [nzType]="'info'" [nzShowIcon]="true" [nzMessage]="'点击机构名称可以在下方表格中只显示该机构的信息'" />
+        @if (selectedTreeNode) {
+          <div class="mt-sm">
+            <nz-tag [nzColor]="'blue'">当前选中: {{ selectedTreeNode }}</nz-tag>
+            <a (click)="onTreeNodeSelect([], null)" class="ml-sm">清除选择</a>
+          </div>
+        }
+      </div>
       <nz-tree
         [nzData]="treeData"
         [nzShowIcon]="false"
         [nzShowLine]="true"
         [nzExpandAll]="true"
-        [nzBlockNode]="true">
+        [nzBlockNode]="true"
+        [nzMultiple]="false"
+        (nzClick)="onTreeNodeSelect($event.keys || [], $event)">
       </nz-tree>
     </nz-card>
   }
@@ -105,65 +116,4 @@
   </st>
 </nz-card>
 
-<!-- 编辑模态框 -->
-<ng-template #modalContent>
-  <form nz-form [nzLayout]="'vertical'">
-    <nz-form-item>
-      <nz-form-label nzFor="orgCode" nzRequired>机构编码</nz-form-label>
-      <nz-form-control>
-        <input nz-input [(ngModel)]="editingOrg.org_code" name="orgCode" placeholder="请输入机构编码" id="orgCode" [disabled]="isEditMode" />
-      </nz-form-control>
-    </nz-form-item>
-    
-    <nz-form-item>
-      <nz-form-label nzFor="orgName" nzRequired>机构名称</nz-form-label>
-      <nz-form-control>
-        <input nz-input [(ngModel)]="editingOrg.org_name" name="orgName" placeholder="请输入机构名称" id="orgName" />
-      </nz-form-control>
-    </nz-form-item>
-    
-    <nz-form-item>
-      <nz-form-label nzFor="parentOrgCode">上级机构</nz-form-label>
-      <nz-form-control>
-        <nz-select [(ngModel)]="editingOrg.parent_org_code" name="parentOrgCode" id="parentOrgCode" [nzPlaceHolder]="'请选择上级机构'" [nzShowSearch]="true" [nzAllowClear]="true">
-          @for (org of parentOrgOptions; track org.id) {
-            @if (org.org_code !== editingOrg.org_code) {
-              <nz-option [nzLabel]="org.org_name + ' (' + org.org_code + ')'" [nzValue]="org.org_code" />
-            }
-          }
-        </nz-select>
-      </nz-form-control>
-    </nz-form-item>
-    
-    <nz-form-item>
-      <nz-form-label nzFor="contactPerson" nzRequired>负责人</nz-form-label>
-      <nz-form-control>
-        <input nz-input [(ngModel)]="editingOrg.contact_person" name="contactPerson" placeholder="请输入负责人姓名" id="contactPerson" />
-      </nz-form-control>
-    </nz-form-item>
-    
-    <nz-form-item>
-      <nz-form-label nzFor="contactPhone" nzRequired>联系电话</nz-form-label>
-      <nz-form-control>
-        <input nz-input [(ngModel)]="editingOrg.contact_phone" name="contactPhone" placeholder="请输入联系电话" id="contactPhone" />
-      </nz-form-control>
-    </nz-form-item>
-    
-    <nz-form-item>
-      <nz-form-label nzFor="contactEmail" nzRequired>联系邮箱</nz-form-label>
-      <nz-form-control>
-        <input nz-input [(ngModel)]="editingOrg.contact_email" name="contactEmail" placeholder="请输入联系邮箱" id="contactEmail" />
-      </nz-form-control>
-    </nz-form-item>
-    
-    <nz-form-item>
-      <nz-form-label nzFor="orgStatus">状态</nz-form-label>
-      <nz-form-control>
-        <nz-radio-group [(ngModel)]="editingOrg.status" name="orgStatus" id="orgStatus">
-          <label nz-radio [nzValue]="1">启用</label>
-          <label nz-radio [nzValue]="0">禁用</label>
-        </nz-radio-group>
-      </nz-form-control>
-    </nz-form-item>
-  </form>
-</ng-template>
+

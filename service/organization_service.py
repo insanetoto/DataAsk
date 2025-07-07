@@ -28,81 +28,241 @@ class OrganizationService:
         if not self.db_service:
             raise RuntimeError("数据库服务未初始化")
         
-    def create_organization(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _generate_org_code(self, parent_org_code: str = None) -> str:
         """
-        创建机构（支持层级结构）
+        自动生成机构编码
+        
+        规则：
+        1. 机构编码最多10位，每两位为1级，从00开始编码
+        2. 如果没有上级机构，生成顶级机构编码（如00, 01, 02...）
+        3. 如果有上级机构，在上级机构编码基础上增加两位（如0501, 0502...）
         
         Args:
-            data: 机构数据字典，包含parent_org_code字段用于指定上级机构
+            parent_org_code: 上级机构编码
+            
+        Returns:
+            生成的机构编码
+        """
+        try:
+            if not parent_org_code:
+                # 生成顶级机构编码
+                sql = """
+                SELECT org_code FROM organizations 
+                WHERE parent_org_code IS NULL 
+                ORDER BY org_code DESC 
+                LIMIT 1
+                """
+                result = self.db_service.execute_query(sql, {})
+                
+                if not result:
+                    # 没有任何顶级机构，从00开始
+                    return "00"
+                
+                last_code = result[0]['org_code']
+                
+                # 确保是两位的顶级编码
+                if len(last_code) == 2 and last_code.isdigit():
+                    next_num = int(last_code) + 1
+                    if next_num > 99:
+                        raise ValueError("顶级机构编码已达上限(99)")
+                    return f"{next_num:02d}"
+                else:
+                    # 如果存在的编码不是标准格式，从00开始
+                    return "00"
+            
+            else:
+                # 检查上级机构编码长度是否合法
+                if len(parent_org_code) >= 10:
+                    raise ValueError("上级机构层级已达最大深度，无法创建下级机构")
+                
+                if len(parent_org_code) % 2 != 0:
+                    raise ValueError("上级机构编码格式不正确")
+                
+                # 生成下级机构编码
+                sql = """
+                SELECT org_code FROM organizations 
+                WHERE parent_org_code = :parent_org_code 
+                ORDER BY org_code DESC 
+                LIMIT 1
+                """
+                result = self.db_service.execute_query(sql, {'parent_org_code': parent_org_code})
+                
+                if not result:
+                    # 该上级机构下没有子机构，从00开始
+                    return parent_org_code + "00"
+                
+                last_code = result[0]['org_code']
+                
+                # 提取最后两位作为序号
+                if len(last_code) > len(parent_org_code):
+                    last_suffix = last_code[len(parent_org_code):]
+                    if len(last_suffix) >= 2 and last_suffix[:2].isdigit():
+                        next_num = int(last_suffix[:2]) + 1
+                        if next_num > 99:
+                            raise ValueError(f"机构 {parent_org_code} 的下级机构编码已达上限(99)")
+                        return parent_org_code + f"{next_num:02d}"
+                
+                # 如果无法解析，从00开始
+                return parent_org_code + "00"
+                
+        except Exception as e:
+            logger.error(f"生成机构编码失败: {str(e)}")
+            raise ValueError(f"生成机构编码失败: {str(e)}")
+    
+    def _calculate_level_depth(self, parent_org_code: str = None) -> int:
+        """
+        计算机构层级深度
+        
+        Args:
+            parent_org_code: 上级机构编码
+            
+        Returns:
+            层级深度
+        """
+        if not parent_org_code:
+            return 0
+        
+        try:
+            # 获取上级机构的层级深度
+            sql = "SELECT level_depth FROM organizations WHERE org_code = :parent_org_code"
+            result = self.db_service.execute_query(sql, {'parent_org_code': parent_org_code})
+            
+            if result:
+                return result[0]['level_depth'] + 1
+            else:
+                # 如果找不到上级机构，默认为顶级机构
+                return 0
+        except Exception as e:
+            logger.error(f"计算层级深度失败: {str(e)}")
+            return 0
+    
+    def _calculate_level_path(self, parent_org_code: str = None, org_code: str = None) -> str:
+        """
+        计算机构层级路径
+        
+        Args:
+            parent_org_code: 上级机构编码
+            org_code: 当前机构编码
+            
+        Returns:
+            层级路径
+        """
+        if not parent_org_code:
+            return f'/{org_code}/'
+        
+        try:
+            # 获取上级机构的层级路径
+            sql = "SELECT level_path FROM organizations WHERE org_code = :parent_org_code"
+            result = self.db_service.execute_query(sql, {'parent_org_code': parent_org_code})
+            
+            if result and result[0]['level_path']:
+                parent_path = result[0]['level_path']
+                return f'{parent_path}{org_code}/'
+            else:
+                # 如果找不到上级机构路径，默认为顶级路径
+                return f'/{org_code}/'
+        except Exception as e:
+            logger.error(f"计算层级路径失败: {str(e)}")
+            return f'/{org_code}/'
+    
+    def create_organization(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        创建机构
+        
+        Args:
+            data: 机构数据，包含 org_name, contact_person, contact_phone, contact_email 等
+                 可选包含 org_code（如果不提供则自动生成）, parent_org_code, status
             
         Returns:
             创建结果
         """
         try:
-            # 验证必要字段
-            required_fields = ['org_code', 'org_name', 'contact_person', 'contact_phone', 'contact_email']
+            # 验证必填字段
+            required_fields = ['org_name', 'contact_person', 'contact_phone', 'contact_email']
             for field in required_fields:
-                if field not in data or not data[field].strip():
+                if not data.get(field):
                     return {
                         'success': False,
-                        'error': f'缺少必要字段: {field}'
+                        'error': f'缺少必填字段: {field}'
                     }
             
-            # 检查机构编码是否已存在
-            existing_org = self.get_organization_by_code(data['org_code'])
-            if existing_org['success'] and existing_org['data']:
-                return {
-                    'success': False,
-                    'error': f'机构编码 {data["org_code"]} 已存在'
-                }
-            
-            # 验证上级机构是否存在（如果指定了上级机构）
-            parent_org_code = data.get('parent_org_code')
-            if parent_org_code:
-                parent_org_code = parent_org_code.strip()
-                if parent_org_code:  # 如果不为空
-                    parent_org = self.get_organization_by_code(parent_org_code)
-                    if not parent_org['success'] or not parent_org['data']:
-                        return {
-                            'success': False,
-                            'error': f'上级机构编码 {parent_org_code} 不存在'
-                        }
-                    
-                    # 检查是否会形成循环引用
-                    if parent_org_code == data['org_code']:
-                        return {
-                            'success': False,
-                            'error': '不能将自己设置为上级机构'
-                        }
-                        
-                    # 检查上级机构的所有上级中是否包含当前机构（防止循环）
-                    parent_hierarchy = self.get_organization_parents(parent_org_code)
-                    if parent_hierarchy['success']:
-                        parent_codes = [org['org_code'] for org in parent_hierarchy['data']]
-                        if data['org_code'] in parent_codes:
-                            return {
-                                'success': False,
-                                'error': '不能设置为上级机构，这会形成循环引用'
-                            }
-                else:
+            # 处理机构编码
+            if 'org_code' not in data or not data['org_code'] or data['org_code'].strip() == '':
+                # 自动生成机构编码
+                parent_org_code = data.get('parent_org_code')
+                if parent_org_code and parent_org_code.strip() == '':
                     parent_org_code = None
+                
+                try:
+                    generated_code = self._generate_org_code(parent_org_code)
+                    data['org_code'] = generated_code
+                    logger.info(f"自动生成机构编码: {generated_code}，上级机构: {parent_org_code or '无'}")
+                except ValueError as e:
+                    return {
+                        'success': False,
+                        'error': str(e)
+                    }
+            else:
+                # 验证手动输入的机构编码
+                org_code = data['org_code'].strip()
+                if len(org_code) > 10:
+                    return {
+                        'success': False,
+                        'error': '机构编码长度不能超过10位'
+                    }
+                
+                # 检查编码是否已存在
+                existing_org = self.get_organization_by_code(org_code)
+                if existing_org['success'] and existing_org['data']:
+                    return {
+                        'success': False,
+                        'error': f'机构编码 {org_code} 已存在'
+                    }
+                
+                data['org_code'] = org_code
+            
+            # 验证上级机构（如果指定了的话）
+            parent_org_code = data.get('parent_org_code')
+            if parent_org_code and parent_org_code.strip():
+                parent_org_code = parent_org_code.strip()
+                
+                # 检查上级机构是否存在
+                parent_org = self.get_organization_by_code(parent_org_code)
+                if not parent_org['success'] or not parent_org['data']:
+                    return {
+                        'success': False,
+                        'error': f'上级机构 {parent_org_code} 不存在'
+                    }
+                
+                # 检查是否会形成循环引用
+                if parent_org_code == data['org_code']:
+                    return {
+                        'success': False,
+                        'error': '不能设置为上级机构，这会形成循环引用'
+                    }
             else:
                 parent_org_code = None
             
-            # 插入数据（触发器会自动计算层级信息）
+            # 计算层级信息
+            level_depth = self._calculate_level_depth(parent_org_code)
+            level_path = self._calculate_level_path(parent_org_code, data['org_code'])
+            
+            # 插入数据（包含计算的层级信息）
             sql = """
-            INSERT INTO organizations (org_code, parent_org_code, org_name, contact_person, contact_phone, contact_email, status)
-            VALUES (:org_code, :parent_org_code, :org_name, :contact_person, :contact_phone, :contact_email, :status)
+            INSERT INTO organizations (org_code, parent_org_code, org_name, contact_person, contact_phone, contact_email, status, level_depth, level_path)
+            VALUES (:org_code, :parent_org_code, :org_name, :contact_person, :contact_phone, :contact_email, :status, :level_depth, :level_path)
             """
             
             params = {
-                'org_code': data['org_code'].strip(),
+                'org_code': data['org_code'],
                 'parent_org_code': parent_org_code,
                 'org_name': data['org_name'].strip(),
                 'contact_person': data['contact_person'].strip(),
                 'contact_phone': data['contact_phone'].strip(),
                 'contact_email': data['contact_email'].strip(),
-                'status': data.get('status', 1)
+                'status': data.get('status', 1),
+                'level_depth': level_depth,
+                'level_path': level_path
             }
             
             self.db_service.execute_update(sql, params)
@@ -449,28 +609,36 @@ class OrganizationService:
             
             # 检查是否有子机构
             children_sql = """
-            SELECT COUNT(*) as count
+            SELECT org_code, org_name
             FROM organizations
             WHERE parent_org_code = :org_code AND status = 1
             """
             children_result = self.db_service.execute_query(children_sql, {'org_code': current_org['data']['org_code']})
-            if children_result[0]['count'] > 0:
+            if children_result:
+                child_names = [f"{child['org_name']}({child['org_code']})" for child in children_result[:3]]
+                child_display = "、".join(child_names)
+                if len(children_result) > 3:
+                    child_display += f"等{len(children_result)}个子机构"
                 return {
                     'success': False,
-                    'error': '该机构下存在子机构，无法删除'
+                    'error': f'该机构下存在子机构：{child_display}，请先删除子机构后再删除该机构'
                 }
             
             # 检查是否有用户
             users_sql = """
-            SELECT COUNT(*) as count
+            SELECT username, user_code
             FROM users
             WHERE org_code = :org_code AND status = 1
             """
             users_result = self.db_service.execute_query(users_sql, {'org_code': current_org['data']['org_code']})
-            if users_result[0]['count'] > 0:
+            if users_result:
+                user_names = [f"{user['username']}({user['user_code']})" for user in users_result[:3]]
+                user_display = "、".join(user_names)
+                if len(users_result) > 3:
+                    user_display += f"等{len(users_result)}个用户"
                 return {
                     'success': False,
-                    'error': '该机构下存在用户，无法删除'
+                    'error': f'该机构下存在用户：{user_display}，请先转移或删除用户后再删除该机构'
                 }
             
             # 软删除机构（将状态设置为0）

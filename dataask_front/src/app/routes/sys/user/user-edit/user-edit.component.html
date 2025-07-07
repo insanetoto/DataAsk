@@ -1,4 +1,20 @@
-<page-header [title]="isNew ? '新增用户' : '编辑用户'" [breadcrumb]="breadcrumb">
+<div class="page-header">
+  <div class="page-header-content">
+    <h2>{{ isNew ? '新增用户' : '编辑用户' }}</h2>
+    <div class="page-header-actions">
+      <button nz-button nzType="primary" (click)="submit()" [nzLoading]="submitting" [disabled]="form.invalid">
+        <i nz-icon nzType="check"></i>
+        {{ isNew ? '创建' : '保存' }}
+      </button>
+      <button nz-button type="button" (click)="goBack()" class="ml-sm">
+        <i nz-icon nzType="left"></i>
+        返回
+      </button>
+    </div>
+  </div>
+</div>
+
+<page-header [title]="isNew ? '新增用户' : '编辑用户'" [breadcrumb]="breadcrumb" style="display: none;">
   <ng-template #breadcrumb>
     <nz-breadcrumb>
       <nz-breadcrumb-item>
@@ -24,14 +40,13 @@
   </ng-template>
 </page-header>
 
-<nz-card [nzBordered]="false">
+<nz-card [nzBordered]="false" class="mt-lg">
   @if (loading) {
-    <div class="text-center py-lg">
-      <nz-spin nzSize="large" />
-      <div class="mt-sm text-grey">正在加载用户信息...</div>
-    </div>
+    <nz-spin nzTip="加载中..." class="loading-container">
+      <div style="height: 400px;"></div>
+    </nz-spin>
   } @else {
-    <form nz-form [formGroup]="form" (ngSubmit)="submit()" nz-layout="vertical">
+    <form nz-form [formGroup]="form" (ngSubmit)="submit()">
       @if (!isNew) {
         <nz-form-item>
           <nz-form-label nzFor="user_code" nzRequired>用户编码</nz-form-label>
@@ -43,8 +58,8 @@
         <nz-form-item>
           <nz-form-label>用户编码</nz-form-label>
           <nz-form-control>
-            <div class="text-grey">
-              <i nz-icon nzType="info-circle" nzTheme="outline"></i>
+            <div class="ant-form-item-explain">
+              <i nz-icon nzType="info-circle"></i>
               <span class="ml-sm">用户编码将由系统自动生成</span>
             </div>
           </nz-form-control>
@@ -53,16 +68,21 @@
       
       <nz-form-item>
         <nz-form-label nzFor="username" nzRequired>用户名称</nz-form-label>
-        <nz-form-control nzErrorTip="请输入用户名称">
+        <nz-form-control nzHasFeedback 
+                         [nzErrorTip]="
+                           form.get('username')?.hasError('required') ? '请输入用户名称' :
+                           form.get('username')?.hasError('minlength') ? '用户名称至少2个字符' :
+                           form.get('username')?.hasError('maxlength') ? '用户名称最多50个字符' : ''
+                         ">
           <input nz-input id="username" formControlName="username" placeholder="请输入用户名称" />
         </nz-form-control>
       </nz-form-item>
       
       <nz-form-item>
-        <nz-form-label nzRequired>所属机构</nz-form-label>
+        <nz-form-label nzFor="org_code" nzRequired>所属机构</nz-form-label>
         <nz-form-control nzErrorTip="请选择所属机构">
           <nz-select formControlName="org_code" nzPlaceHolder="请选择所属机构" nzShowSearch
-                     aria-label="选择所属机构">
+                     id="org_code" aria-label="选择所属机构">
             @for (org of organizationOptions; track org.id) {
               <nz-option [nzLabel]="org.org_name + ' (' + org.org_code + ')'" [nzValue]="org.org_code" />
             }
@@ -71,10 +91,10 @@
       </nz-form-item>
       
       <nz-form-item>
-        <nz-form-label nzRequired>用户角色</nz-form-label>
+        <nz-form-label nzFor="role_id" nzRequired>用户角色</nz-form-label>
         <nz-form-control nzErrorTip="请选择用户角色">
           <nz-select formControlName="role_id" nzPlaceHolder="请选择用户角色" nzShowSearch
-                     aria-label="选择用户角色">
+                     id="role_id" aria-label="选择用户角色">
             @for (role of roleOptions; track role.id) {
               <nz-option [nzLabel]="role.role_name" [nzValue]="role.id" />
             }
@@ -85,7 +105,11 @@
       @if (isNew) {
         <nz-form-item>
           <nz-form-label nzFor="password" nzRequired>初始密码</nz-form-label>
-          <nz-form-control nzErrorTip="请输入初始密码">
+          <nz-form-control nzHasFeedback 
+                           [nzErrorTip]="
+                             form.get('password')?.hasError('required') ? '请输入初始密码' :
+                             form.get('password')?.hasError('minlength') ? '密码至少6个字符' : ''
+                           ">
             <input nz-input id="password" type="password" formControlName="password" placeholder="请输入初始密码" />
           </nz-form-control>
         </nz-form-item>
@@ -93,22 +117,24 @@
       
       <nz-form-item>
         <nz-form-label nzFor="phone">联系电话</nz-form-label>
-        <nz-form-control nzErrorTip="请输入正确的手机号码">
+        <nz-form-control nzHasFeedback 
+                         [nzErrorTip]="form.get('phone')?.hasError('pattern') ? '请输入正确的手机号码' : ''">
           <input nz-input id="phone" formControlName="phone" placeholder="请输入联系电话" />
         </nz-form-control>
       </nz-form-item>
       
       <nz-form-item>
         <nz-form-label nzFor="address">联系地址</nz-form-label>
-        <nz-form-control>
+        <nz-form-control nzHasFeedback 
+                         [nzErrorTip]="form.get('address')?.hasError('maxlength') ? '地址最多200个字符' : ''">
           <input nz-input id="address" formControlName="address" placeholder="请输入联系地址" />
         </nz-form-control>
       </nz-form-item>
       
       <nz-form-item>
-        <nz-form-label>用户状态</nz-form-label>
+        <nz-form-label nzFor="userEditStatus">用户状态</nz-form-label>
         <nz-form-control>
-          <nz-radio-group formControlName="status">
+          <nz-radio-group formControlName="status" name="status" id="userEditStatus" aria-label="选择用户状态">
             <label nz-radio [nzValue]="1">启用</label>
             <label nz-radio [nzValue]="0">禁用</label>
           </nz-radio-group>
@@ -117,10 +143,14 @@
       
       <nz-form-item>
         <nz-form-control>
-          <button nz-button nzType="primary" [disabled]="form.invalid" type="submit" [nzLoading]="submitting">
-            {{ isNew ? '创建' : '保存' }}
+          <button nz-button nzType="primary" nzHtmlType="submit" [nzLoading]="submitting" [disabled]="form.invalid">
+            <i nz-icon nzType="check"></i>
+            {{ isNew ? '创建用户' : '保存修改' }}
           </button>
-          <button nz-button type="button" (click)="goBack()" style="margin-left: 8px;">取消</button>
+          <button nz-button type="button" (click)="goBack()" class="ml-sm">
+            <i nz-icon nzType="left"></i>
+            返回
+          </button>
         </nz-form-control>
       </nz-form-item>
     </form>

@@ -1,17 +1,67 @@
-<div class="modal-header">
-  <div class="modal-title">查看 {{ record.id }} 信息</div>
-</div>
-@if (i) {
-  <div sv-container>
-    <sv label="姓名">{{ i.owner }}</sv>
-    <sv label="会员卡号">32943898021309809423</sv>
-    <sv label="身份证">3321944288191034921</sv>
-    <sv label="联系方式">18112345678</sv>
-    <sv label="联系地址">曲丽丽 18100000000 浙江省杭州市西湖区黄姑山路工专路交叉路口</sv>
+<div class="page-header">
+  <div class="page-header-content">
+    <h2>机构详情</h2>
+    <div class="page-header-actions">
+      <button nz-button nzType="primary" (click)="editOrg()">
+        <i nz-icon nzType="edit"></i>
+        编辑机构
+      </button>
+      <button nz-button type="button" (click)="goBack()" class="ml-sm">
+        <i nz-icon nzType="left"></i>
+        返回
+      </button>
+    </div>
   </div>
-} @else {
-  <nz-spin class="modal-spin" />
-}
-<div class="modal-footer">
-  <button nz-button type="button" (click)="close()">关闭</button>
 </div>
+
+<nz-card [nzBordered]="false" class="mt-lg">
+  @if (loading) {
+    <nz-spin nzTip="加载中..." class="loading-container">
+      <div style="height: 400px;"></div>
+    </nz-spin>
+  } @else if (i) {
+    <sv-container size="large" title="基本信息">
+      <sv label="机构编码">{{ i.org_code || '-' }}</sv>
+      <sv label="机构名称">{{ i.org_name || '-' }}</sv>
+      <sv label="上级机构">{{ getParentOrgName(i) }}</sv>
+      <sv label="机构层级">{{ getLevelDescription(i) }}</sv>
+      <sv label="机构状态">
+        <nz-badge [nzStatus]="getStatusColor(i)" [nzText]="getStatusDescription(i)" />
+      </sv>
+    </sv-container>
+    
+    <nz-divider />
+    
+    <sv-container size="large" title="联系信息">
+      <sv label="负责人">{{ i.contact_person || '-' }}</sv>
+      <sv label="联系电话">{{ i.contact_phone || '-' }}</sv>
+      <sv label="联系邮箱">{{ i.contact_email || '-' }}</sv>
+    </sv-container>
+    
+    <nz-divider />
+    
+    <sv-container size="large" title="层级信息">
+      <sv label="层级深度">{{ i.level_depth !== undefined ? i.level_depth + '级' : '-' }}</sv>
+      @if (i.children && i.children.length > 0) {
+        <sv label="下级机构">
+          <nz-tag *ngFor="let child of i.children" [nzColor]="'blue'">
+            {{ child.org_name }} ({{ child.org_code }})
+          </nz-tag>
+        </sv>
+      }
+    </sv-container>
+    
+    <nz-divider />
+    
+    <sv-container size="large" title="系统信息">
+      <sv label="创建时间">{{ i.created_at | date:'yyyy-MM-dd HH:mm:ss' }}</sv>
+      <sv label="更新时间">{{ i.updated_at | date:'yyyy-MM-dd HH:mm:ss' }}</sv>
+    </sv-container>
+  } @else {
+    <div class="empty-container">
+      <p>未找到机构信息</p>
+      <button nz-button nzType="primary" (click)="goBack()">返回列表</button>
+      <button nz-button nzType="default" (click)="loadOrgDetail()" class="ml-sm">重新加载</button>
+    </div>
+  }
+</nz-card>

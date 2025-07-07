@@ -111,6 +111,117 @@ def can_manage_user(current_user: Dict[str, Any], target_user_id: int) -> bool:
     
     return False
 
+def can_manage_role(current_user: Dict[str, Any], target_role_id: int = None, target_role_level: int = None) -> bool:
+    """
+    检查当前用户是否有权限管理指定角色
+    
+    Args:
+        current_user: 当前用户信息
+        target_role_id: 目标角色ID
+        target_role_level: 目标角色等级
+        
+    Returns:
+        True: 有权限, False: 无权限
+    """
+    try:
+        if not current_user:
+            return False
+            
+        current_role = current_user.get('role_code', '')
+        
+        # 超级管理员有所有权限
+        if current_role == 'SUPER_ADMIN':
+            return True
+            
+        # 机构管理员只能管理机构管理员和普通用户角色
+        if current_role == 'ORG_ADMIN':
+            # 如果指定了角色ID，需要获取角色等级
+            if target_role_id and not target_role_level:
+                role_service = get_role_service()
+                role_result = role_service.get_role_by_id(target_role_id)
+                if not role_result['success'] or not role_result['data']:
+                    return False
+                target_role_level = role_result['data']['role_level']
+                
+            # 机构管理员不能管理超级管理员角色（role_level=1）
+            if target_role_level and target_role_level == 1:
+                return False
+                
+            # 机构管理员可以管理机构管理员（role_level=2）和普通用户（role_level=3）角色
+            if target_role_level and target_role_level in [2, 3]:
+                return True
+                
+            # 如果没有指定目标角色，默认允许（比如获取列表时）
+            if not target_role_id and not target_role_level:
+                return True
+                
+            return False
+            
+        # 其他角色无权限
+        return False
+        
+    except Exception as e:
+        logger.error(f"检查角色权限失败: {str(e)}")
+        return False
+
+def can_manage_organization(current_user: Dict[str, Any], target_org_code: str = None, target_org_id: int = None) -> bool:
+    """
+    检查当前用户是否有权限管理指定机构
+    
+    Args:
+        current_user: 当前用户信息
+        target_org_code: 目标机构编码
+        target_org_id: 目标机构ID
+        
+    Returns:
+        True: 有权限, False: 无权限
+    """
+    try:
+        if not current_user:
+            return False
+            
+        current_role = current_user.get('role_code', '')
+        current_org_code = current_user.get('org_code', '')
+        
+        # 超级管理员有所有权限
+        if current_role == 'SUPER_ADMIN':
+            return True
+            
+        # 机构管理员只能管理自己机构及下级机构
+        if current_role == 'ORG_ADMIN':
+            if not current_org_code:
+                return False
+                
+            # 如果没有指定目标机构，默认允许（比如获取列表时）
+            if not target_org_code and not target_org_id:
+                return True
+                
+            # 获取目标机构编码
+            if target_org_id and not target_org_code:
+                org_service = get_organization_service()
+                org_result = org_service.get_organization_by_id(target_org_id)
+                if not org_result['success'] or not org_result['data']:
+                    return False
+                target_org_code = org_result['data']['org_code']
+                
+            if target_org_code:
+                # 检查是否是自己的机构
+                if target_org_code == current_org_code:
+                    return True
+                    
+                # 检查是否是下级机构（目标机构编码以当前机构编码开头）
+                if target_org_code.startswith(current_org_code):
+                    return True
+                    
+            return False
+            
+        # 其他角色无权限
+        return False
+        
+    except Exception as e:
+        logger.error(f"检查机构权限失败: {str(e)}")
+        return False
+
 @api_bp.route('/health', methods=['GET'])
 def health_check():
     """健康检查接口"""
@@ -405,6 +516,7 @@ def clear_cache():
 # ==================== 机构管理接口 ====================
 
 @api_bp.route('/organizations', methods=['POST'])
+@auth_required
 def create_organization():
     """创建组织机构"""
     try:
@@ -415,17 +527,53 @@ def create_organization():
                 'message': '未认证用户'
             }), 401
         
+        # 检查权限
+        if not can_manage_organization(current_user):
+            return jsonify({
+                'code': 403,
+                'message': '无权限创建机构'
+            }), 403
+        
         data = request.get_json()
         if not data:
             response, status = standardize_response(False, error='缺少请求数据', code=400)
             return jsonify(response), status
         
-        # 验证必要字段
-        required_fields = ['org_code', 'org_name', 'parent_code']
+        # 验证必要字段 - 修正字段名称
+        required_fields = ['org_name', 'contact_person', 'contact_phone', 'contact_email']
         for field in required_fields:
             if field not in data or not str(data[field]).strip():
                 response, status = standardize_response(False, error=f'缺少必要字段: {field}', code=400)
                 return jsonify(response), status
+        
+        # 验证上级机构权限
+        current_role = current_user.get('role_code', '')
+        current_org_code = current_user.get('org_code', '')
+        parent_org_code = data.get('parent_org_code')
+        
+        if parent_org_code:
+            if current_role == 'SUPER_ADMIN':
+                # 超级管理员可以选择任何机构作为上级机构
+                pass
+            elif current_role == 'ORG_ADMIN':
+                # 机构管理员只能选择自己的机构作为上级机构
+                if parent_org_code != current_org_code:
+                    return jsonify({
+                        'code': 403,
+                        'message': '机构管理员只能在自己的机构下创建子机构'
+                    }), 403
+            else:
+                # 其他角色只能选择自己的机构作为上级机构
+                if parent_org_code != current_org_code:
+                    return jsonify({
+                        'code': 403,
+                        'message': '无权限在指定机构下创建子机构'
+                    }), 403
+        else:
+            # 如果没有指定上级机构
+            if current_role != 'SUPER_ADMIN':
+                # 非超级管理员必须指定上级机构，且必须是自己的机构
+                data['parent_org_code'] = current_org_code
         
         org_service = get_organization_service()
         result = org_service.create_organization(data)
@@ -437,7 +585,7 @@ def create_organization():
                 module='org',
                 operation='create',
                 target_type='organization',
-                target_id=data['org_code'],
+                target_id=result['data'].get('org_code', ''),
                 target_name=data['org_name'],
                 old_data=None,
                 new_data=result.get('data'),
@@ -455,20 +603,34 @@ def create_organization():
         return jsonify(response), status
 
 @api_bp.route('/organizations/<int:org_id>', methods=['GET'])
+@auth_required
 def get_organization(org_id):
-    """获取机构信息接口"""
+    """获取机构详情"""
     try:
+        current_user = g.current_user
+        if not current_user:
+            return jsonify({
+                'code': 401,
+                'message': '未认证用户'
+            }), 401
+        
+        # 检查权限
+        if not can_manage_organization(current_user, target_org_id=org_id):
+            return jsonify({
+                'code': 403,
+                'message': '无权限访问该机构信息'
+            }), 403
+        
         org_service = get_organization_service()
         result = org_service.get_organization_by_id(org_id)
         
-        status_code = 200 if result['success'] else 404
-        return jsonify(result), status_code
+        return jsonify(result), 200 if result['success'] else 404
         
     except Exception as e:
-        logger.error(f"获取机构信息失败: {str(e)}")
+        logger.error(f"获取机构详情失败: {str(e)}")
         return jsonify({
             'success': False,
-            'error': f'获取机构信息失败: {str(e)}'
+            'error': f'获取机构详情失败: {str(e)}'
         }), 500
 
 @api_bp.route('/organizations/code/<string:org_code>', methods=['GET'])
@@ -489,9 +651,24 @@ def get_organization_by_code(org_code):
         }), 500
 
 @api_bp.route('/organizations', methods=['GET'])
+@auth_required
 def get_organizations_list():
     """获取机构列表接口"""
     try:
+        current_user = g.current_user
+        if not current_user:
+            return jsonify({
+                'code': 401,
+                'message': '未认证用户'
+            }), 401
+        
+        # 检查权限
+        if not can_manage_organization(current_user):
+            return jsonify({
+                'code': 403,
+                'message': '无权限访问机构管理'
+            }), 403
+        
         # 获取查询参数
         page = request.args.get('pi', 1, type=int)  # 前端使用pi参数
         page_size = request.args.get('ps', 10, type=int)  # 前端使用ps参数
@@ -499,12 +676,61 @@ def get_organizations_list():
         keyword = request.args.get('keyword')
         
         org_service = get_organization_service()
-        result = org_service.get_organizations_list(
-            page=page,
-            page_size=page_size,
-            status=status,
-            keyword=keyword
-        )
+        
+        current_role = current_user.get('role_code', '')
+        current_org_code = current_user.get('org_code', '')
+        
+        # 根据角色过滤机构列表
+        if current_role == 'SUPER_ADMIN':
+            # 超级管理员可以看所有机构
+            result = org_service.get_organizations_list(
+                page=page,
+                page_size=page_size,
+                status=status,
+                keyword=keyword
+            )
+        elif current_role == 'ORG_ADMIN' and current_org_code:
+            # 机构管理员只能看自己机构及下级机构
+            children_result = org_service.get_organization_children(current_org_code, include_self=True)
+            if children_result['success']:
+                # 获取允许查看的机构编码列表
+                allowed_org_codes = [org['org_code'] for org in children_result['data']]
+                
+                # 过滤机构列表
+                all_result = org_service.get_organizations_list(
+                    page=1,
+                    page_size=1000,  # 获取大量数据以便过滤
+                    status=status,
+                    keyword=keyword
+                )
+                
+                if all_result['success']:
+                    all_orgs = all_result['data'].get('list', []) or all_result['data'].get('items', [])
+                    filtered_orgs = [org for org in all_orgs if org['org_code'] in allowed_org_codes]
+                    
+                    # 手动分页
+                    start_idx = (page - 1) * page_size
+                    end_idx = start_idx + page_size
+                    paged_orgs = filtered_orgs[start_idx:end_idx]
+                    
+                    result = {
+                        'success': True,
+                        'data': {
+                            'list': paged_orgs,
+                            'total': len(filtered_orgs),
+                            'page': page,
+                            'pageSize': page_size
+                        }
+                    }
+                else:
+                    result = all_result
+            else:
+                result = children_result
+        else:
+            return jsonify({
+                'code': 403,
+                'message': '无权限访问机构管理'
+            }), 403
         
         # 转换为标准格式
         if result['success']:
@@ -529,6 +755,7 @@ def get_organizations_list():
         }), 500
 
 @api_bp.route('/organizations/<int:org_id>', methods=['PUT'])
+@auth_required
 def update_organization(org_id):
     """更新机构信息"""
     try:
@@ -538,6 +765,13 @@ def update_organization(org_id):
                 'code': 401,
                 'message': '未认证用户'
             }), 401
+        
+        # 检查权限
+        if not can_manage_organization(current_user, target_org_id=org_id):
+            return jsonify({
+                'code': 403,
+                'message': '无权限修改该机构信息'
+            }), 403
         
         data = request.get_json()
         if not data:
@@ -581,6 +815,7 @@ def update_organization(org_id):
         return jsonify(response), status
 
 @api_bp.route('/organizations/<int:org_id>', methods=['DELETE'])
+@auth_required
 def delete_organization(org_id):
     """删除机构"""
     try:
@@ -590,6 +825,13 @@ def delete_organization(org_id):
                 'code': 401,
                 'message': '未认证用户'
             }), 401
+        
+        # 检查权限
+        if not can_manage_organization(current_user, target_org_id=org_id):
+            return jsonify({
+                'code': 403,
+                'message': '无权限删除该机构'
+            }), 403
         
         org_service = get_organization_service()
         
@@ -1117,6 +1359,20 @@ def reset_user_password(user_id):
 def get_roles():
     """获取角色列表"""
     try:
+        current_user = g.current_user
+        if not current_user:
+            return jsonify({
+                'code': 401,
+                'message': '未认证用户'
+            }), 401
+        
+        # 检查权限
+        if not can_manage_role(current_user):
+            return jsonify({
+                'code': 403,
+                'message': '无权限访问角色管理'
+            }), 403
+        
         # 支持ng-alain表格组件的参数格式：pi, ps
         page = request.args.get('pi', request.args.get('page', 1), type=int)
         page_size = request.args.get('ps', request.args.get('page_size', 10), type=int)
@@ -1134,18 +1390,56 @@ def get_roles():
             role_level = int(role_level_str)
         else:
             role_level = None
-            
-
         
         role_service = get_role_service()
-        result = role_service.get_roles_list(
-            page=page, 
-            page_size=page_size, 
-            keyword=keyword, 
-            status=status, 
-            role_level=role_level, 
-
-        )
+        current_role = current_user.get('role_code', '')
+        
+        # 根据角色过滤角色列表
+        if current_role == 'SUPER_ADMIN':
+            # 超级管理员可以看所有角色
+            result = role_service.get_roles_list(
+                page=page, 
+                page_size=page_size, 
+                keyword=keyword, 
+                status=status, 
+                role_level=role_level
+            )
+        elif current_role == 'ORG_ADMIN':
+            # 机构管理员只能看机构管理员和普通用户角色
+            all_result = role_service.get_roles_list(
+                page=1, 
+                page_size=1000,  # 获取大量数据以便过滤
+                keyword=keyword, 
+                status=status, 
+                role_level=role_level
+            )
+            
+            if all_result['success']:
+                all_roles = all_result['data'].get('list', []) or all_result['data'].get('items', [])
+                # 过滤掉超级管理员角色（role_level=1）
+                filtered_roles = [role for role in all_roles if role.get('role_level', 0) != 1]
+                
+                # 手动分页
+                start_idx = (page - 1) * page_size
+                end_idx = start_idx + page_size
+                paged_roles = filtered_roles[start_idx:end_idx]
+                
+                result = {
+                    'success': True,
+                    'data': {
+                        'list': paged_roles,
+                        'total': len(filtered_roles),
+                        'page': page,
+                        'pageSize': page_size
+                    }
+                }
+            else:
+                result = all_result
+        else:
+            result = {
+                'success': False,
+                'error': '无权限访问角色管理'
+            }
         
         return jsonify(result), 200 if result['success'] else 400
         
@@ -1160,9 +1454,31 @@ def get_roles():
 @auth_required
 def get_role(role_id):
     """获取角色信息"""
-    role_service = get_role_service()
-    result = role_service.get_role_by_id(role_id)
-    return jsonify(result), 200 if result['success'] else 400
+    try:
+        current_user = g.current_user
+        if not current_user:
+            return jsonify({
+                'code': 401,
+                'message': '未认证用户'
+            }), 401
+        
+        # 检查权限
+        if not can_manage_role(current_user, target_role_id=role_id):
+            return jsonify({
+                'code': 403,
+                'message': '无权限访问该角色'
+            }), 403
+        
+        role_service = get_role_service()
+        result = role_service.get_role_by_id(role_id)
+        return jsonify(result), 200 if result['success'] else 400
+        
+    except Exception as e:
+        logger.error(f"获取角色信息失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @api_bp.route('/roles', methods=['POST'], endpoint='create_new_role')
 @auth_required
@@ -1170,7 +1486,21 @@ def create_role():
     """创建角色"""
     try:
         current_user = g.current_user
+        if not current_user:
+            return jsonify({
+                'code': 401,
+                'message': '未认证用户'
+            }), 401
+        
         data = request.get_json()
+        target_role_level = data.get('role_level')
+        
+        # 检查权限
+        if not can_manage_role(current_user, target_role_level=target_role_level):
+            return jsonify({
+                'code': 403,
+                'message': '无权限创建该等级的角色'
+            }), 403
         
         role_service = get_role_service()
         result = role_service.create_role(data)
@@ -1203,7 +1533,28 @@ def update_role(role_id):
     """更新角色"""
     try:
         current_user = g.current_user
+        if not current_user:
+            return jsonify({
+                'code': 401,
+                'message': '未认证用户'
+            }), 401
+        
+        # 检查权限
+        if not can_manage_role(current_user, target_role_id=role_id):
+            return jsonify({
+                'code': 403,
+                'message': '无权限修改该角色'
+            }), 403
+        
         data = request.get_json()
+        target_role_level = data.get('role_level')
+        
+        # 如果要修改角色等级，也需要检查权限
+        if target_role_level and not can_manage_role(current_user, target_role_level=target_role_level):
+            return jsonify({
+                'code': 403,
+                'message': '无权限修改为该等级的角色'
+            }), 403
         
         role_service = get_role_service()
         
@@ -1245,6 +1596,18 @@ def delete_role(role_id):
     """删除角色"""
     try:
         current_user = g.current_user
+        if not current_user:
+            return jsonify({
+                'code': 401,
+                'message': '未认证用户'
+            }), 401
+        
+        # 检查权限
+        if not can_manage_role(current_user, target_role_id=role_id):
+            return jsonify({
+                'code': 403,
+                'message': '无权限删除该角色'
+            }), 403
         
         role_service = get_role_service()
         

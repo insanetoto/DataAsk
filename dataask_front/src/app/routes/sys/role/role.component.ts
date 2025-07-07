@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, TemplateRef, ViewChild, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { STChange, STColumn, STComponent, STData } from '@delon/abc/st';
-import { _HttpClient } from '@delon/theme';
+import { _HttpClient, SettingsService } from '@delon/theme';
 import { SHARED_IMPORTS } from '@shared';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalService } from 'ng-zorro-antd/modal';
@@ -20,6 +21,8 @@ export class SysRoleComponent implements OnInit {
   private readonly modalSrv = inject(NzModalService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly roleService = inject(SysRoleService);
+  private readonly router = inject(Router);
+  private readonly settings = inject(SettingsService);
 
   // 查询参数
   q: RoleQuery = {
@@ -36,13 +39,11 @@ export class SysRoleComponent implements OnInit {
   selectedRows: STData[] = [];
   expandForm = false;
 
-  // 表单数据
+  // 权限管理数据
   editingRole: Partial<Role> = {};
-  isEditMode = false;
   modalTitle = '';
 
   // 选项数据
-
   roleLevelOptions = this.roleService.getRoleLevelOptions();
   permissionOptions: any[] = [];
   selectedPermissions: number[] = [];
@@ -53,6 +54,15 @@ export class SysRoleComponent implements OnInit {
     { label: '启用', value: 1 },
     { label: '禁用', value: 0 }
   ];
+
+  // 当前用户信息
+  get currentUser() {
+    return this.settings.user;
+  }
+
+  get currentUserRoleCode() {
+    return this.currentUser?.roleCode || this.currentUser?.role_code || this.currentUser?.role?.role_code;
+  }
 
   @ViewChild('st', { static: true })
   st!: STComponent;
@@ -120,26 +130,70 @@ export class SysRoleComponent implements OnInit {
         {
           text: '编辑',
           icon: 'edit',
-          click: (item: Role) => this.editRole(item)
+          click: (item: Role) => this.editRole(item),
+          iif: (item: Role) => this.canManageRole(item)
         },
         {
           text: '权限',
           icon: 'lock',
-          click: (item: Role) => this.managePermissions(item)
+          click: (item: Role) => this.managePermissions(item),
+          iif: (item: Role) => this.canManageRole(item)
         },
         {
           text: '删除',
           icon: 'delete',
           type: 'del',
-          click: (item: Role) => this.deleteRole(item)
+          click: (item: Role) => this.deleteRole(item),
+          iif: (item: Role) => this.canManageRole(item)
         }
       ]
     }
   ];
 
   ngOnInit(): void {
+    // 添加调试信息
+    console.log('当前用户信息:', this.currentUser);
+    console.log('当前用户角色编码:', this.currentUserRoleCode);
+    console.log('是否可以管理角色:', this.canManageAnyRole());
+
+    // 移除组件级别的权限检查，因为路由级别已经有权限控制
+    // this.checkPermissions();
     this.getData();
     this.loadPermissionOptions();
+  }
+
+  /**
+   * 检查是否可以管理任何角色
+   */
+  canManageAnyRole(): boolean {
+    const currentRole = this.currentUserRoleCode;
+    return currentRole === 'SUPER_ADMIN' || currentRole === 'ORG_ADMIN';
+  }
+
+  /**
+   * 检查是否可以管理指定角色
+   */
+  canManageRole(role: Role): boolean {
+    const currentRole = this.currentUserRoleCode;
+
+    // 超级管理员可以管理所有角色
+    if (currentRole === 'SUPER_ADMIN') {
+      return true;
+    }
+
+    // 机构管理员不能管理超级管理员角色
+    if (currentRole === 'ORG_ADMIN') {
+      return role.role_level !== 1; // 不能管理超级管理员（role_level=1）
+    }
+
+    return false;
+  }
+
+  /**
+   * 检查是否可以新增角色
+   */
+  canAddRole(): boolean {
+    return this.canManageAnyRole();
   }
 
   /**
@@ -174,6 +228,13 @@ export class SysRoleComponent implements OnInit {
         },
         error: error => {
           console.error('获取角色数据失败:', error);
+
+          // 检查是否是权限错误
+          if (error.status === 403) {
+            this.msg.error('您没有权限访问角色管理');
+            this.router.navigate(['/dashboard']);
+            return;
+          }
 
           // 检查是否是被HTTP拦截器误判的成功响应
           if (error.status === 200 && error.ok && error.body) {
@@ -240,36 +301,22 @@ export class SysRoleComponent implements OnInit {
   /**
    * 新增角色
    */
-  addRole(tpl: TemplateRef<unknown>): void {
-    this.editingRole = {
-      status: 1,
-      role_level: 3
-    };
-    this.isEditMode = false;
-    this.modalTitle = '新增角色';
-    this.showModal(tpl);
+  addRole(): void {
+    this.router.navigate(['/sys/role/edit/new']);
   }
 
   /**
    * 查看角色
    */
   viewRole(item: Role): void {
-    this.editingRole = { ...item };
-    this.isEditMode = false;
-    this.modalTitle = '查看角色';
-    this.msg.info(`查看角色: ${item.role_name}`);
+    this.router.navigate(['/sys/role/view', item.id]);
   }
 
   /**
    * 编辑角色
    */
-  editRole(item: Role, tpl?: TemplateRef<unknown>): void {
-    this.editingRole = { ...item };
-    this.isEditMode = true;
-    this.modalTitle = '编辑角色';
-    if (tpl) {
-      this.showModal(tpl);
-    }
+  editRole(item: Role): void {
+    this.router.navigate(['/sys/role/edit', item.id]);
   }
 
   /**
@@ -360,20 +407,6 @@ export class SysRoleComponent implements OnInit {
   }
 
   /**
-   * 显示模态框
-   */
-  showModal(tpl: TemplateRef<unknown>): void {
-    this.modalSrv.create({
-      nzTitle: this.modalTitle,
-      nzContent: tpl,
-      nzWidth: 600,
-      nzOnOk: () => {
-        return this.saveRole();
-      }
-    });
-  }
-
-  /**
    * 显示权限管理模态框
    */
   showPermissionModal(tpl: TemplateRef<unknown>): void {
@@ -384,41 +417,6 @@ export class SysRoleComponent implements OnInit {
       nzOnOk: () => {
         return this.savePermissions();
       }
-    });
-  }
-
-  /**
-   * 保存角色
-   */
-  saveRole(): Promise<boolean> {
-    return new Promise(resolve => {
-      // 表单验证
-      if (!this.editingRole.role_code || !this.editingRole.role_name || !this.editingRole.role_level) {
-        this.msg.error('请填写完整信息');
-        resolve(false);
-        return;
-      }
-
-      const request = this.isEditMode
-        ? this.roleService.updateRole(this.editingRole.id!, this.editingRole)
-        : this.roleService.createRole(this.editingRole);
-
-      request.subscribe({
-        next: res => {
-          if (res.code === 200 || res.success === true) {
-            this.msg.success(this.isEditMode ? '更新成功' : '创建成功');
-            this.getData();
-            resolve(true);
-          } else {
-            this.msg.error(res.message || res.error || '保存失败');
-            resolve(false);
-          }
-        },
-        error: () => {
-          this.msg.error('保存失败');
-          resolve(false);
-        }
-      });
     });
   }
 

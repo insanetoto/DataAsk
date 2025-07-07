@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, TemplateRef, ViewChild, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, ViewChild, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { STChange, STColumn, STComponent, STData } from '@delon/abc/st';
-import { _HttpClient } from '@delon/theme';
+import { _HttpClient, SettingsService } from '@delon/theme';
 import { SHARED_IMPORTS } from '@shared';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalService } from 'ng-zorro-antd/modal';
@@ -20,6 +21,8 @@ export class SysPermissionComponent implements OnInit {
   private readonly modalSrv = inject(NzModalService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly permissionService = inject(SysPermissionService);
+  private readonly router = inject(Router);
+  private readonly settings = inject(SettingsService);
 
   // 查询参数
   q: PermissionQuery = {
@@ -39,11 +42,6 @@ export class SysPermissionComponent implements OnInit {
   expandForm = false;
   isTreeView = false;
 
-  // 表单数据
-  editingPermission: Partial<Permission> = {};
-  isEditMode = false;
-  modalTitle = '';
-
   // 选项数据
   httpMethodOptions = this.permissionService.getHttpMethodOptions();
   resourceTypeOptions = this.permissionService.getResourceTypeOptions();
@@ -57,6 +55,15 @@ export class SysPermissionComponent implements OnInit {
 
   @ViewChild('st', { static: true })
   st!: STComponent;
+
+  // 当前用户信息
+  get currentUser() {
+    return this.settings.user;
+  }
+
+  get currentUserRoleCode() {
+    return this.currentUser?.roleCode || this.currentUser?.role_code || '';
+  }
 
   // 表格列配置
   columns: STColumn[] = [
@@ -135,13 +142,15 @@ export class SysPermissionComponent implements OnInit {
         {
           text: '编辑',
           icon: 'edit',
-          click: (item: Permission) => this.editPermission(item)
+          click: (item: Permission) => this.editPermission(item),
+          iif: () => this.canManagePermission()
         },
         {
           text: '删除',
           icon: 'delete',
           type: 'del',
-          click: (item: Permission) => this.deletePermission(item)
+          click: (item: Permission) => this.deletePermission(item),
+          iif: () => this.canManagePermission()
         }
       ]
     }
@@ -149,6 +158,24 @@ export class SysPermissionComponent implements OnInit {
 
   ngOnInit(): void {
     this.getData();
+  }
+
+  /**
+   * 检查是否可以管理权限
+   */
+  canManagePermission(): boolean {
+    const currentRole = this.currentUserRoleCode;
+    // 只有超级管理员可以管理权限
+    return currentRole === 'SUPER_ADMIN';
+  }
+
+  /**
+   * 检查是否可以查看权限
+   */
+  canViewPermission(): boolean {
+    const currentRole = this.currentUserRoleCode;
+    // 超级管理员和机构管理员都可以查看权限
+    return currentRole === 'SUPER_ADMIN' || currentRole === 'ORG_ADMIN';
   }
 
   /**
@@ -275,36 +302,22 @@ export class SysPermissionComponent implements OnInit {
   /**
    * 新增权限
    */
-  addPermission(tpl: TemplateRef<unknown>): void {
-    this.editingPermission = {
-      status: 1,
-      api_method: 'GET'
-    };
-    this.isEditMode = false;
-    this.modalTitle = '新增权限';
-    this.showModal(tpl);
+  addPermission(): void {
+    this.router.navigate(['/sys/permission/edit/new']);
   }
 
   /**
    * 查看权限
    */
   viewPermission(item: Permission): void {
-    this.editingPermission = { ...item };
-    this.isEditMode = false;
-    this.modalTitle = '查看权限';
-    this.msg.info(`查看权限: ${item.permission_name}`);
+    this.router.navigate(['/sys/permission/view', item.id]);
   }
 
   /**
    * 编辑权限
    */
-  editPermission(item: Permission, tpl?: TemplateRef<unknown>): void {
-    this.editingPermission = { ...item };
-    this.isEditMode = true;
-    this.modalTitle = '编辑权限';
-    if (tpl) {
-      this.showModal(tpl);
-    }
+  editPermission(item: Permission): void {
+    this.router.navigate(['/sys/permission/edit', item.id]);
   }
 
   /**
@@ -317,14 +330,24 @@ export class SysPermissionComponent implements OnInit {
       nzOnOk: () => {
         return this.permissionService.deletePermission(item.id!).subscribe({
           next: res => {
-            if (res.code === 200 || res.success === true) {
-              this.msg.success('删除成功');
+            // 兼容不同的响应格式
+            if (res.code === 200 || res.success === true || res.message === '权限删除成功') {
+              this.msg.success(res.message || '删除成功');
               this.getData();
             } else {
               this.msg.error(res.message || res.error || '删除失败');
             }
           },
-          error: () => {
+          error: error => {
+            console.error('删除权限失败:', error);
+            // 检查是否是被HTTP拦截器误判的成功响应
+            if (error.status === 200 && error.ok && error.body) {
+              if (error.body.success === true || error.body.code === 200 || error.body.message === '权限删除成功') {
+                this.msg.success(error.body.message || '删除成功');
+                this.getData();
+                return;
+              }
+            }
             this.msg.error('删除失败');
           }
         });
@@ -348,73 +371,30 @@ export class SysPermissionComponent implements OnInit {
         const permissionIds = this.selectedRows.map(row => row['id']);
         return this.permissionService.batchDeletePermissions(permissionIds).subscribe({
           next: res => {
-            if (res.code === 200 || res.success === true) {
-              this.msg.success('批量删除成功');
+            // 兼容不同的响应格式
+            if (res.code === 200 || res.success === true || res.message?.includes('删除成功')) {
+              this.msg.success(res.message || '批量删除成功');
               this.getData();
               this.st.clearCheck();
             } else {
               this.msg.error(res.message || res.error || '批量删除失败');
             }
           },
-          error: () => {
+          error: error => {
+            console.error('批量删除权限失败:', error);
+            // 检查是否是被HTTP拦截器误判的成功响应
+            if (error.status === 200 && error.ok && error.body) {
+              if (error.body.success === true || error.body.code === 200 || error.body.message?.includes('删除成功')) {
+                this.msg.success(error.body.message || '批量删除成功');
+                this.getData();
+                this.st.clearCheck();
+                return;
+              }
+            }
             this.msg.error('批量删除失败');
           }
         });
       }
-    });
-  }
-
-  /**
-   * 显示模态框
-   */
-  showModal(tpl: TemplateRef<unknown>): void {
-    this.modalSrv.create({
-      nzTitle: this.modalTitle,
-      nzContent: tpl,
-      nzWidth: 600,
-      nzOnOk: () => {
-        return this.savePermission();
-      }
-    });
-  }
-
-  /**
-   * 保存权限
-   */
-  savePermission(): Promise<boolean> {
-    return new Promise(resolve => {
-      // 表单验证
-      if (
-        !this.editingPermission.permission_code ||
-        !this.editingPermission.permission_name ||
-        !this.editingPermission.api_path ||
-        !this.editingPermission.api_method
-      ) {
-        this.msg.error('请填写完整信息');
-        resolve(false);
-        return;
-      }
-
-      const request = this.isEditMode
-        ? this.permissionService.updatePermission(this.editingPermission.id!, this.editingPermission)
-        : this.permissionService.createPermission(this.editingPermission);
-
-      request.subscribe({
-        next: res => {
-          if (res.code === 200 || res.success === true) {
-            this.msg.success(this.isEditMode ? '更新成功' : '创建成功');
-            this.getData();
-            resolve(true);
-          } else {
-            this.msg.error(res.message || res.error || '保存失败');
-            resolve(false);
-          }
-        },
-        error: () => {
-          this.msg.error('保存失败');
-          resolve(false);
-        }
-      });
     });
   }
 

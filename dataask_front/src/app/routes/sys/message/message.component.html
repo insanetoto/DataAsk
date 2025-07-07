@@ -5,17 +5,17 @@
     <div nz-row [nzGutter]="{ xs: 8, sm: 8, md: 8, lg: 24, xl: 48, xxl: 48 }">
       <div nz-col nzMd="8" nzSm="24">
         <nz-form-item>
-          <nz-form-label nzFor="title">消息标题</nz-form-label>
+          <nz-form-label nzFor="msgTitle">消息标题</nz-form-label>
           <nz-form-control>
-            <input nz-input [(ngModel)]="q.title" name="title" placeholder="请输入消息标题" id="title" />
+            <input nz-input [(ngModel)]="q.title" name="title" placeholder="请输入消息标题" id="msgTitle" />
           </nz-form-control>
         </nz-form-item>
       </div>
       <div nz-col nzMd="8" nzSm="24">
         <nz-form-item>
-          <nz-form-label nzFor="type">消息类型</nz-form-label>
+          <nz-form-label nzFor="msgType">消息类型</nz-form-label>
           <nz-form-control>
-            <nz-select [(ngModel)]="q.type" name="type" id="type" [nzPlaceHolder]="'请选择消息类型'" [nzShowSearch]="true" [nzAllowClear]="true">
+            <nz-select [(ngModel)]="q.type" name="type" id="msgType" [nzPlaceHolder]="'请选择消息类型'" [nzShowSearch]="true" [nzAllowClear]="true">
               @for (option of typeOptions; track $index) {
                 <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
               }
@@ -26,9 +26,9 @@
       @if (expandForm) {
         <div nz-col nzMd="8" nzSm="24">
           <nz-form-item>
-            <nz-form-label nzFor="status">状态</nz-form-label>
+            <nz-form-label nzFor="msgStatus">状态</nz-form-label>
             <nz-form-control>
-              <nz-select [(ngModel)]="q.status" name="status" id="status" [nzPlaceHolder]="'请选择状态'" [nzShowSearch]="true" [nzAllowClear]="true">
+              <nz-select [(ngModel)]="q.status" name="status" id="msgStatus" [nzPlaceHolder]="'请选择状态'" [nzShowSearch]="true" [nzAllowClear]="true">
                 @for (option of statusOptions; track $index) {
                   <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
                 }
@@ -38,9 +38,9 @@
         </div>
         <div nz-col nzMd="8" nzSm="24">
           <nz-form-item>
-            <nz-form-label nzFor="sender">发送人</nz-form-label>
+            <nz-form-label nzFor="msgSender">发送人</nz-form-label>
             <nz-form-control>
-              <input nz-input [(ngModel)]="q.sender" name="sender" placeholder="请输入发送人" id="sender" />
+              <input nz-input [(ngModel)]="q.sender" name="sender" placeholder="请输入发送人" id="msgSender" />
             </nz-form-control>
           </nz-form-item>
         </div>
@@ -110,16 +110,16 @@
 <ng-template #modalContent>
   <form nz-form [nzLayout]="'vertical'">
     <nz-form-item>
-      <nz-form-label nzFor="title" nzRequired>消息标题</nz-form-label>
+      <nz-form-label nzFor="modalTitle" nzRequired>消息标题</nz-form-label>
       <nz-form-control>
-        <input nz-input [(ngModel)]="editingMessage.title" name="title" placeholder="请输入消息标题" id="title" />
+        <input nz-input [(ngModel)]="editingMessage.title" name="modalTitle" placeholder="请输入消息标题" id="modalTitle" />
       </nz-form-control>
     </nz-form-item>
     
     <nz-form-item>
-      <nz-form-label nzFor="type" nzRequired>消息类型</nz-form-label>
+      <nz-form-label nzFor="modalType" nzRequired>消息类型</nz-form-label>
       <nz-form-control>
-        <nz-select [(ngModel)]="editingMessage.type" name="type" id="type" [nzPlaceHolder]="'请选择消息类型'">
+        <nz-select [(ngModel)]="editingMessage.type" name="modalType" id="modalType" [nzPlaceHolder]="'请选择消息类型'">
           @for (option of typeOptions; track $index) {
             <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
           }
@@ -128,16 +128,16 @@
     </nz-form-item>
     
     <nz-form-item>
-      <nz-form-label nzFor="content" nzRequired>消息内容</nz-form-label>
+      <nz-form-label nzFor="modalContent" nzRequired>消息内容</nz-form-label>
       <nz-form-control>
-        <textarea nz-input [(ngModel)]="editingMessage.content" name="content" placeholder="请输入消息内容" rows="4" id="content"></textarea>
+        <textarea nz-input [(ngModel)]="editingMessage.content" name="modalContent" placeholder="请输入消息内容" rows="4" id="modalContent"></textarea>
       </nz-form-control>
     </nz-form-item>
     
     <nz-form-item>
-      <nz-form-label nzFor="recipient" nzRequired>接收人</nz-form-label>
+      <nz-form-label nzFor="modalRecipient" nzRequired>接收人</nz-form-label>
       <nz-form-control>
-        <nz-select [(ngModel)]="editingMessage.recipient" name="recipient" id="recipient" [nzPlaceHolder]="'请选择接收人'" [nzShowSearch]="true">
+        <nz-select [(ngModel)]="editingMessage.recipient" name="modalRecipient" id="modalRecipient" [nzPlaceHolder]="'请选择接收人'" [nzShowSearch]="true">
           <nz-option label="全体用户" value="全体用户"></nz-option>
           @for (user of userOptions; track user.id) {
             <nz-option [nzLabel]="user.username" [nzValue]="user.username" />
@@ -147,9 +147,9 @@
     </nz-form-item>
     
     <nz-form-item>
-      <nz-form-label nzFor="status">状态</nz-form-label>
+      <nz-form-label nzFor="modalStatus">状态</nz-form-label>
       <nz-form-control>
-        <nz-radio-group [(ngModel)]="editingMessage.status" name="status" id="status">
+        <nz-radio-group [(ngModel)]="editingMessage.status" name="modalStatus" id="modalStatus">
           <label nz-radio value="draft">草稿</label>
           <label nz-radio value="sent">已发送</label>
         </nz-radio-group>

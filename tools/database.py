@@ -116,9 +116,8 @@ class DatabaseService:
     def execute_update(self, sql: str, params: Optional[Dict[str, Any]] = None) -> int:
         """执行更新SQL（主数据库）"""
         try:
-            with self.engine.connect() as conn:
+            with self.engine.begin() as conn:  # 使用begin()来确保事务自动提交
                 result = conn.execute(text(sql), params or {})
-                conn.commit()
                 return result.rowcount
         except Exception as e:
             logger.error(f"主数据库更新执行失败: {str(e)}")
@@ -139,9 +138,8 @@ class DatabaseService:
     def execute_vanna_update(self, sql: str, params: Optional[Dict[str, Any]] = None) -> int:
         """执行更新SQL（Vanna数据库）"""
         try:
-            with self.vanna_engine.connect() as conn:
+            with self.vanna_engine.begin() as conn:  # 使用begin()来确保事务自动提交
                 result = conn.execute(text(sql), params or {})
-                conn.commit()
                 return result.rowcount
         except Exception as e:
             logger.error(f"Vanna数据库更新执行失败: {str(e)}")

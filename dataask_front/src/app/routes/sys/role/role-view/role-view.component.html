@@ -1,0 +1,60 @@
+<div class="page-header">
+  <div class="page-header-content">
+    <h2>角色详情</h2>
+    <div class="page-header-actions">
+      <button nz-button nzType="primary" (click)="editRole()">
+        <i nz-icon nzType="edit"></i>
+        编辑角色
+      </button>
+      <button nz-button type="button" (click)="goBack()" class="ml-sm">
+        <i nz-icon nzType="left"></i>
+        返回
+      </button>
+    </div>
+  </div>
+</div>
+
+<nz-card [nzBordered]="false" class="mt-lg">
+  @if (loading) {
+    <nz-spin nzTip="加载中..." class="loading-container">
+      <div style="height: 400px;"></div>
+    </nz-spin>
+  } @else if (roleData) {
+    <div nz-row [nzGutter]="24">
+      <div nz-col [nzSpan]="24">
+        <nz-descriptions nzTitle="基本信息" [nzColumn]="2" nzBordered>
+          <nz-descriptions-item nzTitle="角色编码">
+            <nz-tag nzColor="blue">{{ roleData.role_code }}</nz-tag>
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="角色名称">
+            {{ roleData.role_name }}
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="角色等级">
+            <nz-tag [nzColor]="roleData.role_level === 1 ? 'red' : roleData.role_level === 2 ? 'orange' : 'green'">
+              {{ getRoleLevelName(roleData.role_level) }}
+            </nz-tag>
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="状态">
+            <nz-tag [nzColor]="roleData.status === 1 ? 'success' : 'default'">
+              {{ getStatusText(roleData.status) }}
+            </nz-tag>
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="角色描述" [nzSpan]="2">
+            {{ roleData.description || '暂无描述' }}
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="创建时间">
+            {{ roleData.created_at | date:'yyyy-MM-dd HH:mm:ss' }}
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="更新时间">
+            {{ roleData.updated_at ? (roleData.updated_at | date:'yyyy-MM-dd HH:mm:ss') : '暂无' }}
+          </nz-descriptions-item>
+        </nz-descriptions>
+      </div>
+    </div>
+  } @else {
+    <div class="empty-container">
+      <p>未找到角色信息</p>
+      <button nz-button nzType="primary" (click)="goBack()">返回列表</button>
+    </div>
+  }
+</nz-card>

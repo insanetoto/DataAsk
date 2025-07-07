@@ -1,0 +1,84 @@
+<div class="page-header">
+  <div class="page-header-content">
+    <h2>权限详情</h2>
+    <div class="page-header-actions">
+      @if (canEditPermission()) {
+        <button nz-button nzType="primary" (click)="editPermission()">
+          <i nz-icon nzType="edit"></i>
+          编辑权限
+        </button>
+      }
+      <button nz-button type="button" (click)="goBack()" class="ml-sm">
+        <i nz-icon nzType="left"></i>
+        返回
+      </button>
+    </div>
+  </div>
+</div>
+
+<nz-card [nzBordered]="false" class="mt-lg">
+  @if (loading) {
+    <nz-spin nzTip="加载中..." class="loading-container">
+      <div style="height: 400px;"></div>
+    </nz-spin>
+  } @else if (permissionData) {
+    <div nz-row [nzGutter]="24">
+      <div nz-col [nzSpan]="24">
+        <nz-descriptions nzTitle="基本信息" [nzColumn]="2" nzBordered>
+          <nz-descriptions-item nzTitle="权限编码">
+            <nz-tag nzColor="blue">{{ permissionData.permission_code }}</nz-tag>
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="权限名称">
+            {{ permissionData.permission_name }}
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="API路径">
+            <code>{{ permissionData.api_path }}</code>
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="HTTP方法">
+            <span class="method-tag" [class]="'method-' + permissionData.api_method.toLowerCase()">
+              {{ permissionData.api_method }}
+            </span>
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="资源类型">
+            {{ getResourceTypeName(permissionData.resource_type) || '未分类' }}
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="状态">
+            <nz-tag [nzColor]="permissionData.status === 1 ? 'success' : 'default'">
+              {{ getStatusText(permissionData.status) }}
+            </nz-tag>
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="权限描述" [nzSpan]="2">
+            {{ permissionData.description || '暂无描述' }}
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="创建时间">
+            {{ permissionData.created_at | date:'yyyy-MM-dd HH:mm:ss' }}
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="更新时间">
+            {{ permissionData.updated_at ? (permissionData.updated_at | date:'yyyy-MM-dd HH:mm:ss') : '暂无' }}
+          </nz-descriptions-item>
+        </nz-descriptions>
+      </div>
+    </div>
+  } @else {
+    <div class="empty-container">
+      <p>未找到权限信息</p>
+      <button nz-button nzType="primary" (click)="goBack()">返回列表</button>
+    </div>
+  }
+</nz-card>
+
+<style>
+.method-tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.method-get { background-color: #52c41a; color: white; }
+.method-post { background-color: #1890ff; color: white; }
+.method-put { background-color: #fa8c16; color: white; }
+.method-delete { background-color: #ff4d4f; color: white; }
+.method-patch { background-color: #722ed1; color: white; }
+</style>

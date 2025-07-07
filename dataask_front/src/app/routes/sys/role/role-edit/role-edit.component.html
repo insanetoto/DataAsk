@@ -1,0 +1,116 @@
+<div class="page-header">
+  <div class="page-header-content">
+    <h2>{{ isNew ? '新增角色' : '编辑角色' }}</h2>
+    <div class="page-header-actions">
+      <button nz-button nzType="primary" (click)="submit()" [nzLoading]="submitting">
+        <i nz-icon nzType="check"></i>
+        {{ isNew ? '创建' : '保存' }}
+      </button>
+      <button nz-button type="button" (click)="goBack()" class="ml-sm">
+        <i nz-icon nzType="left"></i>
+        返回
+      </button>
+    </div>
+  </div>
+</div>
+
+<nz-card [nzBordered]="false" class="mt-lg">
+  @if (loading) {
+    <nz-spin nzTip="加载中..." class="loading-container">
+      <div style="height: 400px;"></div>
+    </nz-spin>
+  } @else {
+    <form nz-form [formGroup]="form" (ngSubmit)="submit()">
+      <nz-form-item>
+        <nz-form-label nzFor="role_code" nzRequired>角色编码</nz-form-label>
+        <nz-form-control nzHasFeedback 
+                         [nzErrorTip]="
+                           form.get('role_code')?.hasError('required') ? '请输入角色编码' :
+                           form.get('role_code')?.hasError('pattern') ? '角色编码只能包含大写字母和下划线' :
+                           form.get('role_code')?.hasError('minlength') ? '角色编码至少2个字符' :
+                           form.get('role_code')?.hasError('maxlength') ? '角色编码最多50个字符' : ''
+                         ">
+          <input nz-input formControlName="role_code" placeholder="请输入角色编码" id="role_code" />
+          @if (isNew) {
+            <div class="ant-form-item-explain">
+              <i nz-icon nzType="info-circle"></i>
+              <span class="ml-sm">角色编码用于系统内部识别，建议使用大写字母和下划线</span>
+            </div>
+          }
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label nzFor="role_name" nzRequired>角色名称</nz-form-label>
+        <nz-form-control nzHasFeedback 
+                         [nzErrorTip]="
+                           form.get('role_name')?.hasError('required') ? '请输入角色名称' :
+                           form.get('role_name')?.hasError('minlength') ? '角色名称至少2个字符' :
+                           form.get('role_name')?.hasError('maxlength') ? '角色名称最多100个字符' : ''
+                         ">
+          <input nz-input formControlName="role_name" placeholder="请输入角色名称" id="role_name" />
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label nzFor="role_level" nzRequired>角色等级</nz-form-label>
+        <nz-form-control nzErrorTip="请选择角色等级">
+          <nz-select formControlName="role_level" nzPlaceHolder="请选择角色等级" 
+                     aria-label="选择角色等级" id="role_level">
+            @for (option of roleLevelOptions; track option.value) {
+              <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
+            }
+          </nz-select>
+          @if (roleLevelOptions.length === 0) {
+            <div class="ant-form-item-explain">
+              <i nz-icon nzType="exclamation-circle"></i>
+              <span class="ml-sm">您没有权限创建任何角色</span>
+            </div>
+          } @else if (currentUserRoleCode === 'ORG_ADMIN') {
+            <div class="ant-form-item-explain">
+              <i nz-icon nzType="info-circle"></i>
+              <span class="ml-sm">根据您的权限，只能创建机构管理员和普通用户角色</span>
+            </div>
+          }
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label nzFor="description">角色描述</nz-form-label>
+        <nz-form-control nzHasFeedback 
+                         [nzErrorTip]="form.get('description')?.hasError('maxlength') ? '描述最多500个字符' : ''">
+          <textarea nz-input formControlName="description" placeholder="请输入角色描述（可选）" 
+                    rows="4" id="description"></textarea>
+          <div class="ant-form-item-explain">
+            <span class="text-muted">
+              {{ form.get('description')?.value?.length || 0 }}/500
+            </span>
+          </div>
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label nzFor="roleEditStatus">状态</nz-form-label>
+        <nz-form-control>
+          <nz-radio-group formControlName="status" name="status" id="roleEditStatus" aria-label="选择角色状态">
+            <label nz-radio [nzValue]="1">启用</label>
+            <label nz-radio [nzValue]="0">禁用</label>
+          </nz-radio-group>
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-control>
+          <button nz-button nzType="primary" nzHtmlType="submit" [nzLoading]="submitting">
+            <i nz-icon nzType="check"></i>
+            {{ isNew ? '创建角色' : '保存修改' }}
+          </button>
+          <button nz-button type="button" (click)="goBack()" class="ml-sm">
+            <i nz-icon nzType="left"></i>
+            返回
+          </button>
+        </nz-form-control>
+      </nz-form-item>
+    </form>
+  }
+</nz-card>

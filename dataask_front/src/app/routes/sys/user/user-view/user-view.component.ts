@@ -117,6 +117,15 @@ export class SysUserViewComponent implements OnInit {
   }
 
   /**
+   * 编辑用户
+   */
+  editUser(): void {
+    if (this.userId) {
+      this.router.navigate(['/sys/user/edit', this.userId]);
+    }
+  }
+
+  /**
    * 返回用户列表
    */
   goBack(): void {

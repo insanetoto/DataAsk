@@ -1,0 +1,137 @@
+<div class="page-header">
+  <div class="page-header-content">
+    <h2>{{ isNew ? '新增权限' : '编辑权限' }}</h2>
+    <div class="page-header-actions">
+      <button nz-button nzType="primary" (click)="submit()" [nzLoading]="submitting">
+        <i nz-icon nzType="check"></i>
+        {{ isNew ? '创建' : '保存' }}
+      </button>
+      <button nz-button type="button" (click)="goBack()" class="ml-sm">
+        <i nz-icon nzType="left"></i>
+        返回
+      </button>
+    </div>
+  </div>
+</div>
+
+<nz-card [nzBordered]="false" class="mt-lg">
+  @if (loading) {
+    <nz-spin nzTip="加载中..." class="loading-container">
+      <div style="height: 400px;"></div>
+    </nz-spin>
+  } @else {
+    <form nz-form [formGroup]="form" (ngSubmit)="submit()">
+      <nz-form-item>
+        <nz-form-label nzFor="permission_code" nzRequired>权限编码</nz-form-label>
+        <nz-form-control nzHasFeedback 
+                         [nzErrorTip]="
+                           form.get('permission_code')?.hasError('required') ? '请输入权限编码' :
+                           form.get('permission_code')?.hasError('pattern') ? '权限编码只能包含字母、数字、下划线和冒号' :
+                           form.get('permission_code')?.hasError('minlength') ? '权限编码至少2个字符' :
+                           form.get('permission_code')?.hasError('maxlength') ? '权限编码最多100个字符' : ''
+                         ">
+          <input nz-input formControlName="permission_code" placeholder="请输入权限编码" id="permission_code" />
+          @if (isNew) {
+            <div class="ant-form-item-explain">
+              <i nz-icon nzType="info-circle"></i>
+              <span class="ml-sm">权限编码用于系统内部识别，如：user:create、role:edit</span>
+            </div>
+          }
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label nzFor="permission_name" nzRequired>权限名称</nz-form-label>
+        <nz-form-control nzHasFeedback 
+                         [nzErrorTip]="
+                           form.get('permission_name')?.hasError('required') ? '请输入权限名称' :
+                           form.get('permission_name')?.hasError('minlength') ? '权限名称至少2个字符' :
+                           form.get('permission_name')?.hasError('maxlength') ? '权限名称最多100个字符' : ''
+                         ">
+          <input nz-input formControlName="permission_name" placeholder="请输入权限名称" id="permission_name" />
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label nzFor="api_path" nzRequired>API路径</nz-form-label>
+        <nz-form-control nzHasFeedback 
+                         [nzErrorTip]="
+                           form.get('api_path')?.hasError('required') ? '请输入API路径' :
+                           form.get('api_path')?.hasError('pattern') ? 'API路径必须以/开头' :
+                           form.get('api_path')?.hasError('maxlength') ? 'API路径最多200个字符' : ''
+                         ">
+          <input nz-input formControlName="api_path" placeholder="如：/api/users" id="api_path" />
+          <div class="ant-form-item-explain">
+            <i nz-icon nzType="info-circle"></i>
+            <span class="ml-sm">API路径用于匹配后端接口权限</span>
+          </div>
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label nzFor="api_method" nzRequired>HTTP方法</nz-form-label>
+        <nz-form-control nzErrorTip="请选择HTTP方法">
+          <nz-select formControlName="api_method" nzPlaceHolder="请选择HTTP方法" 
+                     aria-label="选择HTTP方法" id="api_method">
+            @for (option of httpMethodOptions; track option.value) {
+              <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
+            }
+          </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label nzFor="resource_type">资源类型</nz-form-label>
+        <nz-form-control>
+          <nz-select formControlName="resource_type" nzPlaceHolder="请选择资源类型" 
+                     aria-label="选择资源类型" id="resource_type" [nzAllowClear]="true">
+            @for (option of resourceTypeOptions; track option.value) {
+              <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
+            }
+          </nz-select>
+          <div class="ant-form-item-explain">
+            <i nz-icon nzType="info-circle"></i>
+            <span class="ml-sm">资源类型用于权限分组管理</span>
+          </div>
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label nzFor="description">权限描述</nz-form-label>
+        <nz-form-control nzHasFeedback 
+                         [nzErrorTip]="form.get('description')?.hasError('maxlength') ? '描述最多500个字符' : ''">
+          <textarea nz-input formControlName="description" placeholder="请输入权限描述（可选）" 
+                    rows="4" id="description"></textarea>
+          <div class="ant-form-item-explain">
+            <span class="text-muted">
+              {{ form.get('description')?.value?.length || 0 }}/500
+            </span>
+          </div>
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label nzFor="permissionEditStatus">状态</nz-form-label>
+        <nz-form-control>
+          <nz-radio-group formControlName="status" name="status" id="permissionEditStatus" aria-label="选择权限状态">
+            <label nz-radio [nzValue]="1">启用</label>
+            <label nz-radio [nzValue]="0">禁用</label>
+          </nz-radio-group>
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-control>
+          <button nz-button nzType="primary" nzHtmlType="submit" [nzLoading]="submitting">
+            <i nz-icon nzType="check"></i>
+            {{ isNew ? '创建权限' : '保存修改' }}
+          </button>
+          <button nz-button type="button" (click)="goBack()" class="ml-sm">
+            <i nz-icon nzType="left"></i>
+            返回
+          </button>
+        </nz-form-control>
+      </nz-form-item>
+    </form>
+  }
+</nz-card>

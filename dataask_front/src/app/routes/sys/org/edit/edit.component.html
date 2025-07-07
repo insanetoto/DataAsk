@@ -1,13 +1,157 @@
-<div class="modal-header">
-  <div class="modal-title">编辑 {{ record.id }} 信息</div>
-</div>
-@if (i) {
-  <sf #sf mode="edit" [schema]="schema" [ui]="ui" [formData]="i" button="none">
-    <div class="modal-footer">
-      <button nz-button type="button" (click)="close()">关闭</button>
-      <button nz-button type="submit" nzType="primary" (click)="save(sf.value)" [disabled]="!sf.valid" [nzLoading]="http.loading">保存</button>
+<div class="page-header">
+  <div class="page-header-content">
+    <h2>{{ isNew ? '新增机构' : '编辑机构' }}</h2>
+    <div class="page-header-actions">
+      <button nz-button nzType="primary" (click)="submit()" [nzLoading]="submitting" [disabled]="form.invalid">
+        <i nz-icon nzType="check"></i>
+        {{ isNew ? '创建' : '保存' }}
+      </button>
+      <button nz-button type="button" (click)="goBack()" class="ml-sm">
+        <i nz-icon nzType="left"></i>
+        返回
+      </button>
     </div>
-  </sf>
-} @else {
-  <nz-spin class="modal-spin" />
-}
+  </div>
+</div>
+
+<page-header [title]="isNew ? '新增机构' : '编辑机构'" [breadcrumb]="breadcrumb" style="display: none;">
+  <ng-template #breadcrumb>
+    <nz-breadcrumb>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/']">
+          <nz-icon nzType="home" nzTheme="outline"></nz-icon>
+          首页
+        </a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/sys']">系统管理</a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/sys/org']">机构管理</a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>{{ isNew ? '新增机构' : '编辑机构' }}</nz-breadcrumb-item>
+    </nz-breadcrumb>
+  </ng-template>
+  <ng-template #action>
+    <button nz-button nzType="default" (click)="goBack()">
+      <i nz-icon nzType="arrow-left"></i>
+      <span>返回机构列表</span>
+    </button>
+  </ng-template>
+</page-header>
+
+<nz-card [nzBordered]="false" class="mt-lg">
+  @if (loading) {
+    <nz-spin nzTip="加载中..." class="loading-container">
+      <div style="height: 400px;"></div>
+    </nz-spin>
+  } @else {
+    <form nz-form [formGroup]="form" (ngSubmit)="submit()">
+      @if (!isNew) {
+        <nz-form-item>
+          <nz-form-label nzFor="org_code" nzRequired>机构编码</nz-form-label>
+          <nz-form-control nzErrorTip="请输入机构编码">
+            <input nz-input id="org_code" formControlName="org_code" placeholder="机构编码" [disabled]="true" />
+          </nz-form-control>
+        </nz-form-item>
+      } @else {
+        <nz-form-item>
+          <nz-form-label>机构编码</nz-form-label>
+          <nz-form-control>
+            <div class="ant-form-item-explain">
+              <i nz-icon nzType="info-circle"></i>
+              <span class="ml-sm">机构编码将由系统自动生成</span>
+            </div>
+          </nz-form-control>
+        </nz-form-item>
+      }
+      
+      <nz-form-item>
+        <nz-form-label nzFor="org_name" nzRequired>机构名称</nz-form-label>
+        <nz-form-control nzHasFeedback 
+                         [nzErrorTip]="
+                           form.get('org_name')?.hasError('required') ? '请输入机构名称' :
+                           form.get('org_name')?.hasError('minlength') ? '机构名称至少2个字符' :
+                           form.get('org_name')?.hasError('maxlength') ? '机构名称最多100个字符' : ''
+                         ">
+          <input nz-input id="org_name" formControlName="org_name" placeholder="请输入机构名称" />
+        </nz-form-control>
+      </nz-form-item>
+      
+      <nz-form-item>
+        <nz-form-label nzFor="parent_org_code" nzRequired>上级机构</nz-form-label>
+        <nz-form-control nzErrorTip="请选择上级机构">
+          <nz-select formControlName="parent_org_code" nzPlaceHolder="请选择上级机构" nzShowSearch
+                     id="parent_org_code" aria-label="选择上级机构" 
+                     [attr.aria-describedby]="parentOrgOptions.length === 1 ? 'parent-org-hint' : null">
+            @for (org of parentOrgOptions; track org.id) {
+              <nz-option [nzLabel]="org.org_name + ' (' + org.org_code + ')'" [nzValue]="org.org_code" />
+            }
+          </nz-select>
+          @if (parentOrgOptions.length === 1) {
+            <div id="parent-org-hint" class="ant-form-item-explain">
+              <i nz-icon nzType="info-circle"></i>
+              <span class="ml-sm">根据您的权限，只能选择当前所属机构作为上级机构</span>
+            </div>
+          }
+        </nz-form-control>
+      </nz-form-item>
+      
+      <nz-form-item>
+        <nz-form-label nzFor="contact_person" nzRequired>负责人</nz-form-label>
+        <nz-form-control nzHasFeedback 
+                         [nzErrorTip]="
+                           form.get('contact_person')?.hasError('required') ? '请输入负责人' :
+                           form.get('contact_person')?.hasError('maxlength') ? '负责人姓名最多50个字符' : ''
+                         ">
+          <input nz-input id="contact_person" formControlName="contact_person" placeholder="请输入负责人" />
+        </nz-form-control>
+      </nz-form-item>
+      
+      <nz-form-item>
+        <nz-form-label nzFor="contact_phone" nzRequired>联系电话</nz-form-label>
+        <nz-form-control nzHasFeedback 
+                         [nzErrorTip]="
+                           form.get('contact_phone')?.hasError('required') ? '请输入联系电话' :
+                           form.get('contact_phone')?.hasError('pattern') ? '请输入正确的手机号码' : ''
+                         ">
+          <input nz-input id="contact_phone" formControlName="contact_phone" placeholder="请输入联系电话" />
+        </nz-form-control>
+      </nz-form-item>
+      
+      <nz-form-item>
+        <nz-form-label nzFor="contact_email" nzRequired>联系邮箱</nz-form-label>
+        <nz-form-control nzHasFeedback 
+                         [nzErrorTip]="
+                           form.get('contact_email')?.hasError('required') ? '请输入联系邮箱' :
+                           form.get('contact_email')?.hasError('email') ? '请输入正确的邮箱地址' : ''
+                         ">
+          <input nz-input id="contact_email" formControlName="contact_email" placeholder="请输入联系邮箱" />
+        </nz-form-control>
+      </nz-form-item>
+      
+      <nz-form-item>
+        <nz-form-label nzFor="orgEditStatus">状态</nz-form-label>
+        <nz-form-control>
+          <nz-radio-group formControlName="status" name="status" id="orgEditStatus" aria-label="选择机构状态">
+            <label nz-radio [nzValue]="1">启用</label>
+            <label nz-radio [nzValue]="0">禁用</label>
+          </nz-radio-group>
+        </nz-form-control>
+      </nz-form-item>
+      
+      <nz-form-item>
+        <nz-form-control>
+          <button nz-button nzType="primary" nzHtmlType="submit" [nzLoading]="submitting" [disabled]="form.invalid">
+            <i nz-icon nzType="check"></i>
+            {{ isNew ? '创建机构' : '保存修改' }}
+          </button>
+          <button nz-button type="button" (click)="goBack()" class="ml-sm">
+            <i nz-icon nzType="left"></i>
+            返回
+          </button>
+        </nz-form-control>
+      </nz-form-item>
+    </form>
+  }
+</nz-card>
