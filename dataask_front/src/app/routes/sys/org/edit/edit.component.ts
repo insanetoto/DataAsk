@@ -183,13 +183,7 @@ export class SysEditComponent implements OnInit {
     const currentRole = this.currentUserRoleCode;
     const currentOrgCode = this.currentUserOrgCode;
 
-    // 添加调试信息
-    console.log('=== 调试用户信息 ===');
-    console.log('当前用户完整信息:', this.currentUser);
-    console.log('当前用户角色码:', currentRole);
-    console.log('当前用户机构码:', currentOrgCode);
-    console.log('用户机构名称:', this.currentUserOrgName);
-    console.log('================');
+
 
     if (currentRole === 'SUPER_ADMIN') {
       // 超级管理员可以选择所有机构作为上级机构

@@ -1,0 +1,97 @@
+<page-header [title]="'Text2SQL'" [breadcrumb]="breadcrumb">
+  <ng-template #breadcrumb>
+    <nz-breadcrumb>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/']">
+          <nz-icon nzType="home" nzTheme="outline"></nz-icon>
+          首页
+        </a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/ai-app']">AI应用</a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>Text2SQL</nz-breadcrumb-item>
+    </nz-breadcrumb>
+  </ng-template>
+</page-header>
+
+<nz-card [nzBordered]="false">
+  <div class="mb-3">
+    <h2>Text2SQL 自然语言转SQL</h2>
+    <p class="text-grey">通过自然语言描述生成SQL查询语句</p>
+  </div>
+
+  <nz-card class="mb-3">
+    <div nz-card-body>
+      <div class="mb-3">
+        <label class="form-label">自然语言描述：</label>
+        <nz-textarea-count [nzMaxCharacterCount]="500">
+          <textarea
+            nz-input
+            [(ngModel)]="naturalLanguageInput"
+            placeholder="请输入自然语言描述，例如：查询年龄大于25岁的用户信息"
+            [nzAutosize]="{ minRows: 3, maxRows: 6 }"
+          ></textarea>
+        </nz-textarea-count>
+      </div>
+      
+      <div class="text-center">
+        <button 
+          nz-button 
+          nzType="primary" 
+          [nzLoading]="loading"
+          (click)="executeText2SQL()"
+          class="mr-2"
+        >
+          <i nz-icon nzType="send" nzTheme="outline"></i>
+          生成SQL
+        </button>
+        <button 
+          nz-button 
+          nzType="default"
+          (click)="clearResults()"
+        >
+          <i nz-icon nzType="reload" nzTheme="outline"></i>
+          清空
+        </button>
+      </div>
+    </div>
+  </nz-card>
+
+  @if (sqlQuery) {
+    <nz-card class="mb-3" nzTitle="生成的SQL语句">
+      <div nz-card-body>
+        <pre class="sql-code">{{ sqlQuery }}</pre>
+      </div>
+    </nz-card>
+  }
+
+  @if (queryResult.length > 0) {
+    <nz-card nzTitle="查询结果">
+      <div nz-card-body>
+        <nz-table #basicTable [nzData]="queryResult" nzSize="small">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>姓名</th>
+              <th>年龄</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let data of basicTable.data">
+              <td>{{ data.id }}</td>
+              <td>{{ data.name }}</td>
+              <td>{{ data.age }}</td>
+            </tr>
+          </tbody>
+        </nz-table>
+      </div>
+    </nz-card>
+  }
+
+  @if (loading) {
+    <div class="text-center mt-4">
+      <nz-spin nzTip="正在生成SQL查询..."></nz-spin>
+    </div>
+  }
+</nz-card>

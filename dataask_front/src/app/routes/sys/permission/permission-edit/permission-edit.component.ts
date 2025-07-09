@@ -54,10 +54,6 @@ export class SysPermissionEditComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // 添加调试信息
-    console.log('权限编辑组件 - 当前用户信息:', this.currentUser);
-    console.log('权限编辑组件 - 当前用户角色编码:', this.currentUserRoleCode);
-
     this.initForm();
     this.loadOptions();
     this.checkRouteParams();
@@ -190,8 +186,7 @@ export class SysPermissionEditComponent implements OnInit {
             this.msg.error(res.message || (this.isNew ? '创建权限失败' : '更新权限失败'));
           }
         },
-        error: error => {
-          console.error('权限操作失败:', error);
+        error: () => {
           this.msg.error(this.isNew ? '创建权限失败' : '更新权限失败');
         }
       });

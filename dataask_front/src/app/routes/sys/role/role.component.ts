@@ -151,11 +151,6 @@ export class SysRoleComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    // 添加调试信息
-    console.log('当前用户信息:', this.currentUser);
-    console.log('当前用户角色编码:', this.currentUserRoleCode);
-    console.log('是否可以管理角色:', this.canManageAnyRole());
-
     // 移除组件级别的权限检查，因为路由级别已经有权限控制
     // this.checkPermissions();
     this.getData();
@@ -227,8 +222,6 @@ export class SysRoleComponent implements OnInit {
           }
         },
         error: error => {
-          console.error('获取角色数据失败:', error);
-
           // 检查是否是权限错误
           if (error.status === 403) {
             this.msg.error('您没有权限访问角色管理');
@@ -261,8 +254,6 @@ export class SysRoleComponent implements OnInit {
         }
       },
       error: error => {
-        console.error('加载权限选项失败:', error);
-
         if (error.status === 200 && error.ok && error.body) {
           if (error.body.success === true || error.body.code === 200) {
             this.permissionOptions = error.body.data?.list || error.body.data?.items || error.body.data || [];
@@ -359,8 +350,6 @@ export class SysRoleComponent implements OnInit {
         }
       },
       error: error => {
-        console.error('获取角色权限失败:', error);
-
         if (error.status === 200 && error.ok && error.body) {
           if (error.body.success === true || error.body.code === 200) {
             this.selectedPermissions = (error.body.data || []).map((p: any) => p.id);

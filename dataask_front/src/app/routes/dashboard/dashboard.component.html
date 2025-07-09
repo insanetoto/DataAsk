@@ -119,7 +119,13 @@
   <div nz-col nzXs="24" nzMd="12">
     <nz-card [nzBordered]="false" [nzCover]="coverTpl">
       <ng-template #coverTpl>
-        <img class="img" src="//os.alipayobjects.com/rmsportal/GhjqstwSgxBXrZS.png" />
+        <img 
+          class="img" 
+          src="//os.alipayobjects.com/rmsportal/GhjqstwSgxBXrZS.png" 
+          style="width: 100%; height: 200px; object-fit: cover;"
+          alt="洞察魔方"
+          loading="lazy"
+        />
       </ng-template>
       <h3>洞察魔方</h3>
       <p class="text-grey">智能数据分析平台</p>

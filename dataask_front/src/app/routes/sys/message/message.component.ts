@@ -153,10 +153,9 @@ export class SysMessageComponent implements OnInit {
           this.msg.error(res.message || '获取消息列表失败');
         }
       },
-      error: err => {
+      error: () => {
         this.loading = false;
         this.msg.error('获取消息列表失败');
-        console.error(err);
       }
     });
   }
@@ -205,8 +204,8 @@ export class SysMessageComponent implements OnInit {
           this.userOptions = res.data || [];
         }
       },
-      error: err => {
-        console.error('加载用户列表失败:', err);
+      error: () => {
+        // 静默处理
       }
     });
   }
@@ -266,7 +265,7 @@ export class SysMessageComponent implements OnInit {
           });
         }
       },
-      error: err => {
+      error: () => {
         this.msg.error('获取消息详情失败');
       }
     });
@@ -289,7 +288,7 @@ export class SysMessageComponent implements OnInit {
               this.msg.error(res.message || '消息发送失败');
             }
           },
-          error: err => {
+          error: () => {
             this.msg.error('消息发送失败');
           }
         });
@@ -314,7 +313,7 @@ export class SysMessageComponent implements OnInit {
               this.msg.error(res.message || '删除失败');
             }
           },
-          error: err => {
+          error: () => {
             this.msg.error('删除失败');
           }
         });
@@ -344,7 +343,7 @@ export class SysMessageComponent implements OnInit {
           this.msg.error(res.message || '操作失败');
         }
       },
-      error: err => {
+      error: () => {
         this.msg.error('操作失败');
       }
     });
@@ -374,7 +373,7 @@ export class SysMessageComponent implements OnInit {
               this.msg.error(res.message || '批量发送失败');
             }
           },
-          error: err => {
+          error: () => {
             this.msg.error('批量发送失败');
           }
         });
@@ -406,7 +405,7 @@ export class SysMessageComponent implements OnInit {
               this.msg.error(res.message || '批量删除失败');
             }
           },
-          error: err => {
+          error: () => {
             this.msg.error('批量删除失败');
           }
         });
@@ -427,7 +426,7 @@ export class SysMessageComponent implements OnInit {
           });
         }
       },
-      error: err => {
+      error: () => {
         this.msg.error('获取统计信息失败');
       }
     });

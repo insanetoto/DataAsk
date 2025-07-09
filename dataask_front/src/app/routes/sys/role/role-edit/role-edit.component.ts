@@ -48,10 +48,6 @@ export class SysRoleEditComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // 添加调试信息
-    console.log('角色编辑组件 - 当前用户信息:', this.currentUser);
-    console.log('角色编辑组件 - 当前用户角色编码:', this.currentUserRoleCode);
-    
     this.initForm();
     this.loadRoleLevelOptions();
     this.checkRouteParams();
@@ -191,8 +187,7 @@ export class SysRoleEditComponent implements OnInit {
             this.msg.error(res.message || (this.isNew ? '创建角色失败' : '更新角色失败'));
           }
         },
-        error: error => {
-          console.error('角色操作失败:', error);
+        error: () => {
           this.msg.error(this.isNew ? '创建角色失败' : '更新角色失败');
         }
       });

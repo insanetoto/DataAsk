@@ -52,10 +52,9 @@ export class SysMessageSubscriptionComponent implements OnInit {
           this.msg.error(res.message || '获取订阅列表失败');
         }
       },
-      error: err => {
+      error: () => {
         this.loading = false;
         this.msg.error('获取订阅列表失败');
-        console.error(err);
       }
     });
   }
@@ -70,8 +69,8 @@ export class SysMessageSubscriptionComponent implements OnInit {
           this.channels = res.data || [];
         }
       },
-      error: err => {
-        console.error('加载推送渠道失败:', err);
+      error: () => {
+        // 静默处理
       }
     });
   }
@@ -86,8 +85,8 @@ export class SysMessageSubscriptionComponent implements OnInit {
           this.messageTypes = res.data || [];
         }
       },
-      error: err => {
-        console.error('加载消息类型失败:', err);
+      error: () => {
+        // 静默处理
       }
     });
   }
@@ -105,9 +104,8 @@ export class SysMessageSubscriptionComponent implements OnInit {
           this.msg.error(res.message || '更新订阅设置失败');
         }
       },
-      error: err => {
+      error: () => {
         this.msg.error('更新订阅设置失败');
-        console.error(err);
       }
     });
   }

@@ -39,13 +39,6 @@ interface Task {
   completed?: boolean;
 }
 
-interface TodoTask {
-  id: number;
-  title: string;
-  completed: boolean;
-  due_date: string;
-}
-
 interface QuickLink {
   title: string;
   route: string;
@@ -82,7 +75,6 @@ export class WorkspaceWorkbenchComponent implements OnInit {
   userInfo: UserInfo | null = null;
   workStats: WorkStats | null = null;
   activeTasks: Task[] = [];
-  todoTasks: TodoTask[] = [];
   radarData: any[] = [];
   loading = true;
 
@@ -130,7 +122,6 @@ export class WorkspaceWorkbenchComponent implements OnInit {
     this.loadUserInfo();
     this.loadWorkStats();
     this.loadActiveTasks();
-    this.loadTodoTasks();
     this.loadRadarData();
   }
 
@@ -236,32 +227,6 @@ export class WorkspaceWorkbenchComponent implements OnInit {
   }
 
   /**
-   * 加载待办任务
-   */
-  private loadTodoTasks(): void {
-    this.todoTasks = [
-      {
-        id: 1,
-        title: '完成月度数据报告',
-        completed: false,
-        due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 2,
-        title: '更新系统文档',
-        completed: false,
-        due_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 3,
-        title: '检查数据备份',
-        completed: true,
-        due_date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-      }
-    ];
-  }
-
-  /**
    * 加载工作指数雷达图数据
    */
   private loadRadarData(): void {
@@ -296,7 +261,7 @@ export class WorkspaceWorkbenchComponent implements OnInit {
   /**
    * 查看用户信息
    */
-  viewUser(user: any): void {
+  viewUser(): void {
     this.msg.info(`查看用户信息`);
   }
 
@@ -312,20 +277,5 @@ export class WorkspaceWorkbenchComponent implements OnInit {
    */
   addCustomLink(): void {
     this.msg.info('添加自定义链接功能');
-  }
-
-  /**
-   * 切换待办任务状态
-   */
-  toggleTodo(todo: TodoTask): void {
-    const status = todo.completed ? '完成' : '未完成';
-    this.msg.success(`任务状态已更新为：${status}`);
-  }
-
-  /**
-   * 添加待办任务
-   */
-  addTodo(): void {
-    this.msg.info('添加待办任务功能');
   }
 }

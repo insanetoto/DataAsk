@@ -19,7 +19,7 @@ export const routes: Routes = [
       { path: 'portal', loadChildren: () => import('./portal/routes').then(m => m.routes) },
       { path: 'ai-engine', loadChildren: () => import('./ai-engine/routes').then(m => m.routes) },
       { path: 'workspace', loadChildren: () => import('./workspace/routes').then(m => m.routes) }
-    ]
+    ,  { path: 'ai-app', loadChildren: () => import('./ai-app/routes').then((m) => m.routes) }]
   },
   // passport
   { path: '', loadChildren: () => import('./passport/routes').then(m => m.routes) },

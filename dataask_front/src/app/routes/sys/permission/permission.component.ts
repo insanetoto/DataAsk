@@ -339,7 +339,6 @@ export class SysPermissionComponent implements OnInit {
             }
           },
           error: error => {
-            console.error('删除权限失败:', error);
             // 检查是否是被HTTP拦截器误判的成功响应
             if (error.status === 200 && error.ok && error.body) {
               if (error.body.success === true || error.body.code === 200 || error.body.message === '权限删除成功') {
@@ -381,7 +380,6 @@ export class SysPermissionComponent implements OnInit {
             }
           },
           error: error => {
-            console.error('批量删除权限失败:', error);
             // 检查是否是被HTTP拦截器误判的成功响应
             if (error.status === 200 && error.ok && error.body) {
               if (error.body.success === true || error.body.code === 200 || error.body.message?.includes('删除成功')) {
