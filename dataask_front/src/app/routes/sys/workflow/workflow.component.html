@@ -1,9 +1,207 @@
-<page-header [action]="phActionTpl">
-  <ng-template #phActionTpl>
-    <button (click)="add()" nz-button nzType="primary">新建</button>
-  </ng-template>
-</page-header>
-<nz-card>
-  <sf mode="search" [schema]="searchSchema" (formSubmit)="st.reset($event)" (formReset)="st.reset($event)" />
-  <st #st [data]="url" [columns]="columns" />
+<page-header [title]="'工作流管理'" />
+<nz-card [nzBordered]="false">
+  <!-- 工作域选择器 -->
+  <div class="workspace-selector mb-md" *ngIf="showWorkspaceSelector && workspaces.length > 0">
+    <nz-alert
+      nzType="info"
+      nzShowIcon
+      [nzMessage]="'当前工作域: ' + (selectedWorkspace?.name || '全部')"
+      [nzDescription]="selectedWorkspace?.description || '显示所有工作域的工作流'">
+    </nz-alert>
+    
+    <div class="workspace-tabs mt-md">
+      <nz-tag 
+        [nzColor]="!selectedWorkspace ? 'blue' : 'default'"
+        (click)="onWorkspaceChange(undefined)"
+        style="cursor: pointer; margin: 4px;">
+        全部
+      </nz-tag>
+      <nz-tag 
+        *ngFor="let workspace of workspaces"
+        [nzColor]="selectedWorkspace?.id === workspace.id ? workspace.color : 'default'"
+        (click)="onWorkspaceChange(workspace)"
+        style="cursor: pointer; margin: 4px;">
+        <nz-icon [nzType]="workspace.icon" nzTheme="outline"></nz-icon>
+        {{ workspace.name }}
+        <span class="workspace-count">({{ workspace.workflow_count }})</span>
+      </nz-tag>
+    </div>
+  </div>
+
+  <!-- 搜索表单 -->
+  <form nz-form [nzLayout]="'inline'" (ngSubmit)="getData()" class="search__form">
+    <div nz-row [nzGutter]="{ xs: 8, sm: 8, md: 8, lg: 24, xl: 48, xxl: 48 }">
+      <div nz-col nzMd="8" nzSm="24">
+        <nz-form-item>
+          <nz-form-label nzFor="workflowKeyword">关键词</nz-form-label>
+          <nz-form-control>
+            <input nz-input [(ngModel)]="q.keyword" name="keyword" placeholder="工作流名称/描述" id="workflowKeyword" />
+          </nz-form-control>
+        </nz-form-item>
+      </div>
+      <div nz-col nzMd="8" nzSm="24">
+        <nz-form-item>
+          <nz-form-label id="workflowStatusLabel">状态</nz-form-label>
+          <nz-form-control>
+            <nz-select [(ngModel)]="q.status" name="status" nzId="workflowStatus" [nzPlaceHolder]="'请选择状态'" [nzShowSearch]="true" [nzAllowClear]="true" [attr.aria-labelledby]="'workflowStatusLabel'">
+              @for (option of statusOptions; track $index) {
+                <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
+              }
+            </nz-select>
+          </nz-form-control>
+        </nz-form-item>
+      </div>
+      <div nz-col nzMd="8" nzSm="24">
+        <nz-form-item>
+          <nz-form-label id="workflowWorkspaceLabel">工作域</nz-form-label>
+          <nz-form-control>
+            <nz-select [(ngModel)]="q.workspace" name="workspace" nzId="workflowWorkspace" [nzPlaceHolder]="'请选择工作域'" [nzShowSearch]="true" [nzAllowClear]="true" [attr.aria-labelledby]="'workflowWorkspaceLabel'">
+              @for (workspace of workspaces; track workspace.id) {
+                <nz-option [nzLabel]="workspace.name" [nzValue]="workspace.code" />
+              }
+            </nz-select>
+          </nz-form-control>
+        </nz-form-item>
+      </div>
+      @if (expandForm) {
+        <div nz-col nzMd="8" nzSm="24">
+          <nz-form-item>
+            <nz-form-label id="workflowCategoryLabel">分类</nz-form-label>
+            <nz-form-control>
+              <nz-select [(ngModel)]="q.category" name="category" nzId="workflowCategoryExpanded" [nzPlaceHolder]="'请选择分类'" [nzShowSearch]="true" [nzAllowClear]="true" [attr.aria-labelledby]="'workflowCategoryLabel'">
+                @for (option of categoryOptions; track $index) {
+                  <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
+                }
+              </nz-select>
+            </nz-form-control>
+          </nz-form-item>
+        </div>
+        <div nz-col nzMd="8" nzSm="24">
+          <nz-form-item>
+            <nz-form-label id="workflowTriggerTypeLabel">触发方式</nz-form-label>
+            <nz-form-control>
+              <nz-select [(ngModel)]="q.trigger_type" name="triggerType" nzId="workflowTriggerTypeExpanded" [nzPlaceHolder]="'请选择触发方式'" [nzShowSearch]="true" [nzAllowClear]="true" [attr.aria-labelledby]="'workflowTriggerTypeLabel'">
+                @for (option of triggerTypeOptions; track $index) {
+                  <nz-option [nzLabel]="option.label" [nzValue]="option.value" />
+                }
+              </nz-select>
+            </nz-form-control>
+          </nz-form-item>
+        </div>
+      }
+      <div nz-col [nzSpan]="expandForm ? 24 : 8" [class.text-right]="expandForm" class="search-buttons">
+        <button nz-button type="submit" [nzType]="'primary'" [nzLoading]="loading" class="search-btn">
+          查询
+        </button>
+        <button nz-button type="reset" (click)="reset()" class="search-btn ml-md">
+          重置
+        </button>
+        <a (click)="expandForm = !expandForm" class="expand-link ml-md">
+          {{ expandForm ? '收起' : '展开' }}
+          <i nz-icon [nzType]="expandForm ? 'up' : 'down'" class="ml-xs"></i>
+        </a>
+      </div>
+    </div>
+  </form>
+
+  <!-- 操作按钮 -->
+  <div class="toolbar-section mb-lg mt-md">
+    <div class="toolbar-left">
+      <button nz-button (click)="add()" [nzType]="'primary'" class="action-btn">
+        <i nz-icon nzType="plus"></i>
+        <span>新建工作流</span>
+      </button>
+      <button nz-button (click)="loadWorkspaces()" class="action-btn ml-md">
+        <i nz-icon nzType="reload"></i>
+        <span>刷新</span>
+      </button>
+    </div>
+    @if (selectedRows.length > 0) {
+      <div class="toolbar-right">
+        <button nz-button nz-dropdown [nzDropdownMenu]="batchMenu" nzPlacement="bottomLeft" class="batch-btn">
+          <i nz-icon nzType="setting"></i>
+          批量操作
+          <i nz-icon nzType="down" class="ml-xs"></i>
+        </button>
+      </div>
+    }
+    <nz-dropdown-menu #batchMenu="nzDropdownMenu">
+      <ul nz-menu>
+        <li nz-menu-item (click)="batchActivate()">批量激活</li>
+        <li nz-menu-item (click)="batchDeactivate()">批量停用</li>
+        <li nz-menu-item (click)="batchDelete()">批量删除</li>
+      </ul>
+    </nz-dropdown-menu>
+  </div>
+
+  <!-- 数据表格 -->
+  <div class="table-container">
+    <st #st 
+       [data]="data" 
+       [columns]="columns"
+       [page]="{ show: true, showSize: true, showQuickJumper: true }"
+       [loading]="loading"
+       [scroll]="{ x: '1400px', y: '400px' }"
+       (change)="stChange($event)">
+    
+    <!-- 工作流名称模板 -->
+    <ng-template #workflowNameTpl let-item>
+      <div class="workflow-name-cell">
+        <nz-icon nzType="apartment" nzTheme="outline" style="margin-right: 8px; color: #1890ff;"></nz-icon>
+        <div class="workflow-info">
+          <div class="workflow-title">{{ item.name }}</div>
+          <div class="workflow-description">{{ item.description || '暂无描述' }}</div>
+        </div>
+      </div>
+    </ng-template>
+    
+    <!-- 工作域模板 -->
+    <ng-template #workspaceTpl let-item>
+      <div class="workspace-cell">
+        <nz-tag [nzColor]="item.workspace_color">
+          <nz-icon [nzType]="item.workspace_icon" nzTheme="outline"></nz-icon>
+          {{ item.workspace_name }}
+        </nz-tag>
+      </div>
+    </ng-template>
+
+    <!-- 步骤统计模板 -->
+    <ng-template #stepStatsTpl let-item>
+      <div class="step-stats">
+        <nz-tag nzColor="blue">{{ item.step_count || 0 }} 步骤</nz-tag>
+        <div class="text-xs text-grey mt-xs">
+          执行 {{ item.execution_count || 0 }} 次
+          @if (item.success_rate) {
+            <span class="ml-xs">成功率 {{ item.success_rate }}%</span>
+          }
+        </div>
+      </div>
+    </ng-template>
+
+    <!-- 操作按钮模板 -->
+    <ng-template #actionTpl let-item>
+      <nz-button-group nzSize="small">
+        <button nz-button nzType="link" (click)="viewWorkflow(item)" nz-tooltip="查看详情">
+          <nz-icon nzType="eye" nzTheme="outline"></nz-icon>
+        </button>
+        <button nz-button nzType="link" (click)="editWorkflow(item)" nz-tooltip="编辑工作流">
+          <nz-icon nzType="edit" nzTheme="outline"></nz-icon>
+        </button>
+        @if (item.status === 'active') {
+          <button nz-button nzType="link" (click)="executeWorkflow(item)" nz-tooltip="执行工作流">
+            <nz-icon nzType="play-circle" nzTheme="outline" style="color: #52c41a;"></nz-icon>
+          </button>
+        }
+        @if (item.status === 'inactive') {
+          <button nz-button nzType="link" (click)="activateWorkflow(item)" nz-tooltip="激活工作流">
+            <nz-icon nzType="check-circle" nzTheme="outline" style="color: #1890ff;"></nz-icon>
+          </button>
+        }
+        <button nz-button nzType="link" nzDanger (click)="deleteWorkflow(item)" nz-tooltip="删除工作流">
+          <nz-icon nzType="delete" nzTheme="outline"></nz-icon>
+        </button>
+      </nz-button-group>
+    </ng-template>
+  </st>
+  </div>
 </nz-card>

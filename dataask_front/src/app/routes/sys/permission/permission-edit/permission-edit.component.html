@@ -97,11 +97,11 @@
       </nz-form-item>
 
       <nz-form-item>
-        <nz-form-label nzFor="description">权限描述</nz-form-label>
+        <nz-form-label nzFor="permission_description">权限描述</nz-form-label>
         <nz-form-control nzHasFeedback 
                          [nzErrorTip]="form.get('description')?.hasError('maxlength') ? '描述最多500个字符' : ''">
           <textarea nz-input formControlName="description" placeholder="请输入权限描述（可选）" 
-                    rows="4" id="description"></textarea>
+                    rows="4" id="permission_description"></textarea>
           <div class="ant-form-item-explain">
             <span class="text-muted">
               {{ form.get('description')?.value?.length || 0 }}/500

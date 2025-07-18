@@ -79,10 +79,10 @@
       </nz-form-item>
       
       <nz-form-item>
-        <nz-form-label nzFor="org_code" nzRequired>所属机构</nz-form-label>
+        <nz-form-label nzFor="user_org_code" nzRequired>所属机构</nz-form-label>
         <nz-form-control nzErrorTip="请选择所属机构">
           <nz-select formControlName="org_code" nzPlaceHolder="请选择所属机构" nzShowSearch
-                     id="org_code" aria-label="选择所属机构">
+                     id="user_org_code" aria-label="选择所属机构">
             @for (org of organizationOptions; track org.id) {
               <nz-option [nzLabel]="org.org_name + ' (' + org.org_code + ')'" [nzValue]="org.org_code" />
             }

@@ -1,0 +1,235 @@
+// 工作流管理组件样式
+
+// 工作域选择器样式
+.workspace-selector {
+  margin-bottom: 16px;
+  
+  .workspace-tabs {
+    margin-top: 12px;
+    
+    .workspace-count {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+  }
+}
+
+// 搜索按钮区域样式
+.search-buttons {
+  padding-top: 8px;
+  
+  .search-btn {
+    min-width: 72px;
+    height: 32px;
+  }
+  
+  .expand-link {
+    color: #1890ff;
+    font-size: 14px;
+    line-height: 32px;
+    text-decoration: none;
+    transition: color 0.3s;
+    
+    &:hover {
+      color: #40a9ff;
+    }
+  }
+}
+
+// 工具栏区域样式
+.toolbar-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid #f0f0f0;
+  
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+  }
+  
+  .action-btn {
+    height: 36px;
+    border-radius: 6px;
+    font-weight: 500;
+    
+    span {
+      margin-left: 4px;
+    }
+  }
+  
+  .batch-btn {
+    height: 36px;
+    border-radius: 6px;
+    color: #595959;
+    border-color: #d9d9d9;
+    
+    &:hover {
+      color: #1890ff;
+      border-color: #1890ff;
+    }
+  }
+}
+
+// 表格容器样式
+.table-container {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  
+  ::ng-deep {
+    .ant-table {
+      min-height: 300px;
+    }
+    
+    .ant-table-thead > tr > th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #fafafa;
+    }
+    
+    .ant-table-tbody {
+      min-height: 200px;
+    }
+    
+    .ant-empty {
+      padding: 60px 0;
+    }
+  }
+}
+
+// 工作流名称单元格样式
+.workflow-name-cell {
+  display: flex;
+  align-items: flex-start;
+  
+  .workflow-info {
+    flex: 1;
+    min-width: 0;
+    
+    .workflow-title {
+      font-weight: 500;
+      color: #262626;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+    
+    .workflow-description {
+      font-size: 12px;
+      color: #8c8c8c;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+  }
+}
+
+// 工作域单元格样式
+.workspace-cell {
+  display: flex;
+  align-items: center;
+}
+
+// 步骤统计样式
+.step-stats {
+  .text-xs {
+    font-size: 12px;
+  }
+  
+  .text-grey {
+    color: #8c8c8c;
+  }
+  
+  .mt-xs {
+    margin-top: 4px;
+  }
+  
+  .ml-xs {
+    margin-left: 4px;
+  }
+}
+
+// 搜索表单样式
+.search__form {
+  margin-bottom: 16px;
+  
+  .ant-form-item {
+    margin-bottom: 16px;
+  }
+  
+  .ant-form-item-label {
+    white-space: nowrap;
+  }
+}
+
+// 操作按钮组样式
+.mb-md {
+  margin-bottom: 16px;
+}
+
+.ml-sm {
+  margin-left: 8px;
+}
+
+.mx-sm {
+  margin-left: 8px;
+  margin-right: 8px;
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .workspace-selector {
+    .workspace-tabs {
+      nz-tag {
+        margin: 2px;
+        font-size: 12px;
+      }
+    }
+  }
+  
+  .workflow-name-cell {
+    .workflow-info {
+      .workflow-title {
+        font-size: 14px;
+      }
+      
+      .workflow-description {
+        font-size: 11px;
+      }
+    }
+  }
+  
+  .search__form {
+    .ant-col {
+      margin-bottom: 8px;
+    }
+  }
+}
+
+// 表格样式增强
+:host ::ng-deep {
+  .ant-table-thead > tr > th {
+    background-color: #fafafa;
+    font-weight: 600;
+  }
+  
+  .ant-table-tbody > tr:hover > td {
+    background-color: #f5f5f5;
+  }
+  
+  .ant-btn-group {
+    .ant-btn {
+      padding: 4px 8px;
+      height: auto;
+      line-height: 1.2;
+    }
+  }
+} 
