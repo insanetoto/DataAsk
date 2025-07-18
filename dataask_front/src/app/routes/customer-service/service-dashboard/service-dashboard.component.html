@@ -1,0 +1,103 @@
+<page-header [title]="'客服仪表板'" [breadcrumb]="breadcrumb">
+  <ng-template #breadcrumb>
+    <nz-breadcrumb>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/']">
+          <nz-icon nzType="home" nzTheme="outline"></nz-icon>
+          首页
+        </a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>客服服务</nz-breadcrumb-item>
+      <nz-breadcrumb-item>客服仪表板</nz-breadcrumb-item>
+    </nz-breadcrumb>
+  </ng-template>
+</page-header>
+
+<div class="dashboard-container">
+  <!-- 统计卡片 -->
+  <div class="statistics-row">
+    <div class="statistic-col">
+      <nz-card>
+        <nz-statistic
+          [nzValue]="dashboardData.totalCustomers"
+          nzTitle="总客户数"
+          [nzPrefix]="customerIcon">
+        </nz-statistic>
+        <ng-template #customerIcon>
+          <nz-icon nzType="user" nzTheme="outline" style="color: #1890ff;"></nz-icon>
+        </ng-template>
+      </nz-card>
+    </div>
+    <div class="statistic-col">
+      <nz-card>
+        <nz-statistic
+          [nzValue]="dashboardData.todayRequests"
+          nzTitle="今日请求"
+          [nzPrefix]="requestIcon">
+        </nz-statistic>
+        <ng-template #requestIcon>
+          <nz-icon nzType="message" nzTheme="outline" style="color: #52c41a;"></nz-icon>
+        </ng-template>
+      </nz-card>
+    </div>
+    <div class="statistic-col">
+      <nz-card>
+        <nz-statistic
+          [nzValue]="dashboardData.resolvedToday"
+          nzTitle="今日已解决"
+          [nzPrefix]="resolvedIcon">
+        </nz-statistic>
+        <ng-template #resolvedIcon>
+          <nz-icon nzType="check-circle" nzTheme="outline" style="color: #722ed1;"></nz-icon>
+        </ng-template>
+      </nz-card>
+    </div>
+    <div class="statistic-col">
+      <nz-card>
+        <nz-statistic
+          [nzValue]="dashboardData.satisfactionRate"
+          nzTitle="满意度"
+          nzSuffix="%"
+          [nzPrefix]="satisfactionIcon">
+        </nz-statistic>
+        <ng-template #satisfactionIcon>
+          <nz-icon nzType="like" nzTheme="outline" style="color: #fa8c16;"></nz-icon>
+        </ng-template>
+      </nz-card>
+    </div>
+  </div>
+
+  <!-- 详细数据卡片 -->
+  <div class="details-row">
+    <div class="detail-col">
+      <nz-card nzTitle="服务概览" class="overview-card">
+        <div class="overview-item">
+          <span class="label">平均响应时间：</span>
+          <span class="value">{{ dashboardData.averageResponseTime }} 小时</span>
+        </div>
+        <div class="overview-item">
+          <span class="label">待处理工单：</span>
+          <span class="value pending">{{ dashboardData.todayRequests - dashboardData.resolvedToday }}</span>
+        </div>
+        <div class="overview-item">
+          <span class="label">处理完成率：</span>
+          <span class="value success">{{ (dashboardData.resolvedToday / dashboardData.todayRequests * 100).toFixed(1) }}%</span>
+        </div>
+      </nz-card>
+    </div>
+    <div class="detail-col">
+      <nz-card nzTitle="快速操作" class="actions-card">
+        <div class="action-buttons">
+          <button nz-button nzType="primary" [routerLink]="['/customer-service/workbench']">
+            <nz-icon nzType="laptop" nzTheme="outline"></nz-icon>
+            进入工作台
+          </button>
+          <button nz-button nzType="default" [routerLink]="['/customer-service/order-detail']">
+            <nz-icon nzType="file-text" nzTheme="outline"></nz-icon>
+            查看工单
+          </button>
+        </div>
+      </nz-card>
+    </div>
+  </div>
+</div>

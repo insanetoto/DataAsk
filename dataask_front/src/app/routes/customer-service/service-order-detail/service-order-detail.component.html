@@ -1,0 +1,65 @@
+<page-header [title]="'服务工单详情'" [breadcrumb]="breadcrumb">
+  <ng-template #breadcrumb>
+    <nz-breadcrumb>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/']">
+          <nz-icon nzType="home" nzTheme="outline"></nz-icon>
+          首页
+        </a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>客服服务</nz-breadcrumb-item>
+      <nz-breadcrumb-item>服务工单详情</nz-breadcrumb-item>
+    </nz-breadcrumb>
+  </ng-template>
+</page-header>
+
+<div class="order-detail-container">
+  <!-- 工单基本信息 -->
+  <nz-card nzTitle="工单信息" [nzExtra]="statusActions" class="order-info-card">
+    <ng-template #statusActions>
+      <button nz-button nzType="primary" nzSize="small" (click)="updateOrderStatus('resolved')" 
+              [disabled]="orderDetail.status === 'resolved'">
+        <nz-icon nzType="check" nzTheme="outline"></nz-icon>
+        标记完成
+      </button>
+    </ng-template>
+
+    <nz-descriptions nzBordered [nzColumn]="2">
+      <nz-descriptions-item nzTitle="工单号">{{ orderDetail.id }}</nz-descriptions-item>
+      <nz-descriptions-item nzTitle="客户姓名">{{ orderDetail.customer }}</nz-descriptions-item>
+      <nz-descriptions-item nzTitle="联系电话">{{ orderDetail.contact }}</nz-descriptions-item>
+      <nz-descriptions-item nzTitle="邮箱">{{ orderDetail.email }}</nz-descriptions-item>
+      <nz-descriptions-item nzTitle="工单类型">{{ orderDetail.type }}</nz-descriptions-item>
+      <nz-descriptions-item nzTitle="优先级">
+        <nz-tag [nzColor]="getPriorityColor(orderDetail.priority)">
+          {{ orderDetail.priority === 'high' ? '高' : orderDetail.priority === 'medium' ? '中' : '低' }}
+        </nz-tag>
+      </nz-descriptions-item>
+      <nz-descriptions-item nzTitle="状态">
+        <nz-tag [nzColor]="getStatusColor(orderDetail.status)">
+          {{ orderDetail.status === 'pending' ? '待处理' : orderDetail.status === 'processing' ? '处理中' : '已解决' }}
+        </nz-tag>
+      </nz-descriptions-item>
+      <nz-descriptions-item nzTitle="处理人">{{ orderDetail.assignee }}</nz-descriptions-item>
+      <nz-descriptions-item nzTitle="创建时间">{{ orderDetail.createTime }}</nz-descriptions-item>
+      <nz-descriptions-item nzTitle="更新时间">{{ orderDetail.updateTime }}</nz-descriptions-item>
+      <nz-descriptions-item nzTitle="问题描述" [nzSpan]="2">
+        {{ orderDetail.description }}
+      </nz-descriptions-item>
+      <nz-descriptions-item nzTitle="解决方案" [nzSpan]="2">
+        {{ orderDetail.solution }}
+      </nz-descriptions-item>
+    </nz-descriptions>
+  </nz-card>
+
+  <!-- 处理时间线 -->
+  <nz-card nzTitle="处理记录" class="timeline-card">
+    <nz-timeline>
+      <nz-timeline-item *ngFor="let item of orderDetail.timeline" [nzColor]="item.action === '工单创建' ? 'blue' : item.action === '开始处理' ? 'green' : 'gray'">
+        <p>{{ item.time }}</p>
+        <p><strong>{{ item.action }}</strong> - {{ item.operator }}</p>
+        <p>{{ item.content }}</p>
+      </nz-timeline-item>
+    </nz-timeline>
+  </nz-card>
+</div>

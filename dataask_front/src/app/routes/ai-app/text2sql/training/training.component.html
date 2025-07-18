@@ -1,0 +1,149 @@
+<page-header [title]="'模型训练'" [breadcrumb]="breadcrumb">
+  <ng-template #breadcrumb>
+    <nz-breadcrumb>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/']">
+          <nz-icon nzType="home" nzTheme="outline"></nz-icon>
+          首页
+        </a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/ai-app']">AI应用</a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/ai-app/text2sql']">Text2SQL</a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>模型训练</nz-breadcrumb-item>
+    </nz-breadcrumb>
+  </ng-template>
+</page-header>
+
+<div class="training-container">
+  <nz-card nzTitle="提供训练数据" [nzExtra]="extraTemplate" class="training-card">
+    <ng-template #extraTemplate>
+      <button nz-button nzType="default" nzSize="small" (click)="goBack()">
+        <nz-icon nzType="arrow-left" nzTheme="outline"></nz-icon>
+        返回
+      </button>
+    </ng-template>
+
+    <div class="training-intro">
+      <nz-alert 
+        nzType="info" 
+        nzMessage="帮助改善模型"
+        nzDescription="您的反馈将帮助我们改善Text2SQL模型的准确性。请提供准确的问题和对应的SQL语句。"
+        nzShowIcon>
+      </nz-alert>
+    </div>
+
+    <form nz-form [nzLayout]="'vertical'" class="training-form">
+      <!-- 问题输入 -->
+      <nz-form-item>
+        <nz-form-label nzRequired>自然语言问题</nz-form-label>
+        <nz-form-control nzErrorTip="请输入问题描述">
+          <textarea
+            nz-input
+            [(ngModel)]="trainingData.question"
+            name="question"
+            placeholder="请输入自然语言问题，例如：查询年龄大于25岁的用户信息"
+            [nzAutosize]="{ minRows: 3, maxRows: 6 }"
+            required>
+          </textarea>
+        </nz-form-control>
+      </nz-form-item>
+
+      <!-- SQL语句输入 -->
+      <nz-form-item>
+        <nz-form-label nzRequired>对应的SQL语句</nz-form-label>
+        <nz-form-control nzErrorTip="请输入SQL语句">
+          <textarea
+            nz-input
+            [(ngModel)]="trainingData.sqlQuery"
+            name="sqlQuery"
+            placeholder="请输入对应的标准SQL语句，例如：SELECT * FROM users WHERE age > 25"
+            [nzAutosize]="{ minRows: 4, maxRows: 10 }"
+            class="sql-textarea"
+            required>
+          </textarea>
+        </nz-form-control>
+      </nz-form-item>
+
+      <!-- 类别选择 -->
+      <nz-form-item>
+        <nz-form-label>问题类别</nz-form-label>
+        <nz-form-control>
+          <nz-select [(ngModel)]="trainingData.category" name="category" nzPlaceHolder="请选择问题类别">
+            <nz-option nzValue="general" nzLabel="一般查询"></nz-option>
+            <nz-option nzValue="aggregation" nzLabel="聚合统计"></nz-option>
+            <nz-option nzValue="join" nzLabel="多表关联"></nz-option>
+            <nz-option nzValue="complex" nzLabel="复杂查询"></nz-option>
+          </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+
+      <!-- 补充说明 -->
+      <nz-form-item>
+        <nz-form-label>补充说明</nz-form-label>
+        <nz-form-control>
+          <textarea
+            nz-input
+            [(ngModel)]="trainingData.description"
+            name="description"
+            placeholder="可选：提供额外的说明信息，如业务背景、特殊要求等"
+            [nzAutosize]="{ minRows: 2, maxRows: 4 }">
+          </textarea>
+        </nz-form-control>
+      </nz-form-item>
+
+      <!-- 操作按钮 -->
+      <nz-form-item>
+        <nz-form-control>
+          <div class="form-actions">
+            <button 
+              nz-button 
+              nzType="primary" 
+              nzSize="large"
+              [nzLoading]="submitting"
+              (click)="submitTrainingData()"
+              [disabled]="!trainingData.question.trim() || !trainingData.sqlQuery.trim()">
+              <nz-icon nzType="upload" nzTheme="outline"></nz-icon>
+              提交训练数据
+            </button>
+            <button 
+              nz-button 
+              nzType="default" 
+              nzSize="large"
+              (click)="resetForm()"
+              [disabled]="submitting">
+              重置表单
+            </button>
+          </div>
+        </nz-form-control>
+      </nz-form-item>
+    </form>
+  </nz-card>
+
+  <!-- 使用说明 -->
+  <nz-card nzTitle="使用说明" class="help-card">
+    <div class="help-content">
+      <h4>如何提供有效的训练数据？</h4>
+      <ul>
+        <li>确保自然语言问题表达清晰、完整</li>
+        <li>提供的SQL语句应该语法正确且能够执行</li>
+        <li>问题和SQL语句应该在语义上完全对应</li>
+        <li>尽量覆盖不同类型的查询场景</li>
+        <li>提供的数据将用于改善模型性能</li>
+      </ul>
+      
+      <h4>示例：</h4>
+      <div class="example-item">
+        <div class="example-question">
+          <strong>问题：</strong>统计每个部门的员工数量
+        </div>
+        <div class="example-sql">
+          <strong>SQL：</strong>SELECT department, COUNT(*) as employee_count FROM employees GROUP BY department
+        </div>
+      </div>
+    </div>
+  </nz-card>
+</div>

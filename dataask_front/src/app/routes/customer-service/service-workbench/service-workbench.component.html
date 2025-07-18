@@ -1,0 +1,62 @@
+<page-header [title]="'客服工作台'" [breadcrumb]="breadcrumb">
+  <ng-template #breadcrumb>
+    <nz-breadcrumb>
+      <nz-breadcrumb-item>
+        <a [routerLink]="['/']">
+          <nz-icon nzType="home" nzTheme="outline"></nz-icon>
+          首页
+        </a>
+      </nz-breadcrumb-item>
+      <nz-breadcrumb-item>客服服务</nz-breadcrumb-item>
+      <nz-breadcrumb-item>客服工作台</nz-breadcrumb-item>
+    </nz-breadcrumb>
+  </ng-template>
+</page-header>
+
+<div class="workbench-container">
+  <nz-card nzTitle="工单管理" class="orders-card">
+    <nz-table #workOrderTable [nzData]="workOrders" nzSize="middle">
+      <thead>
+        <tr>
+          <th>工单号</th>
+          <th>客户</th>
+          <th>类型</th>
+          <th>优先级</th>
+          <th>状态</th>
+          <th>创建时间</th>
+          <th>描述</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let order of workOrderTable.data">
+          <td>{{ order.id }}</td>
+          <td>{{ order.customer }}</td>
+          <td>{{ order.type }}</td>
+          <td>
+            <nz-tag [nzColor]="getPriorityColor(order.priority)">
+              {{ order.priority === 'high' ? '高' : order.priority === 'medium' ? '中' : '低' }}
+            </nz-tag>
+          </td>
+          <td>
+            <nz-tag [nzColor]="getStatusColor(order.status)">
+              {{ order.status === 'pending' ? '待处理' : order.status === 'processing' ? '处理中' : '已解决' }}
+            </nz-tag>
+          </td>
+          <td>{{ order.createTime }}</td>
+          <td>{{ order.description }}</td>
+          <td>
+            <button nz-button nzType="primary" nzSize="small" (click)="handleOrder(order.id)" 
+                    [disabled]="order.status === 'resolved'">
+              处理
+            </button>
+            <button nz-button nzType="default" nzSize="small" (click)="viewOrderDetail(order.id)" 
+                    style="margin-left: 8px;">
+              详情
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </nz-table>
+  </nz-card>
+</div>

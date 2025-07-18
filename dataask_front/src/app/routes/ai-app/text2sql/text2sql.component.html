@@ -15,83 +15,208 @@
   </ng-template>
 </page-header>
 
-<nz-card [nzBordered]="false">
-  <div class="mb-3">
-    <h2>Text2SQL 自然语言转SQL</h2>
-    <p class="text-grey">通过自然语言描述生成SQL查询语句</p>
+<div class="chat-container">
+  <!-- 左侧对话历史列表 -->
+  <div class="chat-sidebar">
+    <!-- 新建对话按钮 -->
+    <div class="sidebar-header">
+      <button 
+        nz-button 
+        nzType="primary" 
+        nzGhost
+        class="new-chat-btn"
+        (click)="startNewChat()"
+        nz-tooltip="开始新Text2SQL对话">
+        <div class="btn-content">
+          <nz-icon nzType="plus" nzTheme="outline"></nz-icon>
+          <span>新对话</span>
+        </div>
+      </button>
+      
+      <!-- 清除历史对话按钮 -->
+      <button 
+        nz-button 
+        nzType="default" 
+        nzGhost
+        class="clear-history-btn"
+        (click)="clearChatHistory()"
+        [disabled]="chatSessions.length === 0"
+        nz-tooltip="清除所有历史对话记录">
+        <div class="btn-content">
+          <nz-icon nzType="delete" nzTheme="outline"></nz-icon>
+          <span>清除历史</span>
+        </div>
+      </button>
+    </div>
+
+    <!-- 对话会话列表 -->
+    <div class="chat-sessions">
+      @for (session of chatSessions; track session.id) {
+        <div 
+          class="session-item"
+          [class.active]="currentSessionId === session.id"
+          (click)="selectSession(session)"
+          nz-tooltip="点击查看对话详情">
+          <div class="session-title">{{ session.title }}</div>
+          <div class="session-preview">{{ session.lastMessage }}</div>
+          <div class="session-meta">
+            <span class="session-time">{{ formatTime(session.timestamp) }}</span>
+            <div class="message-count">
+              <nz-icon nzType="message" nzTheme="outline"></nz-icon>
+              <span>{{ session.messageCount }}</span>
+            </div>
+          </div>
+        </div>
+      }
+      
+      @if (chatSessions.length === 0) {
+        <div class="empty-state">
+          <nz-icon nzType="inbox" class="empty-icon"></nz-icon>
+        </div>
+      }
+    </div>
   </div>
 
-  <nz-card class="mb-3">
-    <div nz-card-body>
-      <div class="mb-3">
-        <label class="form-label">自然语言描述：</label>
-        <nz-textarea-count [nzMaxCharacterCount]="500">
-          <textarea
-            nz-input
-            [(ngModel)]="naturalLanguageInput"
-            placeholder="请输入自然语言描述，例如：查询年龄大于25岁的用户信息"
-            [nzAutosize]="{ minRows: 3, maxRows: 6 }"
-          ></textarea>
-        </nz-textarea-count>
+  <!-- 右侧主要对话区域 -->
+  <div class="chat-main">
+    <!-- 对话标题栏 -->
+    <div class="chat-header">
+      <div class="header-content">
+        <h3>{{ currentSessionTitle }}</h3>
+        <div class="chat-desc">自然语言转SQL查询助手</div>
       </div>
-      
-      <div class="text-center">
-        <button 
-          nz-button 
-          nzType="primary" 
-          [nzLoading]="loading"
-          (click)="executeText2SQL()"
-          class="mr-2"
-        >
-          <i nz-icon nzType="send" nzTheme="outline"></i>
-          生成SQL
-        </button>
+      <div class="header-actions">
         <button 
           nz-button 
           nzType="default"
-          (click)="clearResults()"
-        >
-          <i nz-icon nzType="reload" nzTheme="outline"></i>
-          清空
+          nzSize="small"
+          class="feedback-btn"
+          (click)="goToTraining()"
+          nz-tooltip="提供训练数据以改善模型效果">
+          <nz-icon nzType="edit" nzTheme="outline"></nz-icon>
+          我要反馈
         </button>
       </div>
     </div>
-  </nz-card>
 
-  @if (sqlQuery) {
-    <nz-card class="mb-3" nzTitle="生成的SQL语句">
-      <div nz-card-body>
-        <pre class="sql-code">{{ sqlQuery }}</pre>
-      </div>
-    </nz-card>
-  }
+    <!-- 对话消息区域 -->
+    <div class="chat-messages" #messagesContainer>
+      @if (currentMessages.length === 0) {
+        <div class="empty-state">
+          <nz-icon nzType="database" class="empty-icon"></nz-icon>
+          <div class="empty-title">我是 Text2SQL 助手，很高兴为您服务！</div>
+          <div class="empty-desc">我可以帮您将自然语言描述转换为SQL查询语句，请在下方输入您的需求</div>
+          <div class="example-queries">
+            <div class="example-title">示例查询：</div>
+            <div class="example-item" (click)="useExample('昆明局2025年7月的电费回收率是多少')">
+              "昆明局2025年7月的电费回收率是多少"
+            </div>
+            <div class="example-item" (click)="useExample('昆明局目前有多少钱费用户')">
+              "昆明局目前有多少钱费用户"
+            </div>
+            <div class="example-item" (click)="useExample('我家这个月的电费是多少？')">
+              "我家这个月的电费是多少？"
+            </div>
+          </div>
+        </div>
+      } @else {
+        @for (message of currentMessages; track message.id) {
+          <div class="message" [class]="message.type + '-message'">
+            <!-- 头像 -->
+            <div class="message-avatar" [class]="message.type + '-avatar'">
+              @if (message.type === 'user') {
+                <nz-icon nzType="user" nzTheme="outline"></nz-icon>
+              } @else {
+                <nz-icon nzType="database" nzTheme="outline"></nz-icon>
+              }
+            </div>
 
-  @if (queryResult.length > 0) {
-    <nz-card nzTitle="查询结果">
-      <div nz-card-body>
-        <nz-table #basicTable [nzData]="queryResult" nzSize="small">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>姓名</th>
-              <th>年龄</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let data of basicTable.data">
-              <td>{{ data.id }}</td>
-              <td>{{ data.name }}</td>
-              <td>{{ data.age }}</td>
-            </tr>
-          </tbody>
-        </nz-table>
-      </div>
-    </nz-card>
-  }
-
-  @if (loading) {
-    <div class="text-center mt-4">
-      <nz-spin nzTip="正在生成SQL查询..."></nz-spin>
+            <!-- 消息内容 -->
+            <div class="message-wrapper">
+              <div class="message-content" [class.loading]="message.loading">
+                @if (message.loading) {
+                  <span>正在生成SQL查询...</span>
+                  <div class="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                } @else {
+                  @if (message.type === 'assistant' && message.sqlQuery) {
+                    <div class="sql-response">
+                      <div class="response-text">{{ message.content }}</div>
+                      <div class="sql-block">
+                        <div class="sql-header">
+                          <span class="sql-title">生成的SQL语句：</span>
+                          <button nz-button nzType="link" nzSize="small" (click)="copySql(message.sqlQuery!)">
+                            <nz-icon nzType="copy" nzTheme="outline"></nz-icon>
+                            复制
+                          </button>
+                        </div>
+                        <pre class="sql-code">{{ message.sqlQuery }}</pre>
+                      </div>
+                      @if (message.queryResult && message.queryResult.length > 0) {
+                        <div class="result-block">
+                          <div class="result-header">查询结果：</div>
+                          <nz-table #resultTable [nzData]="message.queryResult" nzSize="small" [nzPageSize]="5">
+                            <thead>
+                              <tr>
+                                @for (column of getTableColumns(message.queryResult); track column) {
+                                  <th>{{ column }}</th>
+                                }
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr *ngFor="let data of resultTable.data">
+                                @for (column of getTableColumns(message.queryResult); track column) {
+                                  <td>{{ data[column] }}</td>
+                                }
+                              </tr>
+                            </tbody>
+                          </nz-table>
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    {{ message.content }}
+                  }
+                }
+              </div>
+              <div class="message-time">{{ formatMessageTime(message.timestamp) }}</div>
+            </div>
+          </div>
+        }
+      }
     </div>
-  }
-</nz-card>
+
+    <!-- 输入区域 -->
+    <div class="chat-input">
+      <div class="input-container">
+        <textarea
+          #messageInput
+          class="input-field"
+          [(ngModel)]="currentMessage"
+          name="messageInput"
+          (keydown)="handleKeyDown($event)"
+          [disabled]="sending"
+          placeholder="请描述您需要的SQL查询，例如：查询年龄大于25岁的用户信息..."
+          rows="1"></textarea>
+        
+        <div class="input-actions">
+          <span class="input-hint">按 Enter 发送，Shift + Enter 换行</span>
+          <button 
+            nz-button 
+            nzType="primary" 
+            nzSize="small"
+            class="send-btn"
+            [disabled]="!currentMessage.trim() || sending"
+            [nzLoading]="sending"
+            (click)="sendMessage()">
+            <nz-icon nzType="send" nzTheme="outline"></nz-icon>
+            <span>生成SQL</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

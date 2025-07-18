@@ -14,6 +14,7 @@ from AIEngine.vanna_service import init_vanna_service
 from service.organization_service import get_organization_service_instance
 from service.user_service import get_user_service_instance
 from api.routes import api_bp
+from api.text2sql_routes import text2sql_bp
 from datetime import datetime
 
 # License授权系统导入
@@ -72,6 +73,7 @@ def create_app(config_name='default'):
     
     # 注册蓝图
     app.register_blueprint(api_bp)
+    app.register_blueprint(text2sql_bp)
     
     # 注册路由
     register_routes(app)

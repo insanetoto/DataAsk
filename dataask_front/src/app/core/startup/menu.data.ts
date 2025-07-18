@@ -82,6 +82,31 @@ export const MENU_DATA: Menu[] = [
         ]
       },
       {
+        text: '客服服务',
+        i18n: 'menu.customer-service',
+        icon: { type: 'icon', value: 'team' },
+        children: [
+          {
+            text: '客服仪表板',
+            i18n: 'menu.customer-service.dashboard',
+            icon: { type: 'icon', value: 'dashboard' },
+            link: '/customer-service/dashboard'
+          },
+          {
+            text: '客服工作台',
+            i18n: 'menu.customer-service.workbench',
+            icon: { type: 'icon', value: 'monitor' },
+            link: '/customer-service/workbench'
+          },
+          {
+            text: '服务工单详情',
+            i18n: 'menu.customer-service.order-detail',
+            icon: { type: 'icon', value: 'file-text' },
+            link: '/customer-service/order-detail'
+          }
+        ]
+      },
+      {
         text: '系统管理',
         i18n: 'menu.sys',
         icon: { type: 'icon', value: 'setting' },
