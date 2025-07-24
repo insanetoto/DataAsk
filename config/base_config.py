@@ -10,9 +10,6 @@ class Config:
     DEBUG = True
     PORT = 9000  # 后端服务端口号，固定为9000
     
-    # License配置
-    LICENSE_ENABLED = False
-    
     # 数据库配置
     DB_HOST = '127.0.0.1'
     DB_PORT = 3306

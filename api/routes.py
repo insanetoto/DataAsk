@@ -17,8 +17,6 @@ from service.permission_service import get_permission_service
 from service.menu_service import get_menu_service
 from tools.auth_middleware import token_required, token_service, auth_required, generate_token
 
-# License授权检查
-from tools.license_middleware import require_license
 # 权限验证中间件
 from tools.auth_middleware import (
     permission_required, admin_required, super_admin_required,
@@ -263,7 +261,7 @@ def health_check():
         }), 500
 
 @api_bp.route('/ask', methods=['POST'])
-@require_license('ai_query')
+@auth_required
 def ask_question():
     """智能问答接口"""
     try:
@@ -297,7 +295,7 @@ def ask_question():
         return jsonify(response), status
 
 @api_bp.route('/generate_sql', methods=['POST'])
-@require_license('sql_generation')
+@auth_required
 def generate_sql():
     """生成SQL接口"""
     try:
@@ -335,45 +333,8 @@ def generate_sql():
         response, status = standardize_response(False, error=str(e), code=500)
         return jsonify(response), status
 
-@api_bp.route('/execute_sql', methods=['POST'])
-def execute_sql():
-    """执行SQL接口"""
-    try:
-        # 获取请求参数
-        data = request.get_json()
-        if not data or 'sql' not in data:
-            response, status = standardize_response(False, error='缺少必要参数: sql', code=400)
-            return jsonify(response), status
-        
-        sql = data['sql'].strip()
-        if not sql:
-            response, status = standardize_response(False, error='SQL语句不能为空', code=400)
-            return jsonify(response), status
-        
-        # 安全检查 - 只允许SELECT语句
-        if not sql.upper().strip().startswith('SELECT'):
-            response, status = standardize_response(False, error='仅支持SELECT查询语句', code=400)
-            return jsonify(response), status
-        
-        # 执行SQL查询
-        db_service = get_database_service()
-        result_data = db_service.execute_query(sql)
-        
-        response_data = {
-            'sql': sql,
-            'data': result_data,
-            'count': len(result_data)
-        }
-        response, status = standardize_response(True, data=response_data, message='SQL执行成功')
-        return jsonify(response), status
-        
-    except Exception as e:
-        logger.error(f"SQL执行失败: {str(e)}")
-        response, status = standardize_response(False, error=str(e), code=500)
-        return jsonify(response), status
-
 @api_bp.route('/train', methods=['POST'])
-@require_license('training_enabled')
+@auth_required
 def train_model():
     """训练模型接口"""
     try:
@@ -416,8 +377,8 @@ def train_model():
         response, status = standardize_response(False, error=str(e), code=500)
         return jsonify(response), status
 
-@api_bp.route('/auto_train', methods=['POST'])  
-@require_license('training_enabled')
+@api_bp.route('/auto_train', methods=['POST'])
+@auth_required
 def auto_train():
     """自动训练接口（从数据库Schema）"""
     try:
@@ -481,7 +442,6 @@ def get_database_schema():
         }), 500
 
 @api_bp.route('/cache/clear', methods=['POST'])
-@require_license('cache_enabled')
 def clear_cache():
     """清除缓存接口"""
     try:

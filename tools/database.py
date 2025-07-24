@@ -52,6 +52,8 @@ class DatabaseService:
         # Vanna数据库引擎（用于AI训练数据）
         self.vanna_engine = self._create_engine(config.VANNA_DATABASE_URI, "Vanna数据库")
         self.Session = Session
+        # 创建Vanna数据库会话工厂
+        self.VannaSession = scoped_session(sessionmaker(bind=self.vanna_engine))
         
     def _create_engine(self, database_uri: str, db_name: str):
         """创建数据库引擎"""
@@ -72,6 +74,19 @@ class DatabaseService:
     def get_session(self):
         """获取数据库会话的上下文管理器"""
         session = self.Session()
+        try:
+            yield session
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+            
+    @contextmanager
+    def get_vanna_session(self):
+        """获取Vanna数据库会话的上下文管理器"""
+        session = self.VannaSession()
         try:
             yield session
             session.commit()

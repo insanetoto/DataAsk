@@ -6,7 +6,7 @@ Text2SQL API路由模块
 import json
 from datetime import datetime
 from flask import Blueprint, request, jsonify, g
-from service.vanna_service import get_vanna_service
+from AIEngine.vanna_service import get_vanna_service
 from tools.auth_middleware import auth_required
 import logging
 
@@ -22,6 +22,7 @@ def generate_sql():
     try:
         data = request.get_json()
         question = data.get('question', '').strip()
+        session_id = data.get('session_id')  # 添加会话ID参数
         
         if not question:
             return jsonify({'error': '请输入查询问题'}), 400
@@ -35,19 +36,61 @@ def generate_sql():
         
         # 调用Vanna服务
         vanna_service = get_vanna_service()
-        result = vanna_service.generate_sql(question, user_id)
+        result = vanna_service.generate_sql(question)
         
-        if result['success']:
+        if result[0]:  # 生成成功
+            sql, confidence = result
+            
+            # 如果提供了会话ID，记录用户问题和生成的SQL
+            if session_id:
+                # 记录用户问题
+                vanna_service.add_message_to_session(
+                    session_id=session_id,
+                    user_id=user_id,
+                    message_type='user',
+                    content=question
+                )
+                
+                # 记录生成的SQL
+                vanna_service.add_message_to_session(
+                    session_id=session_id,
+                    user_id=user_id,
+                    message_type='assistant',
+                    content=f"生成的SQL查询：\n{sql}",
+                    sql_query=sql,
+                    confidence_score=confidence
+                )
+            
             return jsonify({
                 'success': True,
-                'sql': result['sql'],
-                'confidence': result['confidence'],
-                'timestamp': result['timestamp']
+                'sql': sql,
+                'confidence': confidence,
+                'timestamp': datetime.now().isoformat()
             })
         else:
+            error_message = result[1] if isinstance(result, tuple) else '无法生成SQL语句'
+            
+            # 如果提供了会话ID，记录用户问题和错误信息
+            if session_id:
+                # 记录用户问题
+                vanna_service.add_message_to_session(
+                    session_id=session_id,
+                    user_id=user_id,
+                    message_type='user',
+                    content=question
+                )
+                
+                # 记录错误信息
+                vanna_service.add_message_to_session(
+                    session_id=session_id,
+                    user_id=user_id,
+                    message_type='assistant',
+                    content=f"错误：{error_message}"
+                )
+            
             return jsonify({
                 'success': False,
-                'error': result['error']
+                'error': error_message
             }), 400
             
     except Exception as e:
@@ -61,6 +104,7 @@ def execute_sql():
     try:
         data = request.get_json()
         sql = data.get('sql', '').strip()
+        session_id = data.get('session_id')  # 添加会话ID参数
         
         if not sql:
             return jsonify({'error': 'SQL语句不能为空'}), 400
@@ -72,23 +116,52 @@ def execute_sql():
         # 记录SQL执行
         logger.info(f"执行SQL: {sql} (用户ID: {user_id})")
         
+        start_time = datetime.now()
+        
         # 调用Vanna服务
         vanna_service = get_vanna_service()
-        result = vanna_service.execute_sql(sql, user_id)
+        result = vanna_service.execute_sql(sql)
+        
+        execution_time = int((datetime.now() - start_time).total_seconds() * 1000)
         
         if result['success']:
+            # 如果提供了会话ID，记录执行结果
+            if session_id:
+                vanna_service.add_message_to_session(
+                    session_id=session_id,
+                    user_id=user_id,
+                    message_type='assistant',
+                    content=f"SQL执行成功，返回{len(result['data'])}条记录",
+                    sql_query=sql,
+                    query_result=result['data'],
+                    execution_time=execution_time
+                )
+            
             return jsonify({
                 'success': True,
                 'data': result['data'],
                 'columns': result['columns'],
                 'row_count': result['row_count'],
-                'execution_time': result['execution_time'],
-                'timestamp': result['timestamp']
+                'execution_time': execution_time,
+                'timestamp': datetime.now().isoformat()
             })
         else:
+            error_message = result.get('error', 'SQL执行失败')
+            
+            # 如果提供了会话ID，记录执行失败
+            if session_id:
+                vanna_service.add_message_to_session(
+                    session_id=session_id,
+                    user_id=user_id,
+                    message_type='assistant',
+                    content=f"SQL执行失败：{error_message}",
+                    sql_query=sql,
+                    execution_time=execution_time
+                )
+            
             return jsonify({
                 'success': False,
-                'error': result['error']
+                'error': error_message
             }), 400
             
     except Exception as e:
@@ -103,6 +176,7 @@ def train_sql():
         data = request.get_json()
         question = data.get('question', '').strip()
         sql = data.get('sql', '').strip()
+        session_id = data.get('session_id')  # 添加会话ID参数
         
         if not question or not sql:
             return jsonify({'error': '问题和SQL都不能为空'}), 400
@@ -116,9 +190,22 @@ def train_sql():
         
         # 调用Vanna服务
         vanna_service = get_vanna_service()
-        result = vanna_service.train_on_sql(question, sql, user_id)
+        result = vanna_service.train_with_sql(question, sql)
         
-        return jsonify(result)
+        # 如果提供了会话ID，记录训练结果
+        if session_id:
+            vanna_service.add_message_to_session(
+                session_id=session_id,
+                user_id=user_id,
+                message_type='system',
+                content=f"训练样本：\n问题：{question}\nSQL：{sql}",
+                sql_query=sql
+            )
+        
+        return jsonify({
+            'success': result,
+            'message': '训练成功' if result else '训练失败'
+        })
         
     except Exception as e:
         logger.error(f"训练失败: {str(e)}")
@@ -164,6 +251,16 @@ def create_session():
         # 使用Vanna服务创建会话
         vanna_service = get_vanna_service()
         result = vanna_service.create_session(user_id, title)
+        
+        if result['success']:
+            # 添加欢迎消息
+            session_id = result['data']['id']
+            vanna_service.add_message_to_session(
+                session_id=session_id,
+                user_id=user_id,
+                message_type='system',
+                content='欢迎使用Text2SQL对话功能！请输入您的问题，我会帮您生成相应的SQL查询。'
+            )
         
         return jsonify(result)
         

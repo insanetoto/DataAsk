@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-百惟数问 - 智能数据问答平台
+洞察魔方 - 智能数据问答平台
 基于Vanna AI框架、MySQL、Redis构建的企业级数据分析平台
 """
 import os
@@ -17,9 +17,6 @@ from api.routes import api_bp
 from api.text2sql_routes import text2sql_bp
 
 from datetime import datetime
-
-# License授权系统导入
-from tools.license_middleware import LicenseMiddleware, require_license, create_license_routes
 
 # 配置日志
 logging.basicConfig(
@@ -52,30 +49,12 @@ def create_app(config_name='default'):
     # 加载配置
     app.config.from_object(config_class)
     
-    # 初始化License中间件（根据环境配置决定是否启用）
-    license_enabled = config_instance.LICENSE_ENABLED
-    license_middleware = LicenseMiddleware(
-        license_file="license.key", 
-        enabled=license_enabled
-    )
-    license_middleware.init_app(app)
-    
-    # 记录License状态
-    if license_enabled:
-        logger.info("License校验已启用（生产环境模式）")
-    else:
-        logger.info("License校验已禁用（开发环境模式）")
-    
-    # 创建License管理路由
-    create_license_routes(app, license_middleware)
-    
     # 初始化各项服务 - 传递配置实例
     init_services(config_instance)
     
     # 注册蓝图
     app.register_blueprint(api_bp)
     app.register_blueprint(text2sql_bp)
-
     
     # 注册路由
     register_routes(app)
