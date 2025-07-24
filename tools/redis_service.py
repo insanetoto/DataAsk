@@ -8,7 +8,7 @@ import logging
 from typing import Optional, Any, Dict, List
 import redis
 from datetime import datetime
-from config import Config
+from config.base_config import Config
 
 logger = logging.getLogger(__name__)
 

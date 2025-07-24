@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any, List
 import pymysql
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool
-from config import Config
+from config.base_config import Config
 from contextlib import contextmanager
 from sqlalchemy.orm import sessionmaker, scoped_session
 from models import Base

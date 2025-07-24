@@ -15,7 +15,7 @@ from tools.database import DatabaseService, get_database_service
 from tools.redis_service import RedisService, get_redis_service
 from sqlalchemy import text, select, func
 from sqlalchemy.orm import Session
-from config import Config
+from config.base_config import Config
 from tools.di_container import DIContainer
 
 logger = logging.getLogger(__name__)

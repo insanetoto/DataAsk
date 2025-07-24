@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 机构管理服务模块
-提供机构的增删改查功能，集成Redis缓存提升性能
+提供机构的增删改查功能,集成Redis缓存提升性能
 """
 import json
 import logging
@@ -32,10 +32,10 @@ class OrganizationService:
         """
         自动生成机构编码
         
-        规则：
-        1. 机构编码最多10位，每两位为1级，从00开始编码
-        2. 如果没有上级机构，生成顶级机构编码（如00, 01, 02...）
-        3. 如果有上级机构，在上级机构编码基础上增加两位（如0501, 0502...）
+        规则:
+        1. 机构编码最多10位,每两位为1级,从00开始编码
+        2. 如果没有上级机构,生成顶级机构编码(如00, 01, 02...)
+        3. 如果有上级机构,在上级机构编码基础上增加两位(如0501, 0502...)
         
         Args:
             parent_org_code: 上级机构编码
@@ -129,13 +129,12 @@ class OrganizationService:
             
             if result:
                 return result[0]['level_depth'] + 1
-            else:
-                # 如果找不到上级机构，默认为顶级机构
-                return 0
+            return 0
+            
         except Exception as e:
             logger.error(f"计算层级深度失败: {str(e)}")
             return 0
-    
+            
     def _calculate_level_path(self, parent_org_code: str = None, org_code: str = None) -> str:
         """
         计算机构层级路径
@@ -155,12 +154,11 @@ class OrganizationService:
             sql = "SELECT level_path FROM organizations WHERE org_code = :parent_org_code"
             result = self.db_service.execute_query(sql, {'parent_org_code': parent_org_code})
             
-            if result and result[0]['level_path']:
+            if result:
                 parent_path = result[0]['level_path']
-                return f'{parent_path}{org_code}/'
-            else:
-                # 如果找不到上级机构路径，默认为顶级路径
-                return f'/{org_code}/'
+                return f"{parent_path}{org_code}/"
+            return f'/{org_code}/'
+            
         except Exception as e:
             logger.error(f"计算层级路径失败: {str(e)}")
             return f'/{org_code}/'
@@ -170,8 +168,8 @@ class OrganizationService:
         创建机构
         
         Args:
-            data: 机构数据，包含 org_name, contact_person, contact_phone, contact_email 等
-                 可选包含 org_code（如果不提供则自动生成）, parent_org_code, status
+            data: 机构数据, 包含 org_name, contact_person, contact_phone, contact_email 等
+                 可选包含 org_code(如果不提供则自动生成), parent_org_code, status
             
         Returns:
             创建结果
@@ -496,7 +494,7 @@ class OrganizationService:
             }
     
     def _get_organization_by_id_without_status_check(self, org_id: int) -> Dict[str, Any]:
-        """根据ID获取机构信息（不检查状态）"""
+        """根据ID获取机构信息(不检查状态)"""
         try:
             sql = """
             SELECT id, org_code, parent_org_code, org_name, contact_person, contact_phone, contact_email, 
@@ -597,9 +595,9 @@ class OrganizationService:
             }
     
     def delete_organization(self, org_id: int) -> Dict[str, Any]:
-        """删除机构（软删除）"""
+        """删除机构(软删除)"""
         try:
-            # 获取机构信息（不检查状态）
+            # 获取机构信息(不检查状态)
             current_org = self._get_organization_by_id_without_status_check(org_id)
             if not current_org['success'] or not current_org['data']:
                 return {
@@ -687,7 +685,7 @@ class OrganizationService:
     
     def get_organization_children(self, org_code: str, include_self: bool = False) -> Dict[str, Any]:
         """
-        获取机构的所有子机构（递归）
+        获取机构的所有子机构(递归)
         
         Args:
             org_code: 机构编码
@@ -745,7 +743,7 @@ class OrganizationService:
     
     def get_organization_parents(self, org_code: str, include_self: bool = False) -> Dict[str, Any]:
         """
-        获取机构的所有上级机构（递归）
+        获取机构的所有上级机构(递归)
         
         Args:
             org_code: 机构编码
@@ -815,7 +813,7 @@ class OrganizationService:
         获取机构树结构
         
         Args:
-            root_org_code: 根机构编码，如果为None则获取所有顶级机构
+            root_org_code: 根机构编码,如果为None则获取所有顶级机构
             
         Returns:
             机构树结构
@@ -885,7 +883,7 @@ class OrganizationService:
     def get_organization_hierarchy_view(self, page: int = 1, page_size: int = 10, 
                                       keyword: Optional[str] = None) -> Dict[str, Any]:
         """
-        获取机构层级关系视图（分页）
+        获取机构层级关系视图(分页)
         
         Args:
             page: 页码
@@ -980,7 +978,7 @@ class OrganizationService:
         
         Args:
             org_code: 要移动的机构编码
-            new_parent_code: 新的上级机构编码，None表示移动到顶级
+            new_parent_code: 新的上级机构编码,None表示移动到顶级
             
         Returns:
             移动结果

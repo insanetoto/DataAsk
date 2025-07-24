@@ -11,7 +11,7 @@ from flask import request, jsonify, g, current_app
 from service.user_service import get_user_service, get_user_service_instance, UserService
 from service.permission_service import get_permission_service
 from tools.redis_service import get_redis_service
-from config import Config
+from config.base_config import Config
 from datetime import datetime, timedelta
 import functools
 

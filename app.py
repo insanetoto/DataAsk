@@ -7,7 +7,7 @@ import os
 import logging
 from flask import Flask, jsonify, render_template_string
 from flask_cors import CORS
-from config import config
+from config.base_config import config
 from tools.database import init_database_service
 from tools.redis_service import get_redis_service
 from AIEngine.vanna_service import init_vanna_service

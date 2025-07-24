@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional
 from tools.database import DatabaseService, get_database_service
 from sqlalchemy import text, create_engine
 from sqlalchemy.orm import sessionmaker
-from config import Config
+from config.base_config import Config
 import logging
 import requests
 
