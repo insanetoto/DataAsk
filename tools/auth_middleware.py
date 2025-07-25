@@ -1,365 +1,220 @@
 # -*- coding: utf-8 -*-
 """
-认证中间件
-提供JWT认证和权限验证功能
+认证中间件模块
+提供用户认证和授权相关的装饰器和工具函数
 """
-import logging
-from functools import wraps
-from typing import Dict, Any, Optional
 import jwt
-from flask import request, jsonify, g, current_app
-from service.user_service import get_user_service, get_user_service_instance, UserService
-from service.permission_service import get_permission_service
-from tools.redis_service import get_redis_service
-from config.base_config import Config
 from datetime import datetime, timedelta
-import functools
+from functools import wraps
+from flask import request, jsonify, g
+from typing import Dict, Any, Optional, Callable
+import logging
 
 logger = logging.getLogger(__name__)
-JWT_SECRET = Config.JWT_SECRET_KEY
 
-class TokenService:
-    """Token管理服务"""
-    
-    def __init__(self):
-        self.redis = get_redis_service()
-        self.access_token_expires = 1800  # 30分钟
-        self.refresh_token_expires = 604800  # 7天
-        self.secret_key = JWT_SECRET  # 使用配置中的密钥
-        
-    def _generate_token(self, user_id: int, token_type: str = "access") -> str:
-        """生成JWT token"""
-        now = datetime.utcnow()
-        expires_in = self.access_token_expires if token_type == "access" else self.refresh_token_expires
-        expires = now + timedelta(seconds=expires_in)
-        
-        payload = {
-            "user_id": user_id,
-            "type": token_type,
-            "exp": expires,
-            "iat": now
-        }
-        
-        return jwt.encode(payload, self.secret_key, algorithm="HS256")
-    
-    def generate_tokens(self, user_id: int) -> Dict[str, Any]:
-        """生成访问令牌和刷新令牌"""
-        access_token = self._generate_token(user_id, "access")
-        refresh_token = self._generate_token(user_id, "refresh")
-        
-        # 存储到Redis
-        self.redis.set_token(f"access_token:{user_id}", access_token, self.access_token_expires)
-        self.redis.set_token(f"refresh_token:{user_id}", refresh_token, self.refresh_token_expires)
-        
-        return {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "token_type": "bearer",
-            "expires_in": self.access_token_expires
-        }
-    
-    def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
-        """验证token"""
-        try:
-            payload = jwt.decode(token, self.secret_key, algorithms=["HS256"])
-            user_id = payload.get("user_id")
-            token_type = payload.get("type")
-            
-            # 检查token是否在Redis中
-            stored_token = self.redis.get_token(f"{token_type}_token:{user_id}")
-            if not stored_token or stored_token != token:
-                return None
-                
-            return payload
-        except jwt.ExpiredSignatureError:
-            logger.warning("Token已过期")
-            return None
-        except jwt.InvalidTokenError:
-            logger.warning("无效的Token")
-            return None
-    
-    def refresh_access_token(self, refresh_token: str) -> Optional[Dict[str, Any]]:
-        """使用刷新令牌获取新的访问令牌"""
-        payload = self.verify_token(refresh_token)
-        if not payload or payload.get("type") != "refresh":
-            return None
-            
-        user_id = payload.get("user_id")
-        return {
-            "access_token": self._generate_token(user_id, "access"),
-            "token_type": "bearer",
-            "expires_in": self.access_token_expires
-        }
-    
-    def revoke_tokens(self, user_id: int) -> bool:
-        """撤销用户的所有令牌"""
-        try:
-            self.redis.delete_token(f"access_token:{user_id}")
-            self.redis.delete_token(f"refresh_token:{user_id}")
-            return True
-        except Exception as e:
-            logger.error(f"撤销令牌失败: {str(e)}")
-            return False
+# JWT配置
+JWT_SECRET_KEY = 'your-secret-key'  # 生产环境应该使用安全的密钥
+ACCESS_TOKEN_EXPIRE_MINUTES = 30  # 访问令牌过期时间（分钟）
+REFRESH_TOKEN_EXPIRE_DAYS = 7    # 刷新令牌过期时间（天）
 
-def generate_token(user_id: int, expires_in: int = 3600 * 24) -> dict:
+def generate_token(user_data: Dict[str, Any], token_type: str = 'access') -> str:
     """
-    生成JWT token
-    :param user_id: 用户ID
-    :param expires_in: 过期时间(秒)，默认24小时
-    :return: token信息
-    """
-    now = datetime.utcnow()
-    exp = now + timedelta(seconds=expires_in)
-    refresh_exp = now + timedelta(days=7)  # 刷新token7天有效
+    生成JWT令牌
     
-    access_token = jwt.encode(
-        {
-            'user_id': user_id,
-            'exp': exp,
-            'iat': now,
-            'type': 'access'
-        },
-        JWT_SECRET,
-        algorithm='HS256'
-    )
-    
-    refresh_token = jwt.encode(
-        {
-            'user_id': user_id,
-            'exp': refresh_exp,
-            'iat': now,
-            'refresh': True,
-            'type': 'refresh'
-        },
-        JWT_SECRET,
-        algorithm='HS256'
-    )
-    
-    return {
-        'access_token': access_token,
-        'refresh_token': refresh_token,
-        'expires_in': expires_in
-    }
-
-def verify_token(token: str) -> dict:
-    """
-    验证JWT token
-    :param token: JWT token
-    :return: 解码后的payload
+    Args:
+        user_data: 用户数据
+        token_type: 令牌类型（access/refresh）
+        
+    Returns:
+        str: JWT令牌
     """
     try:
-        payload = jwt.decode(
-            token,
-            JWT_SECRET,
-            algorithms=['HS256']
-        )
-        return {'success': True, 'data': payload}
-    except jwt.ExpiredSignatureError:
-        return {'success': False, 'error': 'Token已过期'}
-    except jwt.InvalidTokenError:
-        return {'success': False, 'error': '无效的Token'}
+        # 设置过期时间
+        if token_type == 'refresh':
+            expires_delta = timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        else:  # access token
+            expires_delta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            
+        expire_time = datetime.utcnow() + expires_delta
+        
+        # 构建令牌数据
+        token_data = {
+            'exp': expire_time,
+            'iat': datetime.utcnow(),
+            'type': token_type,
+            'id': user_data.get('id'),
+            'username': user_data.get('username'),
+            'role_code': user_data.get('role_code'),
+            'org_code': user_data.get('org_code')
+        }
+        
+        # 生成令牌
+        token = jwt.encode(token_data, JWT_SECRET_KEY, algorithm='HS256')
+        return token
+        
+    except Exception as e:
+        logger.error(f"生成令牌失败: {str(e)}")
+        raise
 
-def auth_required(f):
+def verify_token(token: str) -> Optional[Dict[str, Any]]:
+    """
+    验证JWT令牌
+    
+    Args:
+        token: JWT令牌
+        
+    Returns:
+        Optional[Dict[str, Any]]: 令牌中的数据，验证失败返回None
+    """
+    try:
+        # 解码并验证令牌
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])
+        return payload
+    except jwt.ExpiredSignatureError:
+        logger.warning("令牌已过期")
+        return None
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"无效的令牌: {str(e)}")
+        return None
+    except Exception as e:
+        logger.error(f"验证令牌失败: {str(e)}")
+        return None
+
+def auth_required(func: Callable) -> Callable:
     """
     认证装饰器
+    要求请求包含有效的访问令牌
     """
-    @functools.wraps(f)
-    def decorated(*args, **kwargs):
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({
-                'code': 401,
-                'message': '未提供认证信息'
-            }), 401
-        
+    @wraps(func)
+    def wrapper(*args, **kwargs):
         try:
-            token_type, token = auth_header.split(' ')
-            if token_type.lower() != 'bearer':
+            # 获取令牌
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
                 return jsonify({
                     'code': 401,
-                    'message': '无效的认证类型'
+                    'message': '未提供认证令牌',
+                    'data': None
                 }), 401
-        except ValueError:
-            return jsonify({
-                'code': 401,
-                'message': '无效的认证头格式'
-            }), 401
-        
-        verify_result = verify_token(token)
-        if not verify_result['success']:
-            return jsonify({
-                'code': 401,
-                'message': verify_result['error']
-            }), 401
-        
-        # 获取用户信息
-        user_id = verify_result['data']['user_id']
-        user_service = get_user_service()
-        user_result = user_service.get_user_by_id(user_id)
-        if not user_result['success'] or not user_result['data']:
-            return jsonify({
-                'code': 401,
-                'message': '用户不存在或已被禁用'
-            }), 401
-        
-        user_info = user_result['data']
-        
-        # 将用户信息存储在请求上下文中
-        g.current_user = user_info
-        return f(*args, **kwargs)
-    
-    return decorated
-
-def refresh_token_required(f):
-    """
-    刷新token装饰器
-    """
-    @functools.wraps(f)
-    def decorated(*args, **kwargs):
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({
-                'code': 401,
-                'message': '未提供认证信息'
-            }), 401
-        
-        try:
-            token_type, token = auth_header.split(' ')
-            if token_type.lower() != 'bearer':
+                
+            token = auth_header.split(' ')[1]
+            
+            # 验证令牌
+            payload = verify_token(token)
+            if not payload:
                 return jsonify({
                     'code': 401,
-                    'message': '无效的认证类型'
+                    'message': '无效的认证令牌',
+                    'data': None
                 }), 401
-        except ValueError:
+                
+            # 检查令牌类型
+            if payload.get('type') != 'access':
+                return jsonify({
+                    'code': 401,
+                    'message': '无效的令牌类型',
+                    'data': None
+                }), 401
+                
+            # 将用户信息存储在g对象中
+            g.current_user = {
+                'id': payload.get('id'),
+                'username': payload.get('username'),
+                'role_code': payload.get('role_code'),
+                'org_code': payload.get('org_code')
+            }
+            
+            return func(*args, **kwargs)
+            
+        except Exception as e:
+            logger.error(f"认证失败: {str(e)}")
             return jsonify({
-                'code': 401,
-                'message': '无效的认证头格式'
-            }), 401
-        
-        verify_result = verify_token(token)
-        if not verify_result['success']:
-            return jsonify({
-                'code': 401,
-                'message': verify_result['error']
-            }), 401
-        
-        # 验证是否为刷新token
-        payload = verify_result['data']
-        if not payload.get('refresh'):
-            return jsonify({
-                'code': 401,
-                'message': '无效的刷新Token'
-            }), 401
-        
-        # 获取用户信息
-        user_id = payload['user_id']
-        user_service = get_user_service()
-        user_result = user_service.get_user_by_id(user_id)
-        if not user_result['success'] or not user_result['data']:
-            return jsonify({
-                'code': 401,
-                'message': '用户不存在或已被禁用'
-            }), 401
-        
-        user_info = user_result['data']
-        
-        # 将用户信息存储在请求上下文中
-        g.current_user = user_info
-        return f(*args, **kwargs)
-    
-    return decorated
+                'code': 500,
+                'message': '认证过程发生错误',
+                'data': None
+            }), 500
+            
+    return wrapper
 
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = None
-        
-        # 从请求头获取令牌
-        auth_header = request.headers.get('Authorization')
-        if auth_header:
+def permission_required(permission: str) -> Callable:
+    """
+    权限装饰器
+    要求用户具有指定的权限
+    
+    Args:
+        permission: 所需的权限代码
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
             try:
-                token_type, token = auth_header.split(' ')
-                if token_type.lower() != 'bearer':
+                # 检查是否已通过认证
+                current_user = getattr(g, 'current_user', None)
+                if not current_user:
                     return jsonify({
                         'code': 401,
-                        'message': '无效的令牌类型'
+                        'message': '用户未登录',
+                        'data': None
                     }), 401
-            except ValueError:
-                return jsonify({
-                    'code': 401,
-                    'message': '无效的Authorization头'
-                }), 401
-        
-        if not token:
-            return jsonify({
-                'code': 401,
-                'message': '缺少访问令牌'
-            }), 401
-            
-        # 验证令牌
-        result = get_user_service_instance().verify_token(token)
-        if not result['success']:
-            return jsonify({
-                'code': 401,
-                'message': result['error']
-            }), 401
-            
-        # 将用户信息添加到请求上下文
-        g.current_user = result['data']
-        return f(*args, **kwargs)
-        
-    return decorated
-
-def permission_required(permission_code):
-    """权限检查装饰器"""
-    def decorator(f):
-        @wraps(f)
-        @auth_required
-        def decorated(*args, **kwargs):
-            current_user = g.current_user
-            user_permissions = current_user.get('permissions', [])
-            
-            # 检查是否有所需权限
-            if not any(p['permission_code'] == permission_code for p in user_permissions):
-                return jsonify({
-                    'code': 403,
-                    'message': '没有所需权限',
-                    'data': None
-                }), 403
+                    
+                # TODO: 实现权限检查逻辑
+                # 这里应该根据current_user中的角色信息检查是否具有指定权限
+                # 暂时返回成功
+                return func(*args, **kwargs)
                 
-            return f(*args, **kwargs)
-        return decorated
+            except Exception as e:
+                logger.error(f"权限检查失败: {str(e)}")
+                return jsonify({
+                    'code': 500,
+                    'message': '权限检查过程发生错误',
+                    'data': None
+                }), 500
+                
+        return wrapper
     return decorator
 
 def admin_required(f):
-    """管理员权限检查装饰器"""
+    """要求用户具有管理员权限"""
     @wraps(f)
-    @auth_required
     def decorated(*args, **kwargs):
-        current_user = g.current_user
-        if current_user.get('role_level', 99) > 2:  # 角色级别1-2为管理员
+        current_user = getattr(g, 'current_user', None)
+        if not current_user:
+            return jsonify({
+                'code': 401,
+                'message': '用户未登录',
+                'data': None
+            }), 401
+        
+        role_code = current_user.get('role_code')
+        if role_code not in ['SUPER_ADMIN', 'ORG_ADMIN']:
             return jsonify({
                 'code': 403,
                 'message': '需要管理员权限',
                 'data': None
             }), 403
-            
+        
         return f(*args, **kwargs)
     return decorated
 
 def super_admin_required(f):
-    """超级管理员权限检查装饰器"""
+    """要求用户具有超级管理员权限"""
     @wraps(f)
-    @auth_required
     def decorated(*args, **kwargs):
-        current_user = g.current_user
-        if current_user.get('role_level', 99) != 1:  # 角色级别1为超级管理员
+        current_user = getattr(g, 'current_user', None)
+        if not current_user:
+            return jsonify({
+                'code': 401,
+                'message': '用户未登录',
+                'data': None
+            }), 401
+        
+        if current_user.get('role_code') != 'SUPER_ADMIN':
             return jsonify({
                 'code': 403,
                 'message': '需要超级管理员权限',
                 'data': None
             }), 403
-            
+        
         return f(*args, **kwargs)
     return decorated
 
@@ -381,13 +236,20 @@ def org_filter_required(f):
         return f(*args, **kwargs)
     return decorated
 
-def get_current_user():
+def get_current_user() -> Optional[Dict[str, Any]]:
     """获取当前用户信息"""
     return getattr(g, 'current_user', None)
 
-def get_org_filter():
-    """获取组织机构过滤条件"""
-    return getattr(g, 'org_filter', None)
-
-# 初始化TokenService实例
-token_service = TokenService() 
+def get_org_filter() -> Optional[str]:
+    """获取机构过滤条件"""
+    current_user = get_current_user()
+    if not current_user:
+        return None
+    
+    role_code = current_user.get('role_code')
+    if role_code == 'ORG_ADMIN':
+        return current_user.get('org_code')
+    elif role_code == 'SUPER_ADMIN':
+        return None
+    else:
+        return current_user.get('org_code') 

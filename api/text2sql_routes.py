@@ -8,6 +8,10 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, g
 from AIEngine.vanna_service import get_vanna_service
 from tools.auth_middleware import auth_required
+from tools.exceptions import (
+    ValidationException, BusinessException,
+    DatabaseException, ExternalServiceException
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,7 +29,7 @@ def generate_sql():
         session_id = data.get('session_id')  # 添加会话ID参数
         
         if not question:
-            return jsonify({'error': '请输入查询问题'}), 400
+            raise ValidationException('请输入查询问题')
         
         # 获取当前用户ID
         current_user = getattr(g, 'current_user', None)
@@ -38,64 +42,21 @@ def generate_sql():
         vanna_service = get_vanna_service()
         result = vanna_service.generate_sql(question)
         
-        if result[0]:  # 生成成功
-            sql, confidence = result
-            
-            # 如果提供了会话ID，记录用户问题和生成的SQL
-            if session_id:
-                # 记录用户问题
-                vanna_service.add_message_to_session(
-                    session_id=session_id,
-                    user_id=user_id,
-                    message_type='user',
-                    content=question
-                )
-                
-                # 记录生成的SQL
-                vanna_service.add_message_to_session(
-                    session_id=session_id,
-                    user_id=user_id,
-                    message_type='assistant',
-                    content=f"生成的SQL查询：\n{sql}",
-                    sql_query=sql,
-                    confidence_score=confidence
-                )
-            
+        if result['success']:
             return jsonify({
+                'code': 200,
                 'success': True,
-                'sql': sql,
-                'confidence': confidence,
-                'timestamp': datetime.now().isoformat()
+                'data': result['data'],
+                'message': 'SQL生成成功'
             })
         else:
-            error_message = result[1] if isinstance(result, tuple) else '无法生成SQL语句'
+            raise BusinessException(result.get('error', 'SQL生成失败'))
             
-            # 如果提供了会话ID，记录用户问题和错误信息
-            if session_id:
-                # 记录用户问题
-                vanna_service.add_message_to_session(
-                    session_id=session_id,
-                    user_id=user_id,
-                    message_type='user',
-                    content=question
-                )
-                
-                # 记录错误信息
-                vanna_service.add_message_to_session(
-                    session_id=session_id,
-                    user_id=user_id,
-                    message_type='assistant',
-                    content=f"错误：{error_message}"
-                )
-            
-            return jsonify({
-                'success': False,
-                'error': error_message
-            }), 400
-            
+    except (ValidationException, BusinessException):
+        raise
     except Exception as e:
         logger.error(f"生成SQL失败: {str(e)}")
-        return jsonify({'error': '服务器内部错误'}), 500
+        raise ExternalServiceException('SQL生成服务异常')
 
 @text2sql_bp.route('/execute', methods=['POST'])
 @auth_required
@@ -107,7 +68,7 @@ def execute_sql():
         session_id = data.get('session_id')  # 添加会话ID参数
         
         if not sql:
-            return jsonify({'error': 'SQL语句不能为空'}), 400
+            raise ValidationException('SQL语句不能为空')
         
         # 获取当前用户ID
         current_user = getattr(g, 'current_user', None)
@@ -138,12 +99,16 @@ def execute_sql():
                 )
             
             return jsonify({
+                'code': 200,
                 'success': True,
-                'data': result['data'],
-                'columns': result['columns'],
-                'row_count': result['row_count'],
-                'execution_time': execution_time,
-                'timestamp': datetime.now().isoformat()
+                'data': {
+                    'records': result['data'],
+                    'columns': result['columns'],
+                    'row_count': result['row_count'],
+                    'execution_time': execution_time,
+                    'timestamp': datetime.now().isoformat()
+                },
+                'message': 'SQL执行成功'
             })
         else:
             error_message = result.get('error', 'SQL执行失败')
@@ -159,57 +124,53 @@ def execute_sql():
                     execution_time=execution_time
                 )
             
-            return jsonify({
-                'success': False,
-                'error': error_message
-            }), 400
+            raise DatabaseException(error_message)
             
+    except (ValidationException, DatabaseException):
+        raise
     except Exception as e:
         logger.error(f"执行SQL失败: {str(e)}")
-        return jsonify({'error': '服务器内部错误'}), 500
+        raise ExternalServiceException('SQL执行服务异常')
 
 @text2sql_bp.route('/train', methods=['POST'])
 @auth_required
-def train_sql():
-    """训练SQL样本"""
+def train_model():
+    """训练模型"""
     try:
         data = request.get_json()
-        question = data.get('question', '').strip()
-        sql = data.get('sql', '').strip()
-        session_id = data.get('session_id')  # 添加会话ID参数
+        if not data:
+            raise ValidationException('缺少训练数据')
         
-        if not question or not sql:
-            return jsonify({'error': '问题和SQL都不能为空'}), 400
-        
-        # 获取当前用户ID
-        current_user = getattr(g, 'current_user', None)
-        user_id = current_user.get('id') if current_user else None
-        
-        # 记录训练
-        logger.info(f"训练样本: {question} -> {sql} (用户ID: {user_id})")
-        
-        # 调用Vanna服务
         vanna_service = get_vanna_service()
-        result = vanna_service.train_with_sql(question, sql)
         
-        # 如果提供了会话ID，记录训练结果
-        if session_id:
-            vanna_service.add_message_to_session(
-                session_id=session_id,
-                user_id=user_id,
-                message_type='system',
-                content=f"训练样本：\n问题：{question}\nSQL：{sql}",
-                sql_query=sql
-            )
+        # 支持多种训练方式
+        if 'ddl' in data:
+            # DDL训练
+            ddl_statements = data['ddl'] if isinstance(data['ddl'], list) else [data['ddl']]
+            success = vanna_service.train_with_ddl(ddl_statements)
+        elif 'documentation' in data:
+            # 文档训练
+            success = vanna_service.train_with_documentation(data['documentation'])
+        elif 'question' in data and 'sql' in data:
+            # 问题-SQL对训练
+            success = vanna_service.train_with_sql(data['question'], data['sql'])
+        else:
+            raise ValidationException('无效的训练数据格式')
         
-        return jsonify({
-            'success': result,
-            'message': '训练成功' if result else '训练失败'
-        })
-        
+        if success:
+            return jsonify({
+                'code': 200,
+                'success': True,
+                'message': '模型训练成功'
+            })
+        else:
+            raise BusinessException('模型训练失败')
+            
+    except (ValidationException, BusinessException):
+        raise
     except Exception as e:
-        logger.error(f"训练失败: {str(e)}")
-        return jsonify({'error': '服务器内部错误'}), 500
+        logger.error(f"模型训练失败: {str(e)}")
+        raise ExternalServiceException('训练服务异常')
 
 @text2sql_bp.route('/sessions', methods=['GET'])
 @auth_required
@@ -289,20 +250,6 @@ def delete_session(session_id):
     except Exception as e:
         logger.error(f"删除会话失败: {str(e)}")
         return jsonify({'error': '服务器内部错误'}), 500
-
-@text2sql_bp.route('/health', methods=['GET'])
-def health_check():
-    """健康检查接口"""
-    try:
-        vanna_service = get_vanna_service()
-        return jsonify({
-            'success': True,
-            'message': 'Text2SQL服务运行正常',
-            'timestamp': datetime.now().isoformat()
-        })
-    except Exception as e:
-        logger.error(f"健康检查失败: {str(e)}")
-        return jsonify({'error': '服务异常'}), 500
 
 @text2sql_bp.route('/train-samples', methods=['POST'])
 @auth_required

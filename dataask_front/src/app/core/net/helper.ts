@@ -1,8 +1,7 @@
 import { HttpHeaders, HttpResponseBase } from '@angular/common/http';
-import { Injector, inject } from '@angular/core';
+import { Injector } from '@angular/core';
 import { Router } from '@angular/router';
 import { DA_SERVICE_TOKEN } from '@delon/auth';
-import { ALAIN_I18N_TOKEN } from '@delon/theme';
 import { NzNotificationService } from 'ng-zorro-antd/notification';
 
 export interface ReThrowHttpError {
@@ -37,13 +36,9 @@ export function toLogin(injector: Injector): void {
   goTo(injector, injector.get(DA_SERVICE_TOKEN).login_url!);
 }
 
-export function getAdditionalHeaders(headers?: HttpHeaders): Record<string, string> {
+export function getAdditionalHeaders(_headers?: HttpHeaders): Record<string, string> {
   const res: Record<string, string> = {};
-  const lang = inject(ALAIN_I18N_TOKEN).currentLang;
-  if (!headers?.has('Accept-Language') && lang) {
-    res['Accept-Language'] = lang;
-  }
-
+  // 移除国际化支持，不再设置Accept-Language头
   return res;
 }
 

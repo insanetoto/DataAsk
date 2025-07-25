@@ -1,29 +1,25 @@
 -- ============================================================
 -- 百惟数问 - 智能数据问答平台
--- 数据库完整初始化脚本
--- ============================================================
--- 执行顺序：
--- 1. 创建主数据库和基础机构表
--- 2. 创建用户管理系统相关表
--- 3. 升级机构表添加层级管理功能  
--- 4. 创建Vanna AI专用数据库
--- 5. 插入用户提供的角色数据
+-- 主数据库初始化脚本
 -- ============================================================
 
--- ============================================================
--- 第一部分：创建主数据库和基础机构表
--- ============================================================
-
--- 创建dataask主数据库和机构管理表
+-- 创建主数据库
 CREATE DATABASE IF NOT EXISTS dataask CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 USE dataask;
+
+-- ============================================================
+-- 第一部分：基础表结构
+-- ============================================================
 
 -- 机构管理表
 CREATE TABLE IF NOT EXISTS organizations (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
     org_code VARCHAR(50) NOT NULL UNIQUE COMMENT '机构编码',
     org_name VARCHAR(200) NOT NULL COMMENT '机构名称',
+    parent_org_code VARCHAR(50) NULL COMMENT '上级机构编码',
+    level_depth INT DEFAULT 0 COMMENT '层级深度：0-顶级机构，1-二级机构，以此类推',
+    level_path TEXT NULL COMMENT '层级路径，如：/ORG001/ORG001-01/ORG001-01-01/',
     contact_person VARCHAR(100) NOT NULL COMMENT '负责人姓名',
     contact_phone VARCHAR(20) NOT NULL COMMENT '负责人联系电话',
     contact_email VARCHAR(100) NOT NULL COMMENT '负责人邮箱',
@@ -32,19 +28,11 @@ CREATE TABLE IF NOT EXISTS organizations (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     INDEX idx_org_code (org_code),
     INDEX idx_org_name (org_name),
+    INDEX idx_parent_org_code (parent_org_code),
     INDEX idx_status (status),
-    INDEX idx_created_at (created_at)
+    INDEX idx_created_at (created_at),
+    FOREIGN KEY (parent_org_code) REFERENCES organizations(org_code) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='机构管理表';
-
--- 插入基础机构数据
-INSERT INTO organizations (org_code, org_name, contact_person, contact_phone, contact_email) VALUES
-('01', '中国南方电网集团', '张三', '13800138001', 'zhangsan@example.com'),
-('0101', '广东电网公司', '李四', '13800138002', 'lisi@example.com'),
-('010101', '广州供电局', '王五', '13800138003', 'wangwu@example.com');
-
--- ============================================================
--- 第二部分：创建用户管理系统相关表
--- ============================================================
 
 -- 角色表
 CREATE TABLE IF NOT EXISTS roles (
@@ -134,6 +122,45 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     INDEX idx_expires_at (expires_at),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户会话表';
+
+-- 操作审计表
+CREATE TABLE IF NOT EXISTS operation_audit (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '审计记录ID',
+    user_id INT NOT NULL COMMENT '操作用户ID',
+    username VARCHAR(50) NOT NULL COMMENT '操作用户名',
+    user_code VARCHAR(50) NOT NULL COMMENT '操作用户编码',
+    org_code VARCHAR(50) NOT NULL COMMENT '操作用户机构编码',
+    module VARCHAR(50) NOT NULL COMMENT '操作模块（user/org/role/permission）',
+    operation VARCHAR(20) NOT NULL COMMENT '操作类型（create/update/delete/disable/enable）',
+    target_type VARCHAR(50) NOT NULL COMMENT '目标对象类型',
+    target_id VARCHAR(50) DEFAULT NULL COMMENT '目标对象ID',
+    target_name VARCHAR(200) DEFAULT NULL COMMENT '目标对象名称',
+    old_data TEXT COMMENT '操作前数据（JSON格式）',
+    new_data TEXT COMMENT '操作后数据（JSON格式）',
+    operation_desc VARCHAR(500) DEFAULT NULL COMMENT '操作描述',
+    ip_address VARCHAR(45) DEFAULT NULL COMMENT '操作IP地址',
+    user_agent VARCHAR(500) DEFAULT NULL COMMENT '用户代理信息',
+    request_id VARCHAR(100) DEFAULT NULL COMMENT '请求ID',
+    operation_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+    result VARCHAR(20) NOT NULL DEFAULT 'success' COMMENT '操作结果（success/failure）',
+    error_message TEXT COMMENT '错误信息（操作失败时）',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (id),
+    KEY idx_user_id (user_id),
+    KEY idx_operation_time (operation_time),
+    KEY idx_module_operation (module, operation),
+    KEY idx_target (target_type, target_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='操作审计表';
+
+-- ============================================================
+-- 第二部分：初始化基础数据
+-- ============================================================
+
+-- 插入基础机构数据
+INSERT INTO organizations (org_code, parent_org_code, org_name, contact_person, contact_phone, contact_email, level_depth, level_path) VALUES
+('05', NULL, '集团总部', '集团总经理', '13800000001', 'group@example.com', 0, '/05/'),
+('0501', '05', '省公司', '省公司总经理', '13800000002', 'province@example.com', 1, '/05/0501/'),
+('050101', '0501', '科数部', '科数部主任', '13800000003', 'tech@example.com', 2, '/05/0501/050101/');
 
 -- 插入默认角色
 INSERT INTO roles (role_code, role_name, role_level, description) VALUES
@@ -226,42 +253,8 @@ WHERE r.role_code = 'SUPER_ADMIN'
 LIMIT 1;
 
 -- ============================================================
--- 第三部分：升级机构表添加层级管理功能
+-- 第三部分：创建视图和函数
 -- ============================================================
-
--- 添加父机构编码字段
-ALTER TABLE organizations 
-ADD COLUMN parent_org_code VARCHAR(50) NULL COMMENT '上级机构编码' AFTER org_code;
-
--- 添加外键约束（父机构编码必须存在于机构表中）
-ALTER TABLE organizations 
-ADD CONSTRAINT fk_parent_org_code 
-FOREIGN KEY (parent_org_code) REFERENCES organizations(org_code) 
-ON DELETE SET NULL ON UPDATE CASCADE;
-
--- 添加层级相关索引
-ALTER TABLE organizations 
-ADD INDEX idx_parent_org_code (parent_org_code);
-
--- 添加层级深度字段
-ALTER TABLE organizations 
-ADD COLUMN level_depth INT DEFAULT 0 COMMENT '层级深度：0-顶级机构，1-二级机构，以此类推' AFTER parent_org_code;
-
--- 添加层级路径字段
-ALTER TABLE organizations 
-ADD COLUMN level_path TEXT NULL COMMENT '层级路径，如：/ORG001/ORG001-01/ORG001-01-01/' AFTER level_depth;
-
--- 更新现有数据的层级信息（顶级机构）
-UPDATE organizations 
-SET level_depth = 0, level_path = CONCAT('/', org_code, '/') 
-WHERE parent_org_code IS NULL;
-
--- 插入用户指定的机构数据
-INSERT INTO organizations (org_code, parent_org_code, org_name, contact_person, contact_phone, contact_email, level_depth, level_path) VALUES
--- 用户指定的三个机构
-('05', NULL, '集团总部', '集团总经理', '13800000001', 'group@example.com', 0, '/05/'),
-('0501', '05', '省公司', '省公司总经理', '13800000002', 'province@example.com', 1, '/05/0501/'),
-('050101', '0501', '科数部', '科数部主任', '13800000003', 'tech@example.com', 2, '/05/0501/050101/');
 
 -- 创建视图：机构层级关系视图
 CREATE OR REPLACE VIEW v_organization_hierarchy AS
@@ -327,129 +320,4 @@ BEGIN
         SET NEW.level_path = CONCAT('/', NEW.org_code, '/');
     END IF;
 END$$
-DELIMITER ;
-
--- ============================================================
--- 第四部分：创建Vanna AI专用数据库
--- ============================================================
-
--- 创建Vanna AI专用数据库
-CREATE DATABASE IF NOT EXISTS vanna CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-USE vanna;
-
--- AI训练记录表
-CREATE TABLE IF NOT EXISTS ai_training_records (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
-    training_type ENUM('ddl', 'documentation', 'question_sql') NOT NULL COMMENT '训练类型',
-    content TEXT NOT NULL COMMENT '训练内容',
-    question VARCHAR(500) NULL COMMENT '问题（仅question_sql类型）',
-    sql_statement TEXT NULL COMMENT 'SQL语句（仅question_sql类型）',
-    status TINYINT DEFAULT 1 COMMENT '状态：1-有效，0-无效',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    INDEX idx_training_type (training_type),
-    INDEX idx_status (status),
-    INDEX idx_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI训练记录表';
-
--- 问答历史记录表
-CREATE TABLE IF NOT EXISTS qa_history (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
-    question VARCHAR(500) NOT NULL COMMENT '用户问题',
-    generated_sql TEXT NULL COMMENT '生成的SQL',
-    execution_result JSON NULL COMMENT '执行结果',
-    confidence DECIMAL(3,2) DEFAULT 0.00 COMMENT '置信度',
-    success TINYINT DEFAULT 0 COMMENT '是否成功：1-成功，0-失败',
-    error_message TEXT NULL COMMENT '错误信息',
-    execution_time INT DEFAULT 0 COMMENT '执行时间（毫秒）',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    INDEX idx_question (question(100)),
-    INDEX idx_success (success),
-    INDEX idx_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='问答历史记录表';
-
--- SQL生成统计表
-CREATE TABLE IF NOT EXISTS sql_generation_stats (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
-    date_key DATE NOT NULL COMMENT '日期',
-    total_requests INT DEFAULT 0 COMMENT '总请求数',
-    successful_requests INT DEFAULT 0 COMMENT '成功请求数',
-    failed_requests INT DEFAULT 0 COMMENT '失败请求数',
-    avg_confidence DECIMAL(3,2) DEFAULT 0.00 COMMENT '平均置信度',
-    avg_execution_time INT DEFAULT 0 COMMENT '平均执行时间（毫秒）',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    UNIQUE KEY uk_date (date_key),
-    INDEX idx_date (date_key)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='SQL生成统计表';
-
--- 插入初始示例训练数据
-INSERT INTO ai_training_records (training_type, content) VALUES
-('ddl', 'CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(255), created_at TIMESTAMP)'),
-('ddl', 'CREATE TABLE orders (id INT PRIMARY KEY, user_id INT, amount DECIMAL(10,2), status VARCHAR(20), created_at TIMESTAMP)'),
-('documentation', '用户表包含用户的基本信息，包括姓名和邮箱。订单表记录用户的购买订单，包含金额和状态信息。');
-
--- 创建示例问答记录
-INSERT INTO qa_history (question, generated_sql, success, confidence) VALUES
-('查询用户总数', 'SELECT COUNT(*) as total_users FROM users', 1, 0.95),
-('查询今天的订单数量', 'SELECT COUNT(*) as today_orders FROM orders WHERE DATE(created_at) = CURDATE()', 1, 0.88);
-
--- 初始化统计数据
-INSERT INTO sql_generation_stats (date_key, total_requests, successful_requests, failed_requests) VALUES
-(CURDATE(), 0, 0, 0);
-
--- ============================================================
--- 第五部分：插入用户指定的角色数据
--- ============================================================
-
-USE dataask;
-
--- 插入用户指定的角色数据
-INSERT INTO roles (role_code, role_name, role_level, org_code, description, status) VALUES
--- 集团系统管理员 (超级管理员)
-('ADMIN_GROUP', '集团系统管理员', 1, '05', '集团级别的系统管理员，拥有最高权限', 1),
-
--- 省公司系统管理员 (机构管理员)  
-('ADMIN_PROVINCE', '省公司系统管理员', 2, '0501', '省公司级别的系统管理员，管理本机构用户和数据', 1),
-
--- 科数部主任 (普通用户)
-('USER_DEPT_HEAD', '科数部主任', 3, '050101', '科数部主任，具有部门管理权限', 1);
-
--- ============================================================
--- 初始化完成 - 查看创建结果
--- ============================================================
-
--- 查看创建的角色
-SELECT 
-    id,
-    role_code,
-    role_name,
-    CASE role_level 
-        WHEN 1 THEN '超级管理员'
-        WHEN 2 THEN '机构管理员' 
-        WHEN 3 THEN '普通用户'
-        ELSE '未知等级'
-    END as role_level_name,
-    role_level,
-    org_code,
-    description,
-    status,
-    created_at
-FROM roles 
-ORDER BY role_level, org_code;
-
--- 查看机构层级结构
-SELECT 
-    org_code,
-    org_name,
-    parent_org_code,
-    level_depth,
-    level_path,
-    contact_person
-FROM organizations 
-ORDER BY level_path;
-
--- ============================================================
--- 数据库初始化完成！
--- ============================================================ 
+DELIMITER ; 

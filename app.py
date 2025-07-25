@@ -13,8 +13,7 @@ from tools.redis_service import get_redis_service
 from AIEngine.vanna_service import init_vanna_service
 from service.organization_service import get_organization_service_instance
 from service.user_service import get_user_service_instance
-from api.routes import api_bp
-from api.text2sql_routes import text2sql_bp
+import api
 
 from datetime import datetime
 
@@ -53,8 +52,7 @@ def create_app(config_name='default'):
     init_services(config_instance)
     
     # 注册蓝图
-    app.register_blueprint(api_bp)
-    app.register_blueprint(text2sql_bp)
+    api.init_app(app)
     
     # 注册路由
     register_routes(app)
@@ -559,27 +557,88 @@ def register_routes(app):
 
 def register_error_handlers(app):
     """注册错误处理器"""
+    from tools.exceptions import (
+        BaseException, AuthenticationException, AuthorizationException,
+        ValidationException, ResourceNotFoundException, BusinessException,
+        DatabaseException, ExternalServiceException, handle_exception
+    )
+    
+    @app.errorhandler(BaseException)
+    def handle_base_exception(error):
+        """处理自定义基础异常"""
+        return handle_exception(error)
+    
+    @app.errorhandler(AuthenticationException)
+    def handle_authentication_exception(error):
+        """处理认证异常"""
+        return handle_exception(error)
+    
+    @app.errorhandler(AuthorizationException)
+    def handle_authorization_exception(error):
+        """处理授权异常"""
+        return handle_exception(error)
+    
+    @app.errorhandler(ValidationException)
+    def handle_validation_exception(error):
+        """处理数据验证异常"""
+        return handle_exception(error)
+    
+    @app.errorhandler(ResourceNotFoundException)
+    def handle_not_found_exception(error):
+        """处理资源不存在异常"""
+        return handle_exception(error)
+    
+    @app.errorhandler(BusinessException)
+    def handle_business_exception(error):
+        """处理业务逻辑异常"""
+        return handle_exception(error)
+    
+    @app.errorhandler(DatabaseException)
+    def handle_database_exception(error):
+        """处理数据库操作异常"""
+        return handle_exception(error)
+    
+    @app.errorhandler(ExternalServiceException)
+    def handle_external_service_exception(error):
+        """处理外部服务调用异常"""
+        return handle_exception(error)
     
     @app.errorhandler(400)
-    def bad_request(error):
-        return jsonify({
-            'error': 'Bad Request',
-            'message': '请求参数错误'
-        }), 400
+    def handle_bad_request(error):
+        """处理请求参数错误"""
+        return handle_exception(ValidationException("请求参数错误"))
+    
+    @app.errorhandler(401)
+    def handle_unauthorized(error):
+        """处理未授权错误"""
+        return handle_exception(AuthenticationException())
+    
+    @app.errorhandler(403)
+    def handle_forbidden(error):
+        """处理禁止访问错误"""
+        return handle_exception(AuthorizationException())
     
     @app.errorhandler(404)
-    def not_found(error):
-        return jsonify({
-            'error': 'Not Found',
-            'message': '请求的资源不存在'
-        }), 404
+    def handle_not_found(error):
+        """处理资源不存在错误"""
+        return handle_exception(ResourceNotFoundException())
+    
+    @app.errorhandler(405)
+    def handle_method_not_allowed(error):
+        """处理方法不允许错误"""
+        return handle_exception(ValidationException("请求方法不允许"))
     
     @app.errorhandler(500)
-    def internal_error(error):
-        return jsonify({
-            'error': 'Internal Server Error',
-            'message': '服务器内部错误'
-        }), 500
+    def handle_internal_server_error(error):
+        """处理服务器内部错误"""
+        app.logger.error(f"Internal Server Error: {str(error)}")
+        return handle_exception(Exception("服务器内部错误"))
+    
+    @app.errorhandler(Exception)
+    def handle_unexpected_error(error):
+        """处理未预期的错误"""
+        app.logger.error(f"Unexpected Error: {str(error)}")
+        return handle_exception(error)
 
 if __name__ == '__main__':
     app = create_app()

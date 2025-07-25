@@ -55,7 +55,7 @@ export function defaultInterceptor(req: HttpRequest<any>, next: HttpHandlerFn): 
         const body = event.body as ApiResponse;
 
         // 对于静态资源文件，不进行API业务逻辑检查
-        if (req.url.includes('/assets/') || req.url.includes('app/init')) {
+        if (req.url.includes('/assets/')) {
           return of(event);
         }
 
@@ -80,26 +80,6 @@ export function defaultInterceptor(req: HttpRequest<any>, next: HttpHandlerFn): 
       return of(event);
     }),
     catchError((err: HttpErrorResponse) => {
-      // 对于app/init接口，即使返回401也不处理
-      if (req.url.includes('app/init')) {
-        return of(
-          new HttpResponse({
-            body: {
-              code: 200,
-              data: {
-                app: {
-                  name: 'DataAsk',
-                  description: '数据分析问答系统'
-                },
-                user: null,
-                menus: [],
-                permissions: []
-              }
-            }
-          })
-        );
-      }
-
       // 统一处理HTTP错误
       switch (err.status) {
         case 401:

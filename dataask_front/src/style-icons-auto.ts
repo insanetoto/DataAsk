@@ -3,12 +3,57 @@
  */
 
 import {
+  ApiOutline,
+  AppstoreOutline,
   ArrowDownOutline,
+  ClusterOutline,
   CopyrightOutline,
+  CustomerServiceOutline,
+  DashboardOutline,
+  DatabaseOutline,
+  DeploymentUnitOutline,
+  ExperimentOutline,
+  FileTextOutline,
   FullscreenExitOutline,
   FullscreenOutline,
+  HomeOutline,
+  LaptopOutline,
   LogoutOutline,
-  ToolOutline
+  MessageOutline,
+  MonitorOutline,
+  RobotOutline,
+  SafetyOutline,
+  SettingOutline,
+  TeamOutline,
+  ToolOutline,
+  UserOutline,
+  BarChartOutline
 } from '@ant-design/icons-angular/icons';
 
-export const ICONS_AUTO = [ArrowDownOutline, CopyrightOutline, FullscreenExitOutline, FullscreenOutline, LogoutOutline, ToolOutline];
+export const ICONS_AUTO = [
+  ApiOutline,
+  AppstoreOutline,
+  ArrowDownOutline,
+  ClusterOutline,
+  CopyrightOutline,
+  CustomerServiceOutline,
+  DashboardOutline,
+  DatabaseOutline,
+  DeploymentUnitOutline,
+  ExperimentOutline,
+  FileTextOutline,
+  FullscreenExitOutline,
+  FullscreenOutline,
+  HomeOutline,
+  LaptopOutline,
+  LogoutOutline,
+  MessageOutline,
+  MonitorOutline,
+  RobotOutline,
+  SafetyOutline,
+  SettingOutline,
+  TeamOutline,
+  ToolOutline,
+  UserOutline,
+  BarChartOutline
+];
